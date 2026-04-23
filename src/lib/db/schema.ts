@@ -72,6 +72,7 @@ export const creators = pgTable(
     // { days, price, upgradePath, ... }
     trialTerms: jsonb('trial_terms'),
     refundPolicy: text('refund_policy'),
+    supportContact: text('support_contact'),
     brandPrefs: text('brand_prefs'),
     creatorPhotoUrl: text('creator_photo_url'),
     // FK to auth.users.id (Supabase Auth schema) — not a Drizzle-declared FK

@@ -1,0 +1,1 @@
+ALTER TABLE "creators" ADD COLUMN "support_contact" text;

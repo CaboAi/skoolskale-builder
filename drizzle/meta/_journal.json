@@ -8,6 +8,13 @@
       "when": 1776984603555,
       "tag": "0000_phase_1_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1776987253793,
+      "tag": "0001_creators_add_support_contact",
+      "breakpoints": true
     }
   ]
 }

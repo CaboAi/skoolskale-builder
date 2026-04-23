@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "db:seed": "dotenv -e .env.local -- tsx drizzle/seed.ts"
+    "db:seed": "dotenv -e .env.local -- tsx drizzle/seed.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.71",
