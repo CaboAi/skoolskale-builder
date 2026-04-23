@@ -1,5 +1,6 @@
 import {
   pgEnum,
+  pgPolicy,
   pgTable,
   uuid,
   text,
@@ -10,6 +11,7 @@ import {
   jsonb,
   index,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 // ---------- Enums (PRD §6.3) ----------
 
@@ -53,6 +55,17 @@ export const generationJobStatusEnum = pgEnum('generation_job_status', [
   'cancelled',
 ]);
 
+// ---------- RLS shorthand ----------
+//
+// Owner-scoped tables all use the same predicate: "the row belongs to the
+// current user, OR the current user has admin role on their JWT." Admin
+// detection reads `auth.jwt() ->> 'role'`; see CLAUDE.md for the convention.
+
+const ownerOrAdmin = (colName: string) =>
+  sql.raw(`${colName} = auth.uid() OR (auth.jwt() ->> 'role') = 'admin'`);
+
+const adminOnly = sql.raw(`(auth.jwt() ->> 'role') = 'admin'`);
+
 // ---------- creators ----------
 
 export const creators = pgTable(
@@ -87,8 +100,29 @@ export const creators = pgTable(
   (t) => [
     index('creators_created_by_idx').on(t.createdBy),
     index('creators_niche_idx').on(t.niche),
+    pgPolicy('creators_select_own_or_admin', {
+      for: 'select',
+      to: 'authenticated',
+      using: ownerOrAdmin('created_by'),
+    }),
+    pgPolicy('creators_insert_own_or_admin', {
+      for: 'insert',
+      to: 'authenticated',
+      withCheck: ownerOrAdmin('created_by'),
+    }),
+    pgPolicy('creators_update_own_or_admin', {
+      for: 'update',
+      to: 'authenticated',
+      using: ownerOrAdmin('created_by'),
+      withCheck: ownerOrAdmin('created_by'),
+    }),
+    pgPolicy('creators_delete_own_or_admin', {
+      for: 'delete',
+      to: 'authenticated',
+      using: ownerOrAdmin('created_by'),
+    }),
   ],
-);
+).enableRLS();
 
 // ---------- launch_packages ----------
 
@@ -116,8 +150,29 @@ export const launchPackages = pgTable(
     index('launch_packages_creator_id_idx').on(t.creatorId),
     index('launch_packages_created_by_idx').on(t.createdBy),
     index('launch_packages_status_idx').on(t.status),
+    pgPolicy('launch_packages_select_own_or_admin', {
+      for: 'select',
+      to: 'authenticated',
+      using: ownerOrAdmin('created_by'),
+    }),
+    pgPolicy('launch_packages_insert_own_or_admin', {
+      for: 'insert',
+      to: 'authenticated',
+      withCheck: ownerOrAdmin('created_by'),
+    }),
+    pgPolicy('launch_packages_update_own_or_admin', {
+      for: 'update',
+      to: 'authenticated',
+      using: ownerOrAdmin('created_by'),
+      withCheck: ownerOrAdmin('created_by'),
+    }),
+    pgPolicy('launch_packages_delete_own_or_admin', {
+      for: 'delete',
+      to: 'authenticated',
+      using: ownerOrAdmin('created_by'),
+    }),
   ],
-);
+).enableRLS();
 
 // ---------- generated_assets ----------
 
@@ -149,8 +204,29 @@ export const generatedAssets = pgTable(
     index('generated_assets_package_id_idx').on(t.packageId),
     index('generated_assets_module_idx').on(t.module),
     index('generated_assets_created_by_idx').on(t.createdBy),
+    pgPolicy('generated_assets_select_own_or_admin', {
+      for: 'select',
+      to: 'authenticated',
+      using: ownerOrAdmin('created_by'),
+    }),
+    pgPolicy('generated_assets_insert_own_or_admin', {
+      for: 'insert',
+      to: 'authenticated',
+      withCheck: ownerOrAdmin('created_by'),
+    }),
+    pgPolicy('generated_assets_update_own_or_admin', {
+      for: 'update',
+      to: 'authenticated',
+      using: ownerOrAdmin('created_by'),
+      withCheck: ownerOrAdmin('created_by'),
+    }),
+    pgPolicy('generated_assets_delete_own_or_admin', {
+      for: 'delete',
+      to: 'authenticated',
+      using: ownerOrAdmin('created_by'),
+    }),
   ],
-);
+).enableRLS();
 
 // ---------- generation_jobs ----------
 
@@ -180,10 +256,32 @@ export const generationJobs = pgTable(
     index('generation_jobs_package_id_idx').on(t.packageId),
     index('generation_jobs_status_idx').on(t.status),
     index('generation_jobs_inngest_run_id_idx').on(t.inngestRunId),
+    pgPolicy('generation_jobs_select_own_or_admin', {
+      for: 'select',
+      to: 'authenticated',
+      using: ownerOrAdmin('created_by'),
+    }),
+    pgPolicy('generation_jobs_insert_own_or_admin', {
+      for: 'insert',
+      to: 'authenticated',
+      withCheck: ownerOrAdmin('created_by'),
+    }),
+    pgPolicy('generation_jobs_update_own_or_admin', {
+      for: 'update',
+      to: 'authenticated',
+      using: ownerOrAdmin('created_by'),
+      withCheck: ownerOrAdmin('created_by'),
+    }),
+    pgPolicy('generation_jobs_delete_own_or_admin', {
+      for: 'delete',
+      to: 'authenticated',
+      using: ownerOrAdmin('created_by'),
+    }),
   ],
-);
+).enableRLS();
 
 // ---------- pattern_library ----------
+// SELECT open to all authed users, writes admin-only.
 
 export const patternLibrary = pgTable(
   'pattern_library',
@@ -213,10 +311,32 @@ export const patternLibrary = pgTable(
     index('pattern_library_niche_idx').on(t.niche),
     index('pattern_library_tone_idx').on(t.tone),
     index('pattern_library_is_active_idx').on(t.isActive),
+    pgPolicy('pattern_library_select_authed', {
+      for: 'select',
+      to: 'authenticated',
+      using: sql.raw('true'),
+    }),
+    pgPolicy('pattern_library_insert_admin', {
+      for: 'insert',
+      to: 'authenticated',
+      withCheck: adminOnly,
+    }),
+    pgPolicy('pattern_library_update_admin', {
+      for: 'update',
+      to: 'authenticated',
+      using: adminOnly,
+      withCheck: adminOnly,
+    }),
+    pgPolicy('pattern_library_delete_admin', {
+      for: 'delete',
+      to: 'authenticated',
+      using: adminOnly,
+    }),
   ],
-);
+).enableRLS();
 
 // ---------- audit_log ----------
+// Owner-scoped on user_id (not created_by) per PRD §6.3.
 
 export const auditLog = pgTable(
   'audit_log',
@@ -235,8 +355,29 @@ export const auditLog = pgTable(
     index('audit_log_user_id_idx').on(t.userId),
     index('audit_log_entity_idx').on(t.entityType, t.entityId),
     index('audit_log_created_at_idx').on(t.createdAt),
+    pgPolicy('audit_log_select_own_or_admin', {
+      for: 'select',
+      to: 'authenticated',
+      using: ownerOrAdmin('user_id'),
+    }),
+    pgPolicy('audit_log_insert_own_or_admin', {
+      for: 'insert',
+      to: 'authenticated',
+      withCheck: ownerOrAdmin('user_id'),
+    }),
+    pgPolicy('audit_log_update_own_or_admin', {
+      for: 'update',
+      to: 'authenticated',
+      using: ownerOrAdmin('user_id'),
+      withCheck: ownerOrAdmin('user_id'),
+    }),
+    pgPolicy('audit_log_delete_own_or_admin', {
+      for: 'delete',
+      to: 'authenticated',
+      using: ownerOrAdmin('user_id'),
+    }),
   ],
-);
+).enableRLS();
 
 // ---------- Type exports ----------
 

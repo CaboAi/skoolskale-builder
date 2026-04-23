@@ -15,6 +15,13 @@
       "when": 1776987253793,
       "tag": "0001_creators_add_support_contact",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1776988369548,
+      "tag": "0002_rls_policies",
+      "breakpoints": true
     }
   ]
 }
