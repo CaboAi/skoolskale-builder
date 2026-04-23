@@ -1,0 +1,267 @@
+{
+  "welcome_dm": [
+    {
+      "niche": null,
+      "tone": "loving",
+      "source_creator": "Sianna / Rasa Yoga Sanctuary",
+      "example_content": {
+        "text": "Namaste #NAME# 🤍 welcome to #GROUPNAME#\n\nYou've arrived in the sanctuary. Begin in Classroom > Start Here—this will gently guide you into the rhythm of this space.\n\nFor support, message Ramsha A."
+      }
+    },
+    {
+      "niche": null,
+      "tone": "direct",
+      "source_creator": "Skool Skale default",
+      "example_content": {
+        "text": "Hey #NAME#, welcome to #GROUPNAME#! 💜\n\nBegin in Classroom > Start Here—your guide to navigating everything & getting connected.\n\nFor support, message Ramsha A."
+      }
+    },
+    {
+      "niche": null,
+      "tone": "playful",
+      "source_creator": "Skool Skale default",
+      "example_content": {
+        "text": "Hey #NAME#, I wanted to personally welcome to #GROUPNAME#!\n\nTo make the most out of this, go to the Classroom > Start Here\n\nIt's a walkthrough on how to navigate everything, join live events & get connected. For all support inquiries or help message Meg Paden or Ramsha A.\n\nI'm glad you're here 💜"
+      }
+    }
+  ],
+
+  "transformation": [
+    {
+      "niche": "spiritual",
+      "tone": null,
+      "source_creator": "Brian Scott / Reality Revolution",
+      "example_content": {
+        "text": "Where manifestation ends & permanent reality shifting begins."
+      }
+    },
+    {
+      "niche": "spiritual",
+      "tone": null,
+      "source_creator": "Kyle Boyd / Heart Coherence Collaborative",
+      "example_content": {
+        "text": "Less spiritual entertainment. More embodiment."
+      }
+    },
+    {
+      "niche": "spiritual",
+      "tone": "loving",
+      "source_creator": "Sianna / Alchemy: Soul Sanctuary",
+      "example_content": {
+        "text": "A living sanctuary where practice becomes ritual and ritual becomes Alchemy."
+      }
+    },
+    {
+      "niche": "spiritual",
+      "tone": null,
+      "source_creator": "Laura Joan Cornell / Story Medicine",
+      "example_content": {
+        "text": "From untold story to written truth in 40 days."
+      }
+    }
+  ],
+
+  "about_us": [
+    {
+      "niche": "spiritual",
+      "tone": null,
+      "source_creator": "Brian Scott / Reality Revolution",
+      "example_content": {
+        "hero": "🎟 OUR BIGGEST GIVEAWAY EVER: Join the community & be entered to win 5 FREE tickets to Hawaii Retreat (May 14-17)",
+        "trial_callout": "🎁 Limited Time 7-Day Free Trial.",
+        "value_buckets": [
+          {
+            "emoji": "💜",
+            "header": "COURSES",
+            "items": [
+              "Skool Exclusive Course",
+              "Neville Goddard Teachings",
+              "Money & Abundance",
+              "Blissbody & Healing",
+              "DNA Activation"
+            ]
+          },
+          {
+            "emoji": "💜",
+            "header": "COACHING",
+            "items": [
+              "Weekly group coaching call.",
+              "Weekly mastermind Q&A call.",
+              "Monthly networking session."
+            ]
+          },
+          {
+            "emoji": "💜",
+            "header": "PERKS",
+            "items": [
+              "Access all previous community call recordings.",
+              "Monthly special guest speakers.",
+              "Access my LIVE events streamed inside the community."
+            ]
+          }
+        ],
+        "pricing": "Membership: $67 per month OR $513 per year (Save 36%)",
+        "refund_policy": "Cancel anytime. Refunds not available."
+      }
+    },
+    {
+      "niche": "spiritual",
+      "tone": null,
+      "source_creator": "Kyle Boyd / Heart Coherence Collaborative",
+      "example_content": {
+        "hero": "HCC is a practice-based community designed for daily heart coherence practice & integration, rooted in less spiritual entertainment & more embodiment.",
+        "value_buckets": [
+          {
+            "emoji": "🩷",
+            "header": "EXCLUSIVE COURSES WITH SPECIAL GUESTS",
+            "items": [
+              "300+ Hours Heart Coherence Channeling, Higher Guidance & Cosmic Messages",
+              "Emotional & Energy Healing",
+              "Identity Shifting & Consciousness Expansion"
+            ]
+          },
+          {
+            "emoji": "🩷",
+            "header": "HEART COHERENCE PRACTICES",
+            "items": [
+              "Live guided heart coherence meditations with Kyle, held X3 per week with replays included"
+            ]
+          },
+          {
+            "emoji": "🩷",
+            "header": "VIRTUAL RETREAT ACCESS",
+            "items": [
+              "Live Zoom access to Heart Coherence in-person retreats held X2 per year"
+            ]
+          },
+          {
+            "emoji": "🩷",
+            "header": "FULL MOON CEREMONY",
+            "items": [
+              "Monthly ceremony with special guests"
+            ]
+          },
+          {
+            "emoji": "🩷",
+            "header": "MONTHLY SPECIAL GUEST SESSIONS",
+            "items": [
+              "Featuring highly anticipated guests"
+            ]
+          },
+          {
+            "emoji": "🎁",
+            "header": "BONUS CONTENT",
+            "items": [
+              "Special Guest Courses: Bashar, Natalie Namaste & Ra"
+            ]
+          }
+        ],
+        "trial_callout": "Free 7-day Trial",
+        "pricing": "Then $47/m or $423/year (3-months free)",
+        "refund_policy": "We do not offer refunds once you've enrolled in the community."
+      }
+    },
+    {
+      "niche": "spiritual",
+      "tone": "loving",
+      "source_creator": "Sianna / Alchemy: Soul Sanctuary",
+      "example_content": {
+        "hero": "A living sanctuary where practice becomes ritual and ritual becomes Alchemy. This is an all-in-one ecosystem for Sianna's life's work, where everything she has created now lives, breathes, and evolves together.",
+        "value_buckets": [
+          {
+            "emoji": "🔮",
+            "header": "THE THREE CORE PILLARS",
+            "items": [
+              "🌙 Ritual — 13 Moons (cyclical journey through ritual, ceremony, natural rhythms)",
+              "🌿 Rasa Yoga Collective (heart of the practice — movement, breath, embodiment)",
+              "✨ Mystic Yoga Flow (philosophy and storytelling for deeper integration)"
+            ]
+          },
+          {
+            "emoji": "🔴",
+            "header": "ZOOM LIVE SESSIONS (CORE RHYTHM)",
+            "items": [
+              "Monday — Mantra, Mudra & Pranayama (9:00 AM PST)",
+              "Wednesday — Rasa Yoga Practice (9:00 AM PST)",
+              "Friday — Guest & Community Sessions (9:00 AM PST)"
+            ]
+          },
+          {
+            "emoji": "🎓",
+            "header": "COURSES (CLASSROOM)",
+            "items": [
+              "40-Day Alchemy Journey (NEW)",
+              "Superchargers",
+              "Alchemy of Love"
+            ]
+          }
+        ],
+        "tiers": [
+          {"name": "STANDARD", "price": "$44/month"},
+          {"name": "PREMIUM", "price": "$97/month"},
+          {"name": "VIP (ANNUAL)", "price": "$888/year"}
+        ]
+      }
+    }
+  ],
+
+  "start_here": [
+    {
+      "niche": "spiritual",
+      "tone": null,
+      "source_creator": "Brian Scott / Reality Revolution",
+      "example_content": {
+        "step_1_how_to_use": {
+          "title": "How to Use the Community",
+          "sections": [
+            {"name": "Community tab", "description": "Categories, Introduce yourself, Announcements, Share your wins, Important dates, Brian's zoom discussion, Community perks"},
+            {"name": "Networking tab", "description": "Acknowledge a member"},
+            {"name": "Classroom Section", "description": "All courses and meditations"},
+            {"name": "Calendar Section", "description": "All events are found under the calendar tab"},
+            {"name": "Map Section", "description": "Member geography"},
+            {"name": "Leaderboard Section", "description": "How to earn points and level up"},
+            {"name": "Chat Feature", "description": "Unlocks at level 3"}
+          ]
+        },
+        "step_2_community_rules": {
+          "title": "Community Rules",
+          "placeholder": "Customize per creator"
+        },
+        "step_3_faqs": [
+          {
+            "question": "There's a lot of information — I don't know where to start!",
+            "answer_template": "Start in the Classroom. Head to the Classroom tab — this is where you'll find all the courses, meditations, and live Zooms. Begin with whatever module feels most aligned with what you're currently calling in. Follow What You're Drawn To — there's no wrong place to begin. This work meets you exactly where you are. Trust Your Higher Self — simply start where your curiosity or excitement points you."
+          },
+          {
+            "question": "Is there any particular order I should consume content in?",
+            "answer_template": "Not necessarily. The community is designed for self-paced transformation — you can follow your intuition and start where you feel most drawn. However, if you're new, we recommend starting with the foundational module in the Classroom."
+          },
+          {
+            "question": "Are the events recorded?",
+            "answer_template": "Yes! Every live event — including group coaching, interviews, and retreats — is recorded and uploaded inside the Events or Classroom tab. You'll never miss out, even if you can't attend live."
+          },
+          {
+            "question": "How do I make sure I don't miss an event?",
+            "answer_template": "Check the Events tab regularly. RSVP to any upcoming sessions you want to join — this activates reminders. Add them to your personal calendar with one click."
+          },
+          {
+            "question": "How do I level up in the community?",
+            "answer_template": "You level up by engaging — liking posts, commenting, sharing wins, and helping others. Each interaction earns you points that move you through the levels. As you rise, you'll unlock exclusive content, perks, and even signed books and retreat access at higher levels."
+          },
+          {
+            "question": "Can I promote my own stuff?",
+            "answer_template": "We love creators — but to keep the energy and focus aligned, self-promotion isn't allowed in posts or comments. You're welcome to connect and collaborate organically, but please keep the space free from external promotions so it remains a safe environment for everyone's growth."
+          },
+          {
+            "question": "Why can't I start more chats?",
+            "answer_template": "Skool allows each member to start 10 new chats per week. This is intentional — it encourages members to connect through the community posts instead of private DMs, creating more open discussions and protecting everyone from spam. Once the week resets, your chat limit will too."
+          }
+        ],
+        "step_4_need_assistance": {
+          "title": "Need Assistance?",
+          "template": "Contact an admin — {admin_names}. Or email {support_email}"
+        }
+      }
+    }
+  ]
+}
