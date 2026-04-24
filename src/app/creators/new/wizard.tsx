@@ -1,40 +1,40 @@
-'use client';
+"use client";
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useForm, type FieldPath } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useRouter } from 'next/navigation';
-import { CreatorIntakeSchema, type CreatorIntake } from '@/types/schemas';
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useForm, type FieldPath } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useRouter } from "next/navigation";
+import { CreatorIntakeSchema, type CreatorIntake } from "@/types/schemas";
 
 // Shared form type used by each step component. Derived from the actual
 // useForm invocation so it matches whatever RHF returns, regardless of
 // how the library's generic defaults change between versions.
 export type IntakeFormReturn = ReturnType<typeof useForm<CreatorIntake>>;
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import { Step1CreatorInfo } from './steps/step-1';
-import { Step2Offer } from './steps/step-2';
-import { Step3Pricing } from './steps/step-3';
-import { Step4Voice } from './steps/step-4';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Step1CreatorInfo } from "./steps/step-1";
+import { Step2Offer } from "./steps/step-2";
+import { Step3Pricing } from "./steps/step-3";
+import { Step4Voice } from "./steps/step-4";
 
 const AUTOSAVE_MS = 30_000;
 
 // Fields to validate on each step's Next click.
 const STEP_FIELDS: FieldPath<CreatorIntake>[][] = [
-  ['name', 'community_name', 'niche', 'support_contact', 'creator_photo_url'],
-  ['transformation', 'audience', 'offer_breakdown'],
-  ['pricing', 'trial_terms', 'refund_policy'],
-  ['tone', 'brand_prefs'],
+  ["name", "community_name", "niche", "support_contact", "creator_photo_url"],
+  ["transformation", "audience", "offer_breakdown"],
+  ["pricing", "trial_terms", "refund_policy"],
+  ["tone", "brand_prefs"],
 ];
 
 const DEFAULTS: CreatorIntake = {
-  name: '',
-  community_name: '',
-  niche: 'other',
-  audience: '',
-  transformation: '',
-  tone: 'loving',
+  name: "",
+  community_name: "",
+  niche: "other",
+  audience: "",
+  transformation: "",
+  tone: "loving",
   offer_breakdown: {
     courses: [],
     live_calls: undefined,
@@ -44,9 +44,9 @@ const DEFAULTS: CreatorIntake = {
   },
   pricing: { monthly: undefined, annual: undefined, tiers: [] },
   trial_terms: { has_trial: false, duration_days: undefined },
-  refund_policy: '',
-  support_contact: '',
-  brand_prefs: '',
+  refund_policy: "",
+  support_contact: "",
+  brand_prefs: "",
   creator_photo_url: undefined,
 };
 
@@ -56,7 +56,7 @@ export function IntakeWizard() {
   const [creatorId, setCreatorId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const lastSavedRef = useRef<string>('');
+  const lastSavedRef = useRef<string>("");
 
   const form = useForm<CreatorIntake>({
     // Cast: @hookform/resolvers ships a resolver typed against zod's output
@@ -65,7 +65,7 @@ export function IntakeWizard() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(CreatorIntakeSchema) as any,
     defaultValues: DEFAULTS,
-    mode: 'onChange',
+    mode: "onChange",
   });
 
   const { getValues, trigger, watch } = form;
@@ -80,14 +80,14 @@ export function IntakeWizard() {
       support_contact: v.support_contact,
       creator_photo_url: v.creator_photo_url,
     };
-    const res = await fetch('/api/creators', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
+    const res = await fetch("/api/creators", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
       body: JSON.stringify(payload),
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: 'Create failed' }));
-      setError(err.error ?? 'Create failed');
+      const err = await res.json().catch(() => ({ error: "Create failed" }));
+      setError(err.error ?? "Create failed");
       return null;
     }
     const row = (await res.json()) as { id: string };
@@ -99,13 +99,13 @@ export function IntakeWizard() {
     async (id: string, partial: Partial<CreatorIntake>): Promise<boolean> => {
       if (Object.keys(partial).length === 0) return true;
       const res = await fetch(`/api/creators/${id}`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
         body: JSON.stringify(partial),
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: 'Save failed' }));
-        setError(err.error ?? 'Save failed');
+        const err = await res.json().catch(() => ({ error: "Save failed" }));
+        setError(err.error ?? "Save failed");
         return false;
       }
       return true;
@@ -154,16 +154,49 @@ export function IntakeWizard() {
   const onFinalSubmit = async () => {
     setError(null);
     if (!creatorId) {
-      setError('No draft id — please go back to Step 1.');
+      setError("No draft id — please go back to Step 1.");
       return;
     }
     const valid = await trigger(STEP_FIELDS[3], { shouldFocus: true });
     if (!valid) return;
 
     setSubmitting(true);
-    const ok = await patchCreator(creatorId, getValues());
-    setSubmitting(false);
-    if (ok) router.push(`/packages/${creatorId}`);
+    try {
+      const ok = await patchCreator(creatorId, getValues());
+      if (!ok) return;
+
+      // Create the launch_package row.
+      const pkgRes = await fetch("/api/packages", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ creator_id: creatorId }),
+      });
+      if (!pkgRes.ok) {
+        const err = await pkgRes
+          .json()
+          .catch(() => ({ error: "Could not create package." }));
+        setError(err.error ?? "Could not create package.");
+        return;
+      }
+      const pkg = (await pkgRes.json()) as { id: string };
+
+      // Kick off generation. Failure here doesn't strand the user — the
+      // dashboard surfaces a 'draft' status and offers a retry.
+      const genRes = await fetch(`/api/packages/${pkg.id}/generate`, {
+        method: "POST",
+      });
+      if (!genRes.ok && genRes.status !== 409) {
+        const err = await genRes
+          .json()
+          .catch(() => ({ error: "Could not start generation." }));
+        setError(err.error ?? "Could not start generation.");
+        return;
+      }
+
+      router.push(`/packages/${pkg.id}`);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const totalSteps = 4;
@@ -173,9 +206,11 @@ export function IntakeWizard() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center justify-between text-base">
-          <span>Step {step + 1} of {totalSteps}</span>
+          <span>
+            Step {step + 1} of {totalSteps}
+          </span>
           <span className="text-sm font-normal text-muted-foreground">
-            {creatorId ? 'Autosaving…' : 'Draft'}
+            {creatorId ? "Autosaving…" : "Draft"}
           </span>
         </CardTitle>
         <Progress value={progressPct} className="mt-2" />
@@ -187,9 +222,7 @@ export function IntakeWizard() {
           {step === 2 && <Step3Pricing form={form} />}
           {step === 3 && <Step4Voice form={form} />}
 
-          {error ? (
-            <p className="text-sm text-destructive">{error}</p>
-          ) : null}
+          {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
           <div className="flex items-center justify-between pt-4">
             <Button
@@ -202,11 +235,15 @@ export function IntakeWizard() {
             </Button>
             {step < totalSteps - 1 ? (
               <Button type="button" onClick={goNext} disabled={submitting}>
-                {submitting ? 'Saving…' : 'Next'}
+                {submitting ? "Saving…" : "Next"}
               </Button>
             ) : (
-              <Button type="button" onClick={onFinalSubmit} disabled={submitting}>
-                {submitting ? 'Submitting…' : 'Create launch package'}
+              <Button
+                type="button"
+                onClick={onFinalSubmit}
+                disabled={submitting}
+              >
+                {submitting ? "Submitting…" : "Create launch package"}
               </Button>
             )}
           </div>
