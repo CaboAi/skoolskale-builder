@@ -1,12 +1,12 @@
-import 'server-only';
-import { generateText } from 'ai';
-import { anthropic } from '@ai-sdk/anthropic';
-import { logClaudeUsage } from './usage';
+import "server-only";
+import { generateText } from "ai";
+import { anthropic } from "@ai-sdk/anthropic";
+import { logClaudeUsage } from "./usage";
 
 /**
  * Default model. Change in one place; cost table in ./usage.ts keys off this.
  */
-export const DEFAULT_MODEL = 'claude-sonnet-4-5';
+export const DEFAULT_MODEL = "claude-sonnet-4-6";
 
 export type GenerateParams = {
   systemPrompt: string;
@@ -34,14 +34,16 @@ export type GenerateResult = {
  * - Usage logging is fire-and-forget; the generation's success is independent
  *   of whether the audit write succeeded.
  */
-export async function generate(params: GenerateParams): Promise<GenerateResult> {
+export async function generate(
+  params: GenerateParams,
+): Promise<GenerateResult> {
   const model = params.model ?? DEFAULT_MODEL;
   const start = Date.now();
 
   const result = await generateText({
     model: anthropic(model),
     system: params.systemPrompt,
-    messages: [{ role: 'user', content: params.userMessage }],
+    messages: [{ role: "user", content: params.userMessage }],
     ...(params.maxTokens ? { maxOutputTokens: params.maxTokens } : {}),
   });
 
