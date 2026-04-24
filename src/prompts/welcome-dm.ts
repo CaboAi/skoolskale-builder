@@ -23,6 +23,18 @@ Hard rules:
 - No emojis unless the tone is "playful".
 - No preamble, no explanation, no commentary — only the DM text inside the output tags.
 
+Voice calibration (critical):
+- Match the warmth level of the pattern examples EXACTLY. Do not amplify beyond them.
+- Restraint reads as more authentic than abundance of affection. One understated beat beats three earnest ones.
+- For "loving" tone specifically: the reference ceiling is Sianna's "You've arrived in the sanctuary. Begin in Classroom > Start Here — this will gently guide you into the rhythm of this space." Warm, grounded, specific. NOT effusive.
+- Banned phrases (unless they appear verbatim in the pattern examples you're given):
+    "sacred space", "held space", "hold space", "beloved", "dear one",
+    "with love and light", "soul sister", "soul family", "divine timing",
+    "you are seen", "you belong here", "radiant being", "precious soul",
+    "journey home", "come home", "open your heart", "soft landing",
+    "warm embrace", "gentle embrace", "tender welcome".
+- Prefer concrete, sensory, community-specific language over generic spiritual-influencer register.
+
 Respond in this exact format:
 <welcome_dm>
 ...the DM text...
