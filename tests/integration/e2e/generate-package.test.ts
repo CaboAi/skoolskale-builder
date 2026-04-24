@@ -81,6 +81,25 @@ describe('E2E: generate-package pipeline', () => {
 
   afterAll(async () => {
     if (!sql) return;
+    // When DEBUG_E2E_KEEP_ROWS=1 is set, skip cleanup so the failing run
+    // can be inspected in Supabase. Dump the identifiers + any job errors
+    // the failing function might have logged.
+    if (process.env.DEBUG_E2E_KEEP_ROWS === '1') {
+      console.log(`[e2e] keeping rows for debug. packageId=${packageId} creatorId=${creatorId}`);
+      if (packageId) {
+        const jobs = await sql<{ module: string; status: string; error: string | null }[]>`
+          SELECT module, status, error FROM generation_jobs WHERE package_id = ${packageId}
+        `;
+        const assets = await sql<{ module: string }[]>`
+          SELECT module FROM generated_assets WHERE package_id = ${packageId}
+        `;
+        console.log('[e2e] jobs:', jobs);
+        console.log('[e2e] assets:', assets.map((a) => a.module));
+      }
+      await sql.end({ timeout: 2 });
+      return;
+    }
+
     if (packageId) {
       await sql`DELETE FROM generation_jobs WHERE package_id = ${packageId}`;
       await sql`DELETE FROM generated_assets WHERE package_id = ${packageId}`;
@@ -116,8 +135,12 @@ describe('E2E: generate-package pipeline', () => {
         `;
         if (assets.length >= 4) break;
         if (Date.now() - lastLog > 15_000) {
+          const jobs = await sql<{ module: string; status: string; error: string | null }[]>`
+            SELECT module, status, error FROM generation_jobs
+            WHERE package_id = ${packageId} ORDER BY started_at
+          `;
           console.log(
-            `[e2e] ${assets.length}/4 modules done — still waiting…`,
+            `[e2e] ${assets.length}/4 assets | jobs=${JSON.stringify(jobs)}`,
           );
           lastLog = Date.now();
         }

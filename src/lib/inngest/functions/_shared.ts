@@ -46,18 +46,25 @@ export async function createJobRow(params: {
   userId: string;
   inngestRunId: string;
 }) {
-  const [row] = await db
-    .insert(generationJobs)
-    .values({
-      packageId: params.packageId,
-      module: params.module,
-      status: 'running',
-      inngestRunId: params.inngestRunId,
-      createdBy: params.userId,
-      startedAt: new Date(),
-    })
-    .returning({ id: generationJobs.id });
-  return row.id;
+  console.log(`[gen/${params.module}] createJobRow packageId=${params.packageId}`);
+  try {
+    const [row] = await db
+      .insert(generationJobs)
+      .values({
+        packageId: params.packageId,
+        module: params.module,
+        status: 'running',
+        inngestRunId: params.inngestRunId,
+        createdBy: params.userId,
+        startedAt: new Date(),
+      })
+      .returning({ id: generationJobs.id });
+    console.log(`[gen/${params.module}] job row id=${row.id}`);
+    return row.id;
+  } catch (e) {
+    console.error(`[gen/${params.module}] createJobRow FAILED`, e);
+    throw e;
+  }
 }
 
 export async function loadCreatorForPackage(params: {
@@ -93,51 +100,66 @@ export async function runModule<T>(params: {
   prompt: Prompt;
   regenerateNote?: string;
 }): Promise<{ parsed: T; assetId: string }> {
-  const creator = await loadCreatorForPackage({
-    packageId: params.packageId,
-    userId: params.userId,
-  });
-
-  const patterns = await fetchPatternExamples({
-    module: params.module,
-    niche: creator.niche,
-    tone: creator.tone,
-  });
-
-  const input: GeneratorInput = {
-    creator: toCreatorContext(creator),
-    patternLibrary: patterns,
-    regenerateNote: params.regenerateNote,
-  };
-
-  const userMessage = params.prompt.buildUserMessage(input);
-  const { text } = await generate({
-    systemPrompt: params.prompt.systemPrompt,
-    userMessage,
-    jobId: params.jobId,
-  });
-
-  const parsed = params.prompt.parseOutput(text) as T;
-
-  const [asset] = await db
-    .insert(generatedAssets)
-    .values({
+  const tag = `[gen/${params.module}]`;
+  try {
+    console.log(`${tag} loadCreatorForPackage`);
+    const creator = await loadCreatorForPackage({
       packageId: params.packageId,
+      userId: params.userId,
+    });
+
+    console.log(`${tag} fetchPatternExamples niche=${creator.niche} tone=${creator.tone}`);
+    const patterns = await fetchPatternExamples({
       module: params.module,
-      version: 1,
-      content: parsed as object,
-      approved: false,
-      editHistory: [],
-      createdBy: params.userId,
-    })
-    .returning({ id: generatedAssets.id });
+      niche: creator.niche,
+      tone: creator.tone,
+    });
+    console.log(`${tag} patterns.length=${patterns.length}`);
 
-  await db
-    .update(generationJobs)
-    .set({ status: 'done', completedAt: new Date() })
-    .where(eq(generationJobs.id, params.jobId));
+    const input: GeneratorInput = {
+      creator: toCreatorContext(creator),
+      patternLibrary: patterns,
+      regenerateNote: params.regenerateNote,
+    };
 
-  return { parsed, assetId: asset.id };
+    const userMessage = params.prompt.buildUserMessage(input);
+    console.log(`${tag} calling Claude (userMessage.length=${userMessage.length})`);
+    const { text, inputTokens, outputTokens, durationMs } = await generate({
+      systemPrompt: params.prompt.systemPrompt,
+      userMessage,
+      jobId: params.jobId,
+    });
+    console.log(`${tag} Claude done in=${inputTokens} out=${outputTokens} ms=${durationMs}`);
+
+    const parsed = params.prompt.parseOutput(text) as T;
+    console.log(`${tag} parsed OK; inserting asset`);
+
+    const [asset] = await db
+      .insert(generatedAssets)
+      .values({
+        packageId: params.packageId,
+        module: params.module,
+        version: 1,
+        content: parsed as object,
+        approved: false,
+        editHistory: [],
+        createdBy: params.userId,
+      })
+      .returning({ id: generatedAssets.id });
+    console.log(`${tag} asset inserted id=${asset.id}`);
+
+    await db
+      .update(generationJobs)
+      .set({ status: 'done', completedAt: new Date() })
+      .where(eq(generationJobs.id, params.jobId));
+
+    return { parsed, assetId: asset.id };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error(`${tag} runModule FAILED: ${msg}`);
+    if (e instanceof Error && e.stack) console.error(e.stack);
+    throw e;
+  }
 }
 
 export async function markJobFailed(jobId: string, message: string) {
