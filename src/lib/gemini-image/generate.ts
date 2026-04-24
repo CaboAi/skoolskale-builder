@@ -1,0 +1,110 @@
+import "server-only";
+import { GoogleGenAI } from "@google/genai";
+import { env } from "@/lib/env";
+import { estimateImageCostUsd, logGeminiImageUsage } from "./usage";
+
+/**
+ * Default image model. Change in one place; cost table in ./usage.ts keys off
+ * this. "Nano Banana 2" preview id as of 2026-04.
+ */
+export const DEFAULT_MODEL = "gemini-3.1-flash-image-preview";
+
+export type GenerateCoverImagesParams = {
+  prompt: string;
+  referenceImageUrl?: string;
+  numVariants: number;
+  packageId: string;
+  /**
+   * The generation_jobs row id this call belongs to. Usage rows write here.
+   * Optional for ad-hoc callers (CLIs, tests) — when omitted we skip logging.
+   */
+  jobId?: string;
+  model?: string;
+};
+
+export type GenerateCoverImagesResult = {
+  images: Buffer[];
+  costUsd: number;
+};
+
+type ReferenceImage = { data: string; mimeType: string };
+
+async function fetchReferenceImage(url: string): Promise<ReferenceImage> {
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(
+      `[gemini-image] reference fetch failed: ${res.status} ${res.statusText}`,
+    );
+  }
+  const mimeType = res.headers.get("content-type") ?? "image/jpeg";
+  const bytes = Buffer.from(await res.arrayBuffer());
+  return { data: bytes.toString("base64"), mimeType };
+}
+
+function extractImage(response: unknown): Buffer {
+  // SDK shape: response.candidates[0].content.parts[].inlineData.{data, mimeType}
+  const candidates = (response as { candidates?: unknown[] } | undefined)
+    ?.candidates;
+  const parts = (
+    candidates?.[0] as
+      | { content?: { parts?: Array<{ inlineData?: { data?: string } }> } }
+      | undefined
+  )?.content?.parts;
+  const inline = parts?.find((p) => p?.inlineData?.data)?.inlineData;
+  if (!inline?.data) {
+    throw new Error("[gemini-image] no inlineData in response");
+  }
+  return Buffer.from(inline.data, "base64");
+}
+
+/**
+ * Generate N cover image variants via Gemini 3.1 Flash Image ("Nano Banana 2").
+ * Nano Banana returns one image per call, so we loop numVariants times.
+ *
+ * - No retry logic here — Inngest owns retries at the step level.
+ * - Usage logging is fire-and-forget; the generation's success is independent
+ *   of whether the audit write succeeded.
+ */
+export async function generateCoverImages(
+  params: GenerateCoverImagesParams,
+): Promise<GenerateCoverImagesResult> {
+  if (params.numVariants < 1) {
+    throw new Error("[gemini-image] numVariants must be >= 1");
+  }
+  const model = params.model ?? DEFAULT_MODEL;
+  const ai = new GoogleGenAI({ apiKey: env.GOOGLE_AI_API_KEY });
+
+  const reference = params.referenceImageUrl
+    ? await fetchReferenceImage(params.referenceImageUrl)
+    : undefined;
+
+  const parts: Array<
+    { text: string } | { inlineData: { data: string; mimeType: string } }
+  > = [{ text: params.prompt }];
+  if (reference) {
+    parts.push({ inlineData: reference });
+  }
+  const contents = [{ role: "user", parts }];
+
+  const start = Date.now();
+  const images: Buffer[] = [];
+  for (let i = 0; i < params.numVariants; i++) {
+    const response = await ai.models.generateContent({ model, contents });
+    images.push(extractImage(response));
+  }
+  const durationMs = Date.now() - start;
+
+  const costUsd = estimateImageCostUsd(model, images.length);
+
+  if (params.jobId) {
+    // Awaited but logGeminiImageUsage swallows its own errors.
+    await logGeminiImageUsage({
+      jobId: params.jobId,
+      model,
+      numImages: images.length,
+      durationMs,
+    });
+  }
+
+  return { images, costUsd };
+}
