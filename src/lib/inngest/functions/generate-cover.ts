@@ -136,7 +136,7 @@ export const generateCover = inngest.createFunction(
         const { data: pub } = supabase.storage
           .from(COVER_BUCKET)
           .getPublicUrl(path);
-        variants.push({ url: pub.publicUrl, index: i + 1 });
+        variants.push({ url: pub.publicUrl, index: i });
       }
       console.log(`${tag} uploaded ${variants.length} variants`);
 
