@@ -15,6 +15,8 @@ type PromptModule = {
   systemPrompt: string;
   buildUserMessage: (input: GeneratorInput) => string;
   parseOutput: (raw: string) => unknown;
+  /** Optional per-module output cap, threaded through to generate(). */
+  maxTokens?: number;
 };
 
 type FactoryConfig = {

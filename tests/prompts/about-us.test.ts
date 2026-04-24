@@ -18,7 +18,10 @@ const VALID = {
     {
       emoji: '💜',
       header: 'PERKS',
-      items: ['Access all previous community call recordings.'],
+      items: [
+        'Access all previous community call recordings.',
+        'Monthly special guest speakers.',
+      ],
     },
   ],
   pricing: 'Membership: $67 per month OR $513 per year (Save 36%)',
@@ -55,18 +58,36 @@ Trailing text.`;
     expect(() => parseOutput(raw)).toThrow(/schema mismatch/);
   });
 
-  test('throws when value_buckets has fewer than 2 buckets', () => {
+  test('throws when value_buckets has fewer than 3 buckets', () => {
     const skinny = {
       ...VALID,
       value_buckets: [
         {
           emoji: '💜',
           header: 'COURSES',
-          items: ['Only one bucket'],
+          items: ['Item 1', 'Item 2'],
+        },
+        {
+          emoji: '💜',
+          header: 'PERKS',
+          items: ['Item 1', 'Item 2'],
         },
       ],
     };
     const raw = `<about_us_json>${JSON.stringify(skinny)}</about_us_json>`;
+    expect(() => parseOutput(raw)).toThrow(/schema mismatch/);
+  });
+
+  test('throws when a bucket has only 1 item (min 2 required)', () => {
+    const stingy = {
+      ...VALID,
+      value_buckets: [
+        { emoji: '💜', header: 'COURSES', items: ['Just one'] },
+        { emoji: '💜', header: 'COACHING', items: ['A', 'B'] },
+        { emoji: '💜', header: 'PERKS', items: ['A', 'B'] },
+      ],
+    };
+    const raw = `<about_us_json>${JSON.stringify(stingy)}</about_us_json>`;
     expect(() => parseOutput(raw)).toThrow(/schema mismatch/);
   });
 });

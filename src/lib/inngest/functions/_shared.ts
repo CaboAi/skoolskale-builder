@@ -27,6 +27,8 @@ type Prompt = {
   systemPrompt: string;
   buildUserMessage: (input: GeneratorInput) => string;
   parseOutput: (raw: string) => unknown;
+  /** Optional per-module output cap. Unset → generate() uses its default. */
+  maxTokens?: number;
 };
 
 export type ModuleEventData = {
@@ -128,6 +130,7 @@ export async function runModule<T>(params: {
       systemPrompt: params.prompt.systemPrompt,
       userMessage,
       jobId: params.jobId,
+      maxTokens: params.prompt.maxTokens,
     });
     console.log(`${tag} Claude done in=${inputTokens} out=${outputTokens} ms=${durationMs}`);
 
