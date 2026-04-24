@@ -3,15 +3,16 @@ import { eq, desc } from 'drizzle-orm';
 import { requireUser } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { creators } from '@/lib/db/schema';
-import { CreatorIntakeSchema } from '@/types/schemas';
+import { CreatorDraftSchema } from '@/types/schemas';
 import { validateBody, ValidationError, type ApiError } from '@/lib/validation';
 import { logAudit } from '@/lib/audit';
 
 /**
- * POST /api/creators — create a new creator record.
- * GET  /api/creators — list the current user's creators (newest first).
+ * POST /api/creators — create a draft creator record from the Step 1
+ * intake fields. NOT NULL columns the wizard hasn't filled yet get empty
+ * defaults; later steps PATCH the real values in.
  *
- * Both require an authed session (enforced by requireUser()).
+ * GET /api/creators — list the current user's creators (newest first).
  */
 
 export async function POST(req: NextRequest) {
@@ -19,7 +20,7 @@ export async function POST(req: NextRequest) {
 
   let body;
   try {
-    body = await validateBody(req, CreatorIntakeSchema);
+    body = await validateBody(req, CreatorDraftSchema);
   } catch (err) {
     if (err instanceof ValidationError) {
       return NextResponse.json<ApiError>(err.payload, { status: 400 });
@@ -33,15 +34,21 @@ export async function POST(req: NextRequest) {
       name: body.name,
       communityName: body.community_name,
       niche: body.niche,
-      audience: body.audience,
-      transformation: body.transformation,
-      tone: body.tone,
-      offerBreakdown: body.offer_breakdown,
-      pricing: body.pricing,
-      trialTerms: body.trial_terms,
-      refundPolicy: body.refund_policy,
+      // Step 2-4 defaults — PATCH fills in real values.
+      audience: '',
+      transformation: '',
+      tone: 'loving',
+      offerBreakdown: {
+        courses: [],
+        perks: [],
+        events: [],
+        guest_sessions: false,
+      },
+      pricing: { tiers: [] },
+      trialTerms: { has_trial: false },
+      refundPolicy: '',
       supportContact: body.support_contact,
-      brandPrefs: body.brand_prefs,
+      brandPrefs: '',
       creatorPhotoUrl: body.creator_photo_url,
       createdBy: user.id,
     })

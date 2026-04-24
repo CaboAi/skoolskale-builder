@@ -68,3 +68,18 @@ export const CreatorPatchSchema = CreatorIntakeSchema.partial().refine(
 );
 
 export type CreatorPatch = z.infer<typeof CreatorPatchSchema>;
+
+/**
+ * Draft schema — what the intake wizard POSTs on Step 1 completion.
+ * Only the Step 1 fields are required; server backfills DB NOT NULL columns
+ * with empty defaults for the remaining fields, which PATCH fills in later.
+ */
+export const CreatorDraftSchema = z.object({
+  name: z.string().min(1).max(200),
+  community_name: z.string().min(1).max(200),
+  niche: NicheEnum,
+  support_contact: z.string().min(1),
+  creator_photo_url: z.string().url().optional(),
+});
+
+export type CreatorDraft = z.infer<typeof CreatorDraftSchema>;
