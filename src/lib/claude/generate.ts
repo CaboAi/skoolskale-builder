@@ -1,12 +1,22 @@
 import "server-only";
 import { generateText } from "ai";
-import { anthropic } from "@ai-sdk/anthropic";
+import { createAnthropic } from "@ai-sdk/anthropic";
 import { logClaudeUsage } from "./usage";
 
 /**
  * Default model. Change in one place; cost table in ./usage.ts keys off this.
  */
 export const DEFAULT_MODEL = "claude-sonnet-4-6";
+
+/**
+ * Pin the API endpoint explicitly. The SDK reads `ANTHROPIC_BASE_URL` if
+ * `baseURL` is omitted, and some environments (e.g. Claude Code's subprocess
+ * env) inject a malformed value (`https://api.anthropic.com` without `/v1`)
+ * which causes every request to 404. Passing `baseURL` here neutralizes that.
+ */
+const anthropic = createAnthropic({
+  baseURL: "https://api.anthropic.com/v1",
+});
 
 export type GenerateParams = {
   systemPrompt: string;
