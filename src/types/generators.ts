@@ -4,8 +4,8 @@
  *
  * See PRD §7.1 / .claude/agents/prompt-engineer.md for the spec.
  */
-import type { Creator } from '@/lib/db/schema';
-import type { CreatorIntake } from '@/types/schemas';
+import type { Creator } from "@/lib/db/schema";
+import type { CreatorIntake } from "@/types/schemas";
 
 /**
  * The creator-level context every generator receives. This is a safe subset
@@ -17,19 +17,19 @@ import type { CreatorIntake } from '@/types/schemas';
  */
 export type CreatorContext = Pick<
   CreatorIntake,
-  | 'name'
-  | 'community_name'
-  | 'niche'
-  | 'audience'
-  | 'transformation'
-  | 'tone'
-  | 'offer_breakdown'
-  | 'pricing'
-  | 'trial_terms'
-  | 'refund_policy'
-  | 'support_contact'
-  | 'brand_prefs'
-  | 'creator_photo_url'
+  | "name"
+  | "community_name"
+  | "niche"
+  | "audience"
+  | "transformation"
+  | "tone"
+  | "offer_breakdown"
+  | "pricing"
+  | "trial_terms"
+  | "refund_policy"
+  | "support_contact"
+  | "brand_prefs"
+  | "creator_photo_url"
 >;
 
 /**
@@ -38,15 +38,15 @@ export type CreatorContext = Pick<
  * to a prompt-safe shape (prompts decide how to render).
  */
 export type PatternExample = {
-  tone: 'loving' | 'direct' | 'playful' | null;
+  tone: "loving" | "direct" | "playful" | null;
   niche:
-    | 'spiritual'
-    | 'business'
-    | 'fitness'
-    | 'relationships'
-    | 'money'
-    | 'yoga'
-    | 'other'
+    | "spiritual"
+    | "business"
+    | "fitness"
+    | "relationships"
+    | "money"
+    | "yoga"
+    | "other"
     | null;
   sourceCreator: string | null;
   /** Stringified `example_content` — each prompt picks its own serialization. */
@@ -76,10 +76,11 @@ export type GeneratorOutput<T> = {
 };
 
 export type GeneratorModule =
-  | 'welcome_dm'
-  | 'transformation'
-  | 'about_us'
-  | 'start_here';
+  | "welcome_dm"
+  | "transformation"
+  | "about_us"
+  | "start_here"
+  | "cover";
 
 /**
  * Convenience: build a CreatorContext from a DB Creator row. Strips
@@ -94,12 +95,12 @@ export function toCreatorContext(row: Creator): CreatorContext {
     audience: row.audience,
     transformation: row.transformation,
     tone: row.tone,
-    offer_breakdown: row.offerBreakdown as CreatorContext['offer_breakdown'],
-    pricing: row.pricing as CreatorContext['pricing'],
-    trial_terms: row.trialTerms as CreatorContext['trial_terms'],
-    refund_policy: row.refundPolicy ?? '',
-    support_contact: row.supportContact ?? '',
-    brand_prefs: row.brandPrefs ?? '',
+    offer_breakdown: row.offerBreakdown as CreatorContext["offer_breakdown"],
+    pricing: row.pricing as CreatorContext["pricing"],
+    trial_terms: row.trialTerms as CreatorContext["trial_terms"],
+    refund_policy: row.refundPolicy ?? "",
+    support_contact: row.supportContact ?? "",
+    brand_prefs: row.brandPrefs ?? "",
     creator_photo_url: row.creatorPhotoUrl ?? undefined,
   };
 }
