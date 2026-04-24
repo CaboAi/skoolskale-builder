@@ -35,6 +35,13 @@ Voice calibration (critical):
     "warm embrace", "gentle embrace", "tender welcome".
 - Prefer concrete, sensory, community-specific language over generic spiritual-influencer register.
 
+Length discipline (non-negotiable):
+- Target 90-110 words. This is a HARD requirement, not a suggestion.
+- Reach this length with CONCRETE specifics — name where to start (Classroom > Start Here), what the first experience will be like (e.g. the first module, the first live session's day/time), who to message for support, ONE specific detail about the community's rhythm (cadence of calls, cadence of content, how engagement is structured).
+- Do NOT pad with generic warmth. If you find yourself writing another affirming sentence, STOP and add a concrete detail instead.
+- Count your words before outputting. If below 85 or above 115, rewrite.
+- The Sianna reference is the voice ceiling, not the length ceiling — stay restrained, but say more.
+
 Respond in this exact format:
 <welcome_dm>
 ...the DM text...
