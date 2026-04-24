@@ -1,50 +1,54 @@
 /**
  * End-to-end generator pipeline test.
  *
- * Exercises the full chain: creator → package → generate endpoint → Inngest
- * fan-out → Claude → parsers → generated_assets rows. Because the pipeline
- * depends on live Claude + a running Inngest dev server (`npx inngest-cli dev`),
- * this test is gated behind env flags:
+ * Exercises: creator → package → Inngest event → fan-out → Claude → parsers →
+ * generated_assets rows. Gated behind two env flags so CI without the required
+ * services running stays deterministic:
  *
- *   RUN_DB_TESTS=1       (direct DB access for seeding + polling)
- *   RUN_E2E_TESTS=1      (will actually call Claude and spend tokens)
- *   INNGEST_DEV_URL=...  (defaults to http://localhost:8288 if omitted)
+ *   RUN_DB_TESTS=1       — direct DB access for seeding + polling
+ *   RUN_E2E_TESTS=1      — will actually call Claude and spend tokens
+ *   INNGEST_DEV_URL=...  — defaults to http://localhost:8288
  *
- * Without these, the test file is a no-op. This keeps CI deterministic and
- * the local run opt-in.
- *
- * To run locally:
- *   1) pnpm dev                         # app
- *   2) npx inngest-cli@latest dev       # inngest dev server (port 8288)
- *   3) RUN_DB_TESTS=1 RUN_E2E_TESTS=1 pnpm dlx dotenv-cli -e .env.local -- \
- *        pnpm test tests/integration/e2e/generate-package.test.ts
+ * Local run:
+ *   1) pnpm dev                              # app (registers /api/inngest)
+ *   2) npx inngest-cli@latest dev            # dev server, port 8288
+ *   3) RUN_DB_TESTS=1 RUN_E2E_TESTS=1 \
+ *      pnpm dlx dotenv-cli -e .env.local -- \
+ *      pnpm test tests/integration/e2e/generate-package.test.ts
  */
-import 'dotenv/config';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import postgres from 'postgres';
 import { randomUUID } from 'node:crypto';
 
 const RUN =
   process.env.RUN_DB_TESTS === '1' && process.env.RUN_E2E_TESTS === '1';
-const describeOrSkip = RUN ? describe : describe.skip;
-
 const INNGEST_DEV = process.env.INNGEST_DEV_URL ?? 'http://localhost:8288';
-const MAX_WAIT_MS = 180_000; // 3 min cap for all 4 modules
+const MAX_WAIT_MS = 180_000;
 const POLL_INTERVAL_MS = 3_000;
 
-describeOrSkip('E2E: generate-package pipeline', () => {
+// Use `test.skipIf` rather than `describe.skip` so vitest reports the test
+// as "skipped" (one skipped case) rather than counting it as "0 passed (1)"
+// which was confusing when nothing was actually run.
+describe('E2E: generate-package pipeline', () => {
   const userId = randomUUID();
   let creatorId: string;
   let packageId: string;
   let sql: ReturnType<typeof postgres>;
 
   beforeAll(async () => {
+    if (!RUN) return; // no-op when flags are off — beforeAll still runs, but nothing to set up
     if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL not set');
     sql = postgres(process.env.DATABASE_URL, { max: 2 });
 
-    // Seed the creator + package directly; the HTTP endpoints require an
-    // authed session which we can't easily fake here. The pipeline under
-    // test is the Inngest fan-out, not the auth layer.
+    // Pre-flight: fail fast with a useful message if the dev server isn't up.
+    const ping = await fetch(`${INNGEST_DEV}/`).catch(() => null);
+    if (!ping || !ping.ok) {
+      throw new Error(
+        `[e2e] Inngest dev server not reachable at ${INNGEST_DEV}. ` +
+          `Start it with: npx inngest-cli@latest dev`,
+      );
+    }
+
     const [creator] = await sql<{ id: string }[]>`
       INSERT INTO creators (
         name, community_name, niche, audience, transformation, tone,
@@ -72,6 +76,7 @@ describeOrSkip('E2E: generate-package pipeline', () => {
       RETURNING id
     `;
     packageId = pkg.id;
+    console.log(`[e2e] seeded creator=${creatorId} package=${packageId}`);
   });
 
   afterAll(async () => {
@@ -87,11 +92,10 @@ describeOrSkip('E2E: generate-package pipeline', () => {
     await sql.end({ timeout: 2 });
   });
 
-  test(
+  test.skipIf(!RUN)(
     'package.generate.requested → 4 generated_assets rows',
     async () => {
-      // Fire the event directly through the Inngest dev server. Bypasses the
-      // Next.js auth layer; the functions read from DB anyway.
+      console.log(`[e2e] firing package.generate.requested for ${packageId}`);
       const res = await fetch(`${INNGEST_DEV}/e/dev`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -100,17 +104,23 @@ describeOrSkip('E2E: generate-package pipeline', () => {
           data: { packageId, userId },
         }),
       });
-      expect(res.ok, `inngest enqueue ${res.status}`).toBe(true);
+      expect(res.ok, `inngest enqueue ${res.status} ${await res.text()}`).toBe(true);
 
-      // Poll for 4 assets with content.
       const deadline = Date.now() + MAX_WAIT_MS;
       let assets: { module: string; content: unknown }[] = [];
+      let lastLog = 0;
       while (Date.now() < deadline) {
         assets = await sql<{ module: string; content: unknown }[]>`
           SELECT module, content FROM generated_assets
           WHERE package_id = ${packageId}
         `;
         if (assets.length >= 4) break;
+        if (Date.now() - lastLog > 15_000) {
+          console.log(
+            `[e2e] ${assets.length}/4 modules done — still waiting…`,
+          );
+          lastLog = Date.now();
+        }
         await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
       }
 
@@ -118,25 +128,16 @@ describeOrSkip('E2E: generate-package pipeline', () => {
       expect(modules).toEqual(
         new Set(['welcome_dm', 'transformation', 'about_us', 'start_here']),
       );
+      for (const a of assets) expect(a.content).toBeTruthy();
 
-      // Every asset should have parsed content (non-empty jsonb).
-      for (const a of assets) {
-        expect(a.content).toBeTruthy();
-      }
-
-      // Launch package should be in 'review' state post-generation.
       const [pkg] = await sql<{ status: string }[]>`
         SELECT status FROM launch_packages WHERE id = ${packageId}
       `;
       expect(pkg.status).toBe('review');
 
-      // generation_jobs should all be 'done' with claude_usage logged.
       const jobs = await sql<
         { status: string; claude_usage: unknown }[]
-      >`
-        SELECT status, claude_usage FROM generation_jobs
-        WHERE package_id = ${packageId}
-      `;
+      >`SELECT status, claude_usage FROM generation_jobs WHERE package_id = ${packageId}`;
       expect(jobs.length).toBe(4);
       for (const j of jobs) {
         expect(j.status).toBe('done');

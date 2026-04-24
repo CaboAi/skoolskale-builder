@@ -7,9 +7,20 @@
  */
 import { Inngest } from 'inngest';
 
+/**
+ * Dev-mode detection.
+ *   - `INNGEST_DEV=1` forces dev mode (what `inngest-cli dev` expects locally).
+ *   - When NODE_ENV !== 'production' without that flag, the SDK auto-detects,
+ *     but passing `isDev` explicitly avoids the handshake failing in edge
+ *     cases where a prod-shaped INNGEST_SIGNING_KEY is set in .env.local.
+ */
+const isDev =
+  process.env.INNGEST_DEV === '1' || process.env.NODE_ENV !== 'production';
+
 export const inngest = new Inngest({
   id: 'skoolskale-builder',
   eventKey: process.env.INNGEST_EVENT_KEY,
+  isDev,
 });
 
 /**
