@@ -226,17 +226,58 @@ export function PackageDashboard(initial: PackageDashboardProps) {
         };
       });
       setEditDialog({ module: null });
-      if (module === "cover") {
-        const idx =
-          (updated.content as { selected_variant_index?: number })
-            .selected_variant_index ?? 0;
-        toast.success(`Variant ${idx + 1} selected`);
-      } else {
-        toast.success(`${MODULE_LABELS[module]} saved. Re-approve when ready.`);
-      }
+      toast.success(`${MODULE_LABELS[module]} saved. Re-approve when ready.`);
     },
     onError: (err, { module }) => {
       toast.error(`Could not save ${MODULE_LABELS[module]}: ${err.message}`);
+    },
+  });
+
+  // Variant selection is a presentation choice, not a content edit, so it
+  // doesn't go through the PATCH endpoint. See /modules/cover/select-variant.
+  const selectVariantMutation = useMutation({
+    mutationFn: async (index: number) => {
+      const res = await fetch(
+        `/api/packages/${pkg.id}/modules/cover/select-variant`,
+        {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ index }),
+        },
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Save failed" }));
+        throw new Error(err.error ?? "Save failed");
+      }
+      return (await res.json()) as GeneratedAsset;
+    },
+    onMutate: async (index: number) => {
+      await queryClient.cancelQueries({ queryKey });
+      const prev = queryClient.getQueryData<PackageWithDetails>(queryKey);
+      if (prev) {
+        queryClient.setQueryData<PackageWithDetails>(queryKey, {
+          ...prev,
+          assets: prev.assets.map((a) => {
+            if (a.module !== "cover") return a;
+            const content = a.content as {
+              variants: unknown[];
+              selected_variant_index?: number;
+            };
+            return {
+              ...a,
+              content: { ...content, selected_variant_index: index },
+            };
+          }),
+        });
+      }
+      return { prev };
+    },
+    onSuccess: (_updated, index) => {
+      toast.success(`Variant ${index + 1} selected`);
+    },
+    onError: (err, _index, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(queryKey, ctx.prev);
+      toast.error(`Could not select variant: ${err.message}`);
     },
   });
 
@@ -258,10 +299,7 @@ export function PackageDashboard(initial: PackageDashboardProps) {
   };
 
   const handleSelectVariant = (index: number) => {
-    editMutation.mutate({
-      module: "cover",
-      content: { selected_variant_index: index },
-    });
+    selectVariantMutation.mutate(index);
   };
 
   /* ---------- Render ---------- */
