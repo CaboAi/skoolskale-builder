@@ -1,12 +1,12 @@
-import { type NextRequest, NextResponse } from 'next/server';
-import { and, eq } from 'drizzle-orm';
-import { z } from 'zod';
-import { requireUser } from '@/lib/auth';
-import { db } from '@/lib/db';
-import { launchPackages } from '@/lib/db/schema';
-import { inngest } from '@/lib/inngest/client';
-import { validateBody, ValidationError, type ApiError } from '@/lib/validation';
-import { logAudit } from '@/lib/audit';
+import { type NextRequest, NextResponse } from "next/server";
+import { and, eq } from "drizzle-orm";
+import { z } from "zod";
+import { requireUser } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { launchPackages } from "@/lib/db/schema";
+import { inngest } from "@/lib/inngest/client";
+import { validateBody, ValidationError, type ApiError } from "@/lib/validation";
+import { logAudit } from "@/lib/audit";
 
 /**
  * POST /api/packages/[id]/modules/[module]/regenerate
@@ -19,10 +19,11 @@ import { logAudit } from '@/lib/audit';
 const UuidParam = z.string().uuid();
 
 const ModuleParam = z.enum([
-  'welcome_dm',
-  'transformation',
-  'about_us',
-  'start_here',
+  "welcome_dm",
+  "transformation",
+  "about_us",
+  "start_here",
+  "cover",
 ]);
 
 const RegenerateSchema = z
@@ -40,7 +41,7 @@ export async function POST(req: NextRequest, { params }: RouteCtx) {
   const idR = UuidParam.safeParse(id);
   if (!idR.success) {
     return NextResponse.json<ApiError>(
-      { error: 'Invalid package id.', code: 'invalid_id' },
+      { error: "Invalid package id.", code: "invalid_id" },
       { status: 400 },
     );
   }
@@ -50,7 +51,7 @@ export async function POST(req: NextRequest, { params }: RouteCtx) {
     return NextResponse.json<ApiError>(
       {
         error: `Unknown module '${module}'.`,
-        code: 'invalid_module',
+        code: "invalid_module",
       },
       { status: 400 },
     );
@@ -79,7 +80,7 @@ export async function POST(req: NextRequest, { params }: RouteCtx) {
     .limit(1);
   if (!pkg) {
     return NextResponse.json<ApiError>(
-      { error: 'Package not found.', code: 'not_found' },
+      { error: "Package not found.", code: "not_found" },
       { status: 404 },
     );
   }
@@ -96,10 +97,13 @@ export async function POST(req: NextRequest, { params }: RouteCtx) {
   await logAudit(
     user.id,
     `module.regenerate.${modR.data}`,
-    'package',
+    "package",
     idR.data,
     { module: modR.data, note: body.note },
   );
 
-  return NextResponse.json({ status: 'queued', module: modR.data }, { status: 202 });
+  return NextResponse.json(
+    { status: "queued", module: modR.data },
+    { status: 202 },
+  );
 }
