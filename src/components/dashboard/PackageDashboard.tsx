@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { Creator, GeneratedAsset, LaunchPackage } from "@/lib/db/schema";
 import {
@@ -360,6 +362,20 @@ export function PackageDashboard(initial: PackageDashboardProps) {
         )}
         {COPY_MODULES.map(renderCopyCard)}
       </div>
+
+      {approvedCount === 5 && (
+        <div className="flex justify-end">
+          <Link
+            href={`/packages/${pkg.id}/export`}
+            className={cn(
+              buttonVariants({ size: "lg" }),
+              "px-6 text-base font-semibold",
+            )}
+          >
+            Export package →
+          </Link>
+        </div>
+      )}
 
       <RegenerateDialog
         open={regenDialog.module !== null}
