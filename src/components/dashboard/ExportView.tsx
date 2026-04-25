@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowLeft, Copy, Download } from "lucide-react";
+import { ArrowLeft, Copy, Download, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -489,7 +489,7 @@ export function ExportView({ package: pkg, creator, assets }: ExportViewProps) {
   return (
     <div className="space-y-6">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-1">
+        <div className="min-w-0 space-y-1">
           <Link
             href={`/packages/${pkg.id}`}
             className="inline-flex items-center text-sm text-muted-foreground hover:underline"
@@ -500,7 +500,7 @@ export function ExportView({ package: pkg, creator, assets }: ExportViewProps) {
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
             Export Launch Package
           </h1>
-          <p className="text-muted-foreground">
+          <p className="truncate text-muted-foreground">
             {creator.name} — {creator.communityName}
           </p>
         </div>
@@ -508,10 +508,13 @@ export function ExportView({ package: pkg, creator, assets }: ExportViewProps) {
           onClick={() => deployMutation.mutate()}
           disabled={!allChecked || isDeployed || deployMutation.isPending}
         >
+          {deployMutation.isPending && (
+            <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+          )}
           {isDeployed
             ? "Deployed"
             : deployMutation.isPending
-              ? "Marking…"
+              ? "Deploying…"
               : "Mark as deployed"}
         </Button>
       </header>

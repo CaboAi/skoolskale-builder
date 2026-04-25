@@ -4,8 +4,16 @@ import { useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { Creator, GeneratedAsset, LaunchPackage } from "@/lib/db/schema";
 import {
@@ -55,6 +63,57 @@ function StatusBadge({ status }: { status: LaunchPackage["status"] }) {
     >
       {status}
     </Badge>
+  );
+}
+
+/**
+ * Defensive UI for the rare case where a user lands on the dashboard with
+ * status='draft' and no assets — generation never started or was cancelled.
+ * Offers a one-click recovery rather than leaving the user stranded.
+ */
+function DraftEmptyState({ packageId }: { packageId: string }) {
+  const queryClient = useQueryClient();
+  const startGeneration = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/packages/${packageId}/generate`, {
+        method: "POST",
+      });
+      if (!res.ok && res.status !== 409) {
+        const err = await res
+          .json()
+          .catch(() => ({ error: "Could not start generation." }));
+        throw new Error(err.error ?? "Could not start generation.");
+      }
+    },
+    onSuccess: () => {
+      toast.success("Generation started");
+      void queryClient.invalidateQueries({ queryKey: ["package", packageId] });
+    },
+    onError: (err) => {
+      toast.error(`Could not start generation: ${err.message}`);
+    },
+  });
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Generation hasn&apos;t started yet</CardTitle>
+        <CardDescription>
+          The launch package was created but the generation pipeline never
+          kicked off. Start it now to produce the 5 modules.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Button
+          onClick={() => startGeneration.mutate()}
+          disabled={startGeneration.isPending}
+        >
+          {startGeneration.isPending && (
+            <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+          )}
+          {startGeneration.isPending ? "Starting…" : "Start generation"}
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -310,14 +369,32 @@ export function PackageDashboard(initial: PackageDashboardProps) {
     ? (byModule.get(editDialog.module) ?? null)
     : null;
 
+  // Per-module pending action — drives the spinner on the card footer.
+  const pendingApproveModule = approveMutation.isPending
+    ? (approveMutation.variables ?? null)
+    : null;
+  function pendingActionFor(module: string) {
+    return pendingApproveModule === module ? ("approve" as const) : null;
+  }
+
+  const selectingVariantIndex = selectVariantMutation.isPending
+    ? (selectVariantMutation.variables ?? null)
+    : null;
+
   function renderCopyCard(module: (typeof COPY_MODULES)[number]) {
     const asset = byModule.get(module);
     if (!asset || regenerating[module] !== undefined) {
       return <CopyModuleSkeleton key={module} module={module} />;
     }
+    const pa = pendingActionFor(module);
     if (module === "welcome_dm") {
       return (
-        <WelcomeDmCard key={module} asset={asset} onAction={handleAction} />
+        <WelcomeDmCard
+          key={module}
+          asset={asset}
+          onAction={handleAction}
+          pendingAction={pa}
+        />
       );
     }
     if (module === "transformation") {
@@ -326,23 +403,40 @@ export function PackageDashboard(initial: PackageDashboardProps) {
           key={module}
           asset={asset}
           onAction={handleAction}
+          pendingAction={pa}
         />
       );
     }
     if (module === "about_us") {
-      return <AboutUsCard key={module} asset={asset} onAction={handleAction} />;
+      return (
+        <AboutUsCard
+          key={module}
+          asset={asset}
+          onAction={handleAction}
+          pendingAction={pa}
+        />
+      );
     }
-    return <StartHereCard key={module} asset={asset} onAction={handleAction} />;
+    return (
+      <StartHereCard
+        key={module}
+        asset={asset}
+        onAction={handleAction}
+        pendingAction={pa}
+      />
+    );
   }
 
   return (
     <div className="space-y-6">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+        <div className="min-w-0 space-y-1">
+          <h1 className="truncate text-2xl font-semibold tracking-tight sm:text-3xl">
             {creator.name}
           </h1>
-          <p className="text-muted-foreground">{creator.communityName}</p>
+          <p className="truncate text-muted-foreground">
+            {creator.communityName}
+          </p>
           <p className="text-sm text-muted-foreground">
             {approvedCount} of 5 modules approved
           </p>
@@ -350,18 +444,24 @@ export function PackageDashboard(initial: PackageDashboardProps) {
         <StatusBadge status={pkg.status} />
       </header>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {byModule.has("cover") && regenerating.cover === undefined ? (
-          <CoverCard
-            asset={byModule.get("cover")!}
-            onAction={handleAction}
-            onSelectVariant={handleSelectVariant}
-          />
-        ) : (
-          <CoverSkeleton />
-        )}
-        {COPY_MODULES.map(renderCopyCard)}
-      </div>
+      {pkg.status === "draft" && assets.length === 0 ? (
+        <DraftEmptyState packageId={pkg.id} />
+      ) : (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {byModule.has("cover") && regenerating.cover === undefined ? (
+            <CoverCard
+              asset={byModule.get("cover")!}
+              onAction={handleAction}
+              onSelectVariant={handleSelectVariant}
+              pendingAction={pendingActionFor("cover")}
+              selectingIndex={selectingVariantIndex}
+            />
+          ) : (
+            <CoverSkeleton />
+          )}
+          {COPY_MODULES.map(renderCopyCard)}
+        </div>
+      )}
 
       {approvedCount === 5 && (
         <div className="flex justify-end">

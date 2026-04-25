@@ -10,6 +10,7 @@ import { CreatorIntakeSchema, type CreatorIntake } from "@/types/schemas";
 // useForm invocation so it matches whatever RHF returns, regardless of
 // how the library's generic defaults change between versions.
 export type IntakeFormReturn = ReturnType<typeof useForm<CreatorIntake>>;
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -235,6 +236,9 @@ export function IntakeWizard() {
             </Button>
             {step < totalSteps - 1 ? (
               <Button type="button" onClick={goNext} disabled={submitting}>
+                {submitting && (
+                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                )}
                 {submitting ? "Saving…" : "Next"}
               </Button>
             ) : (
@@ -243,7 +247,10 @@ export function IntakeWizard() {
                 onClick={onFinalSubmit}
                 disabled={submitting}
               >
-                {submitting ? "Submitting…" : "Create launch package"}
+                {submitting && (
+                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                )}
+                {submitting ? "Creating…" : "Create launch package"}
               </Button>
             )}
           </div>

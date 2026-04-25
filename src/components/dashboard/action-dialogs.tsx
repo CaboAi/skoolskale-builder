@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -75,7 +76,8 @@ export function RegenerateDialog({
             onClick={() => onConfirm(note.trim() || undefined)}
             disabled={isPending}
           >
-            {isPending ? "Queuing…" : "Regenerate"}
+            {isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+            {isPending ? "Regenerating…" : "Regenerate"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -115,6 +117,7 @@ function EditFormShell({
           Cancel
         </Button>
         <Button onClick={onSave} disabled={saving}>
+          {saving && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
           {saving ? "Saving…" : "Save"}
         </Button>
       </DialogFooter>

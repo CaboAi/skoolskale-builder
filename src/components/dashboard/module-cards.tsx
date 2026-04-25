@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Loader2 } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -87,12 +87,17 @@ function ModuleFooter({
   onAction,
   showEdit = true,
   approved,
+  pendingAction = null,
 }: {
   module: string;
   onAction: ModuleActionHandler;
   showEdit?: boolean;
   approved: boolean;
+  /** Which action (if any) is currently in flight for this module. */
+  pendingAction?: ModuleAction | null;
 }) {
+  const approving = pendingAction === "approve";
+  const anyPending = pendingAction !== null;
   return (
     <CardFooter className="flex flex-wrap gap-2 border-t pt-4">
       {showEdit && (
@@ -100,6 +105,7 @@ function ModuleFooter({
           variant="outline"
           size="sm"
           onClick={() => onAction(module, "edit")}
+          disabled={anyPending}
         >
           Edit
         </Button>
@@ -108,6 +114,7 @@ function ModuleFooter({
         variant="outline"
         size="sm"
         onClick={() => onAction(module, "regenerate")}
+        disabled={anyPending}
       >
         Regenerate
       </Button>
@@ -116,9 +123,10 @@ function ModuleFooter({
         size="sm"
         className="ml-auto"
         onClick={() => onAction(module, "approve")}
-        disabled={approved}
+        disabled={approved || anyPending}
       >
-        {approved ? "Approved" : "Approve"}
+        {approving && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+        {approving ? "Approving…" : approved ? "Approved" : "Approve"}
       </Button>
     </CardFooter>
   );
@@ -177,9 +185,11 @@ type WelcomeDmContent = { content: string };
 export function WelcomeDmCard({
   asset,
   onAction,
+  pendingAction = null,
 }: {
   asset: GeneratedAsset;
   onAction: ModuleActionHandler;
+  pendingAction?: ModuleAction | null;
 }) {
   const c = asset.content as WelcomeDmContent;
   const wordCount = c.content.split(/\s+/).filter(Boolean).length;
@@ -196,6 +206,7 @@ export function WelcomeDmCard({
         module="welcome_dm"
         onAction={onAction}
         approved={asset.approved}
+        pendingAction={pendingAction}
       />
     </Card>
   );
@@ -210,9 +221,11 @@ type TransformationContent = { candidates: string[] };
 export function TransformationCard({
   asset,
   onAction,
+  pendingAction = null,
 }: {
   asset: GeneratedAsset;
   onAction: ModuleActionHandler;
+  pendingAction?: ModuleAction | null;
 }) {
   const c = asset.content as TransformationContent;
   return (
@@ -234,6 +247,7 @@ export function TransformationCard({
         module="transformation"
         onAction={onAction}
         approved={asset.approved}
+        pendingAction={pendingAction}
       />
     </Card>
   );
@@ -254,9 +268,11 @@ type AboutUsContent = {
 export function AboutUsCard({
   asset,
   onAction,
+  pendingAction = null,
 }: {
   asset: GeneratedAsset;
   onAction: ModuleActionHandler;
+  pendingAction?: ModuleAction | null;
 }) {
   const c = asset.content as AboutUsContent;
   return (
@@ -293,6 +309,7 @@ export function AboutUsCard({
         module="about_us"
         onAction={onAction}
         approved={asset.approved}
+        pendingAction={pendingAction}
       />
     </Card>
   );
@@ -315,9 +332,11 @@ type StartHereContent = {
 export function StartHereCard({
   asset,
   onAction,
+  pendingAction = null,
 }: {
   asset: GeneratedAsset;
   onAction: ModuleActionHandler;
+  pendingAction?: ModuleAction | null;
 }) {
   const c = asset.content as StartHereContent;
   return (
@@ -385,6 +404,7 @@ export function StartHereCard({
         module="start_here"
         onAction={onAction}
         approved={asset.approved}
+        pendingAction={pendingAction}
       />
     </Card>
   );
@@ -404,13 +424,19 @@ export function CoverCard({
   asset,
   onAction,
   onSelectVariant,
+  pendingAction = null,
+  selectingIndex = null,
 }: {
   asset: GeneratedAsset;
   onAction: ModuleActionHandler;
   onSelectVariant: (index: number) => void;
+  pendingAction?: ModuleAction | null;
+  /** Index of the variant whose select-variant request is in flight, if any. */
+  selectingIndex?: number | null;
 }) {
   const c = asset.content as CoverContent;
   const selected = c.selected_variant_index ?? 0;
+  const variantSelectInFlight = selectingIndex !== null;
   return (
     <Card className="md:col-span-2">
       <ModuleHeader module="cover" approved={asset.approved} />
@@ -418,16 +444,19 @@ export function CoverCard({
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {c.variants.map((v) => {
             const isSelected = v.index === selected;
+            const isSelecting = selectingIndex === v.index;
             return (
               <button
                 type="button"
                 key={v.index}
                 onClick={() => onSelectVariant(v.index)}
+                disabled={variantSelectInFlight}
                 className={cn(
                   "relative overflow-hidden rounded-md border-2 transition",
                   isSelected
                     ? "border-primary"
                     : "border-muted hover:border-muted-foreground/40",
+                  variantSelectInFlight && "cursor-wait",
                 )}
               >
                 <Image
@@ -442,6 +471,11 @@ export function CoverCard({
                     <CheckCircle2 className="h-6 w-6 fill-primary text-primary-foreground" />
                   </span>
                 )}
+                {isSelecting && (
+                  <span className="absolute inset-0 flex items-center justify-center bg-background/60">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                  </span>
+                )}
               </button>
             );
           })}
@@ -452,6 +486,7 @@ export function CoverCard({
         onAction={onAction}
         showEdit={false}
         approved={asset.approved}
+        pendingAction={pendingAction}
       />
     </Card>
   );
