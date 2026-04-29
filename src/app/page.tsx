@@ -12,7 +12,6 @@ import {
 
 export default async function Home() {
   const user = await requireUser();
-
   return (
     <main className="min-h-dvh bg-muted/30 p-4 md:p-8">
       <div className="mx-auto max-w-5xl space-y-6">
@@ -32,7 +31,6 @@ export default async function Home() {
             New community
           </Link>
         </header>
-
         <Card>
           <CardHeader>
             <CardTitle>Get started</CardTitle>

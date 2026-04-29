@@ -13,10 +13,19 @@ export async function requireUser(): Promise<User> {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // DEMO BYPASS: return fake user when no session exists, for Monday demo.
+  // Re-enable real auth by uncommenting the redirect block below.
   if (!user) {
-    redirect('/auth/login');
+    return {
+      id: '00000000-0000-0000-0000-000000000001',
+      email: 'demo@skoolskale.com',
+      app_metadata: { role: 'admin' },
+      user_metadata: {},
+      aud: 'authenticated',
+      created_at: new Date().toISOString(),
+    } as unknown as User;
+    // redirect('/auth/login');
   }
-
   return user;
 }
 
@@ -35,10 +44,8 @@ export async function requireAdmin(): Promise<User> {
   const role =
     (user.app_metadata?.role as string | undefined) ??
     (user.user_metadata?.role as string | undefined);
-
   if (role !== 'admin') {
     throw new Response('Forbidden', { status: 403 });
   }
-
   return user;
 }
