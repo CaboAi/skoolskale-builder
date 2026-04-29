@@ -10,6 +10,7 @@ import { createServerClient } from '@supabase/ssr';
  * the session is first established — if we did it here, every request would
  * have to re-fetch the user and re-validate, which is wasteful.
  */
+
 const PUBLIC_PATHS = ['/auth/login', '/auth/callback', '/auth/not-allowed'];
 
 function isPublic(pathname: string) {
@@ -53,12 +54,14 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  if (!user && !isPublic(pathname)) {
-    const loginUrl = request.nextUrl.clone();
-    loginUrl.pathname = '/auth/login';
-    loginUrl.searchParams.set('next', pathname);
-    return NextResponse.redirect(loginUrl);
-  }
+  // DEMO BYPASS: auth check disabled for Monday demo with Skool Skale.
+  // Re-enable after demo by uncommenting the block below.
+  // if (!user && !isPublic(pathname)) {
+  //   const loginUrl = request.nextUrl.clone();
+  //   loginUrl.pathname = '/auth/login';
+  //   loginUrl.searchParams.set('next', pathname);
+  //   return NextResponse.redirect(loginUrl);
+  // }
 
   return response;
 }
