@@ -83,4 +83,39 @@ ${JSON.stringify(VALID, null, 2)}
     const raw = `<start_here_json>{ not json }</start_here_json>`;
     expect(() => parseOutput(raw)).toThrow(/invalid JSON/);
   });
+
+  // Regression: Sprint 3 live E2E run produced these exact drift shapes.
+  // The fix is in the prompt (explicit JSON skeleton), so the schema
+  // continues to reject these — these tests guard the schema contract.
+  test('rejects step_1_how_to_use with missing sections array', () => {
+    const drift = {
+      ...VALID,
+      step_1_how_to_use: { title: 'How to Use the Community' },
+    };
+    const raw = `<start_here_json>${JSON.stringify(drift)}</start_here_json>`;
+    expect(() => parseOutput(raw)).toThrow(/schema mismatch/);
+  });
+
+  test('rejects step_3_faqs returned as an object instead of array', () => {
+    const drift = {
+      ...VALID,
+      step_3_faqs: {
+        'Where do I start?': 'Head to Classroom.',
+        'Is there an order?': 'No, self-paced.',
+        'Are events recorded?': 'Yes, within 24 hours.',
+        'How do I level up?': 'Engage and earn points.',
+      },
+    };
+    const raw = `<start_here_json>${JSON.stringify(drift)}</start_here_json>`;
+    expect(() => parseOutput(raw)).toThrow(/schema mismatch/);
+  });
+
+  test('rejects step_4_need_assistance returned as a bare string', () => {
+    const drift = {
+      ...VALID,
+      step_4_need_assistance: 'Contact support@example.com if you need help.',
+    };
+    const raw = `<start_here_json>${JSON.stringify(drift)}</start_here_json>`;
+    expect(() => parseOutput(raw)).toThrow(/schema mismatch/);
+  });
 });

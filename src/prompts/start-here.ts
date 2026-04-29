@@ -31,22 +31,54 @@ export type StartHereOutput = z.infer<typeof StartHereSchema>;
 
 export const systemPrompt = `You are a community operations writer. You produce the "Start Here" onboarding document for a Skool community — what members read first.
 
-The output is a 4-step structured document:
-- step_1_how_to_use: titled section explaining the Skool tabs (Community, Classroom, Calendar, etc.) with 3-10 sub-sections.
-- step_2_community_rules: titled section with 3-10 rules (short imperatives).
-- step_3_faqs: 4-10 question/answer pairs. Answers match the creator's tone.
-- step_4_need_assistance: titled section with a template closing line naming the support contact.
+The output is a 4-step structured JSON document. Every field is REQUIRED. Match this exact shape:
 
-Hard rules:
-- Output valid JSON inside <start_here_json>...</start_here_json> tags.
+{
+  "step_1_how_to_use": {
+    "title": "string (1-120 chars, e.g. 'How to Use the Community')",
+    "sections": [
+      { "name": "string (1-80 chars, tab/feature name)", "description": "string (1-400 chars, what's there)" }
+      // 3 to 10 section objects, ALWAYS an array, never an object map
+    ]
+  },
+  "step_2_community_rules": {
+    "title": "string (1-120 chars, e.g. 'Community Rules')",
+    "rules": [
+      "string (3-300 chars, short imperative)"
+      // 3 to 10 rule strings, ALWAYS an array of strings
+    ]
+  },
+  "step_3_faqs": [
+    { "question": "string (3-250 chars)", "answer_template": "string (10-2000 chars)" }
+    // 4 to 10 FAQ objects, ALWAYS an array (NOT an object keyed by question)
+  ],
+  "step_4_need_assistance": {
+    "title": "string (1-120 chars, e.g. 'Need Assistance?')",
+    "template": "string (5-500 chars, closing line that names the support contact)"
+  }
+}
+
+Shape rules (these are the most common drift points — read carefully):
+- step_1_how_to_use is an OBJECT with "title" (string) and "sections" (array of {name, description}). It is NOT a bare array.
+- step_2_community_rules is an OBJECT with "title" (string) and "rules" (array of plain strings). Rules are strings, not objects.
+- step_3_faqs is an ARRAY of objects, each {question, answer_template}. It is NOT an object whose keys are questions.
+- step_4_need_assistance is an OBJECT with "title" (string) and "template" (string). It is NOT a bare string.
+- Every one of the four top-level keys MUST be present. Do not omit any field.
+
+Content rules:
 - Use the creator's tone for rule phrasing and FAQ answers.
-- FAQs must address: where to start, content order, event recordings, leveling up. Additional FAQs are welcome.
-- The step_4 template must reference the creator's support_contact value.
+- step_1 sections explain the Skool tabs (Community, Classroom, Calendar, Networking, Map, Leaderboard, Chat, Events) and any creator-specific features mentioned in the offer breakdown.
+- step_3_faqs MUST address at minimum: where to start, content order, event recordings, leveling up. You may add more relevant FAQs.
+- step_4 template MUST reference the creator's support_contact value (use the literal value from creator context).
 - Do not invent offers, prices, or community features absent from the creator context.
+
+Output rules:
+- Wrap the JSON in <start_here_json>...</start_here_json> tags.
+- No preamble, no commentary, no markdown fences inside the tags.
 
 Respond in this exact format:
 <start_here_json>
-{ ... valid JSON object matching the schema ... }
+{ ...JSON object matching the shape above... }
 </start_here_json>`;
 
 export function buildUserMessage(input: GeneratorInput): string {
@@ -76,6 +108,12 @@ Brand prefs: ${input.creator.brand_prefs || '(none)'}
 ${input.regenerateNote ? `\n<regenerate_note>${input.regenerateNote}</regenerate_note>\n` : ''}
 <task>
 Write the Start Here document in a ${input.creator.tone} tone. Output only the JSON inside the <start_here_json> tags.
+
+Reminder of required shape — all 4 top-level keys must be present:
+- step_1_how_to_use: { title, sections: [...] }       (object, not array)
+- step_2_community_rules: { title, rules: [...] }     (object, not array)
+- step_3_faqs: [ { question, answer_template }, ... ] (array, not object)
+- step_4_need_assistance: { title, template }         (object, not string)
 </task>`;
 }
 
