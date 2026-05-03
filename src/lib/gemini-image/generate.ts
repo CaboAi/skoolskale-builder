@@ -29,8 +29,20 @@ export type GenerateCoverImagesResult = {
 
 type ReferenceImage = { data: string; mimeType: string };
 
+/**
+ * Hard ceiling on a single Gemini image generation. Nano Banana 2 typically
+ * returns in 15-40s; if we're past 90s the call has almost certainly hung
+ * server-side. We'd rather fail fast and let Inngest retry the step than
+ * hold the Vercel function open until it 504s — a 504 wastes the whole
+ * function invocation; an aborted fetch lets Inngest pick up immediately.
+ */
+const GEMINI_CALL_TIMEOUT_MS = 90_000;
+const REFERENCE_FETCH_TIMEOUT_MS = 15_000;
+
 async function fetchReferenceImage(url: string): Promise<ReferenceImage> {
-  const res = await fetch(url);
+  const res = await fetch(url, {
+    signal: AbortSignal.timeout(REFERENCE_FETCH_TIMEOUT_MS),
+  });
   if (!res.ok) {
     throw new Error(
       `[gemini-image] reference fetch failed: ${res.status} ${res.statusText}`,
@@ -39,6 +51,34 @@ async function fetchReferenceImage(url: string): Promise<ReferenceImage> {
   const mimeType = res.headers.get("content-type") ?? "image/jpeg";
   const bytes = Buffer.from(await res.arrayBuffer());
   return { data: bytes.toString("base64"), mimeType };
+}
+
+/**
+ * Race a generateContent call against a timeout. The Google GenAI SDK
+ * doesn't surface AbortSignal cleanly, so we use Promise.race — the SDK
+ * call keeps running in the background, but we throw on the caller side
+ * so Inngest can retry without waiting on the underlying socket.
+ */
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(
+      () =>
+        reject(
+          new Error(`[gemini-image] ${label} exceeded ${ms}ms — retrying`),
+        ),
+      ms,
+    );
+    promise.then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
 }
 
 function extractImage(response: unknown): Buffer {
@@ -89,7 +129,11 @@ export async function generateCoverImages(
   const start = Date.now();
   const images: Buffer[] = [];
   for (let i = 0; i < params.numVariants; i++) {
-    const response = await ai.models.generateContent({ model, contents });
+    const response = await withTimeout(
+      ai.models.generateContent({ model, contents }),
+      GEMINI_CALL_TIMEOUT_MS,
+      `generateContent variant ${i + 1}/${params.numVariants}`,
+    );
     images.push(extractImage(response));
   }
   const durationMs = Date.now() - start;
