@@ -5,7 +5,11 @@ import { db } from "@/lib/db";
 import { generationJobs, generatedAssets } from "@/lib/db/schema";
 import { createServiceClient } from "@/lib/supabase/server";
 import { toCreatorContext } from "@/types/generators";
-import { generateCoverImages } from "@/lib/gemini-image/generate";
+import {
+  generateCoverImages,
+  DEFAULT_MODEL,
+} from "@/lib/gemini-image/generate";
+import { logGeminiImageUsage } from "@/lib/gemini-image/usage";
 import { buildImagePrompt, type CoverStyle } from "@/prompts/cover";
 import {
   createJobRow,
@@ -27,24 +31,23 @@ type CoverEventData = ModuleEventData & {
   styleOverride?: CoverStyle;
 };
 
-type CoverVariant = { url: string; index: number };
+type CoverVariant = { url: string; index: number; durationMs: number };
 
 /**
  * Generate the cover image for a launch package.
  *
- * Flow (mirrors the copy generators but calls Gemini instead of Claude and
- * writes N image variants instead of one parsed text payload):
- *   1. Insert generation_jobs row (status: running)
- *   2. Load creator + launch_package
- *   3. Build image prompt from creator context
- *   4. Call generateCoverImages → N image buffers (logs gemini_image_usage)
- *   5. Upload each buffer to cover-variants bucket, collect public URLs
- *   6. Write one generated_assets row with { variants: [{url, index}] }
- *   7. Mark job done
+ * Steps (each is durable across retries — Inngest persists results, so a
+ * timeout on variant 3 won't re-do variants 1 and 2):
+ *   1. create-job — insert generation_jobs row (status: running)
+ *   2. prepare — load creator, build prompt, return prompt + reference url
+ *   3. variant-1, variant-2, variant-3 — run in parallel; each generates one
+ *      Gemini image and uploads it to cover-variants. Each is its own step,
+ *      so they retry independently.
+ *   4. finalize — write generated_assets, log aggregate Gemini usage, mark
+ *      job done.
  *
  * On 3-retry exhaustion the onFailure handler marks the job 'failed' so the
- * VA sees a surfaceable error. `_factory.ts` can't be reused here because
- * the image path doesn't use the Claude prompt/parse contract.
+ * VA sees a surfaceable error.
  */
 export const generateCover = inngest.createFunction(
   {
@@ -89,56 +92,82 @@ export const generateCover = inngest.createFunction(
       }),
     );
 
-    const assetId = await step.run("run-cover", async () => {
+    const prep = await step.run("prepare", async () => {
       console.log(`${tag} loadCreatorForPackage`);
       const creator = await loadCreatorForPackage({
         packageId: data.packageId,
         userId: data.userId,
       });
       const creatorContext = toCreatorContext(creator);
-
       const prompt = buildImagePrompt({
         creator: creatorContext,
         transformationLine: creatorContext.transformation,
         styleOverride: data.styleOverride,
       });
       console.log(`${tag} prompt built (length=${prompt.length})`);
-
-      console.log(
-        `${tag} calling generateCoverImages (numVariants=${NUM_VARIANTS})`,
-      );
-      const { images, costUsd } = await generateCoverImages({
+      return {
         prompt,
-        referenceImageUrl: creatorContext.creator_photo_url,
-        numVariants: NUM_VARIANTS,
-        packageId: data.packageId,
-        jobId,
-      });
-      console.log(
-        `${tag} Gemini done images=${images.length} costUsd=${costUsd}`,
-      );
+        referenceImageUrl: creatorContext.creator_photo_url ?? null,
+      };
+    });
 
-      const supabase = createServiceClient();
-      const variants: CoverVariant[] = [];
-      for (let i = 0; i < images.length; i++) {
-        const path = `${data.packageId}/variant-${i + 1}.png`;
+    // Each variant gets its own step.run so Inngest persists the URL when it
+    // succeeds. A timeout or transient Gemini error on one variant retries
+    // only that variant — the others stay durable. Promise.all lets the three
+    // run concurrently rather than serially.
+    const variantSteps = Array.from({ length: NUM_VARIANTS }, (_, i) => {
+      const idx = i + 1;
+      return step.run(`variant-${idx}`, async (): Promise<CoverVariant> => {
+        const start = Date.now();
+        console.log(`${tag} variant-${idx} calling Gemini`);
+        const { images } = await generateCoverImages({
+          prompt: prep.prompt,
+          referenceImageUrl: prep.referenceImageUrl ?? undefined,
+          numVariants: 1,
+          packageId: data.packageId,
+          // Intentionally omit jobId — three parallel variants would race on
+          // the gemini_image_usage column. We log aggregated usage once in
+          // the finalize step.
+        });
+
+        const supabase = createServiceClient();
+        const path = `${data.packageId}/variant-${idx}.png`;
         const { error: upErr } = await supabase.storage
           .from(COVER_BUCKET)
-          .upload(path, images[i], {
+          .upload(path, images[0], {
             contentType: "image/png",
             upsert: true,
           });
         if (upErr) {
           throw new Error(
-            `cover upload failed for variant ${i + 1}: ${upErr.message}`,
+            `cover upload failed for variant ${idx}: ${upErr.message}`,
           );
         }
         const { data: pub } = supabase.storage
           .from(COVER_BUCKET)
           .getPublicUrl(path);
-        variants.push({ url: pub.publicUrl, index: i });
-      }
-      console.log(`${tag} uploaded ${variants.length} variants`);
+
+        const durationMs = Date.now() - start;
+        console.log(
+          `${tag} variant-${idx} done url=${pub.publicUrl} ms=${durationMs}`,
+        );
+        return { url: pub.publicUrl, index: i, durationMs };
+      });
+    });
+
+    const variants = (await Promise.all(variantSteps)).sort(
+      (a, b) => a.index - b.index,
+    );
+
+    const assetId = await step.run("finalize", async () => {
+      const totalDurationMs = variants.reduce(
+        (sum, v) => sum + v.durationMs,
+        0,
+      );
+      const persistedVariants = variants.map(({ url, index }) => ({
+        url,
+        index,
+      }));
 
       const [asset] = await db
         .insert(generatedAssets)
@@ -146,13 +175,21 @@ export const generateCover = inngest.createFunction(
           packageId: data.packageId,
           module: "cover",
           version: 1,
-          content: { variants },
+          content: { variants: persistedVariants },
           approved: false,
           editHistory: [],
           createdBy: data.userId,
         })
         .returning({ id: generatedAssets.id });
       console.log(`${tag} asset inserted id=${asset.id}`);
+
+      // Best-effort usage write — logger swallows its own errors.
+      await logGeminiImageUsage({
+        jobId,
+        model: DEFAULT_MODEL,
+        numImages: variants.length,
+        durationMs: totalDurationMs,
+      });
 
       await db
         .update(generationJobs)
