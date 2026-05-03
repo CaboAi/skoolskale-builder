@@ -36,8 +36,8 @@ type ReferenceImage = { data: string; mimeType: string };
  * hold the Vercel function open until it 504s — a 504 wastes the whole
  * function invocation; an aborted fetch lets Inngest pick up immediately.
  */
-const GEMINI_CALL_TIMEOUT_MS = 90_000;
-const REFERENCE_FETCH_TIMEOUT_MS = 15_000;
+const GEMINI_CALL_TIMEOUT_MS = 60_000;
+const REFERENCE_FETCH_TIMEOUT_MS = 10_000;
 
 async function fetchReferenceImage(url: string): Promise<ReferenceImage> {
   const res = await fetch(url, {

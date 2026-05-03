@@ -111,47 +111,74 @@ export const generateCover = inngest.createFunction(
       };
     });
 
-    // Each variant gets its own step.run so Inngest persists the URL when it
-    // succeeds. A timeout or transient Gemini error on one variant retries
-    // only that variant — the others stay durable. Promise.all lets the three
-    // run concurrently rather than serially.
+    // Max attempts per variant when Gemini hangs or returns a transient
+    // error. We retry inline (inside the same step.run) instead of relying
+    // on Inngest's function-level retry, because Inngest applies an
+    // exponential backoff that can add 1-2 min of dead time. Inline retry
+    // reuses the warm Vercel function and starts immediately.
+    const VARIANT_INLINE_RETRIES = 2;
+
+    // Each variant gets its own step.run so a successful URL is persisted
+    // across function-level retries. Promise.all runs all three concurrently.
     const variantSteps = Array.from({ length: NUM_VARIANTS }, (_, i) => {
       const idx = i + 1;
       return step.run(`variant-${idx}`, async (): Promise<CoverVariant> => {
         const start = Date.now();
-        console.log(`${tag} variant-${idx} calling Gemini`);
-        const { images } = await generateCoverImages({
-          prompt: prep.prompt,
-          referenceImageUrl: prep.referenceImageUrl ?? undefined,
-          numVariants: 1,
-          packageId: data.packageId,
-          // Intentionally omit jobId — three parallel variants would race on
-          // the gemini_image_usage column. We log aggregated usage once in
-          // the finalize step.
-        });
 
-        const supabase = createServiceClient();
-        const path = `${data.packageId}/variant-${idx}.png`;
-        const { error: upErr } = await supabase.storage
-          .from(COVER_BUCKET)
-          .upload(path, images[0], {
-            contentType: "image/png",
-            upsert: true,
-          });
-        if (upErr) {
-          throw new Error(
-            `cover upload failed for variant ${idx}: ${upErr.message}`,
-          );
+        let lastErr: unknown;
+        for (let attempt = 1; attempt <= VARIANT_INLINE_RETRIES; attempt++) {
+          try {
+            console.log(
+              `${tag} variant-${idx} calling Gemini (attempt ${attempt}/${VARIANT_INLINE_RETRIES})`,
+            );
+            const { images } = await generateCoverImages({
+              prompt: prep.prompt,
+              referenceImageUrl: prep.referenceImageUrl ?? undefined,
+              numVariants: 1,
+              packageId: data.packageId,
+              // Intentionally omit jobId — three parallel variants would
+              // race on gemini_image_usage. Aggregate usage is logged once
+              // in the finalize step.
+            });
+
+            const supabase = createServiceClient();
+            const path = `${data.packageId}/variant-${idx}.png`;
+            const { error: upErr } = await supabase.storage
+              .from(COVER_BUCKET)
+              .upload(path, images[0], {
+                contentType: "image/png",
+                upsert: true,
+              });
+            if (upErr) {
+              throw new Error(
+                `cover upload failed for variant ${idx}: ${upErr.message}`,
+              );
+            }
+            const { data: pub } = supabase.storage
+              .from(COVER_BUCKET)
+              .getPublicUrl(path);
+
+            const durationMs = Date.now() - start;
+            console.log(
+              `${tag} variant-${idx} done url=${pub.publicUrl} ms=${durationMs} attempts=${attempt}`,
+            );
+            return { url: pub.publicUrl, index: i, durationMs };
+          } catch (err) {
+            lastErr = err;
+            const msg = err instanceof Error ? err.message : String(err);
+            console.warn(
+              `${tag} variant-${idx} attempt ${attempt} failed: ${msg}`,
+            );
+            // Loop and try again immediately. No backoff — the most common
+            // cause is a hung Gemini socket that's already been aborted.
+          }
         }
-        const { data: pub } = supabase.storage
-          .from(COVER_BUCKET)
-          .getPublicUrl(path);
 
-        const durationMs = Date.now() - start;
-        console.log(
-          `${tag} variant-${idx} done url=${pub.publicUrl} ms=${durationMs}`,
-        );
-        return { url: pub.publicUrl, index: i, durationMs };
+        // All inline attempts failed. Throw so Inngest's function-level
+        // retry can take a fresh stab from a clean function instance.
+        throw lastErr instanceof Error
+          ? lastErr
+          : new Error(`variant-${idx} exhausted inline retries`);
       });
     });
 
