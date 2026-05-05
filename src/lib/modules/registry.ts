@@ -121,9 +121,14 @@ export const MODULE_KEYS = Object.keys(MODULE_REGISTRY) as [
   ...ModuleKey[],
 ];
 
-export const MODULE_LABELS: Record<ModuleKey, string> = Object.fromEntries(
+/**
+ * Loose `Record<string, string>` type for back-compat with callers that
+ * index by `asset.module` (typed as `string` in the DB row). Values are
+ * still keyed by `ModuleKey` at the data level.
+ */
+export const MODULE_LABELS: Record<string, string> = Object.fromEntries(
   Object.values(MODULE_REGISTRY).map((m) => [m.key, m.label]),
-) as Record<ModuleKey, string>;
+);
 
 /** Modules included by default, excluding the special-cased cover module. */
 export const COPY_MODULE_KEYS = MODULE_KEYS.filter(

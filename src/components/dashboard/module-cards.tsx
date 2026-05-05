@@ -1,5 +1,6 @@
 "use client";
 
+import type { ComponentType } from "react";
 import Image from "next/image";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import {
@@ -20,25 +21,16 @@ import {
 } from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
 import type { GeneratedAsset } from "@/lib/db/schema";
+import {
+  MODULE_LABELS,
+  type CardVariant,
+} from "@/lib/modules/registry";
 
 /* -------------------------------------------------------------------------- */
-/* Module → human label                                                       */
+/* Module → human label (re-exported from registry for back-compat)           */
 /* -------------------------------------------------------------------------- */
 
-export const COPY_MODULES = [
-  "welcome_dm",
-  "transformation",
-  "about_us",
-  "start_here",
-] as const;
-
-export const MODULE_LABELS: Record<string, string> = {
-  cover: "Community Cover",
-  welcome_dm: "Welcome DM",
-  transformation: "Transformation Line",
-  about_us: "About Us",
-  start_here: "Start Here",
-};
+export { MODULE_LABELS };
 
 /* -------------------------------------------------------------------------- */
 /* Action callbacks — placeholders for 5.3                                    */
@@ -177,12 +169,15 @@ export function CoverSkeleton() {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Welcome DM                                                                  */
+/* Simple-text card — renders welcome_dm (single body) and transformation     */
+/* (numbered candidate list). Branches on asset.module since the two shapes   */
+/* are stable and the registry maps both to cardVariant: "simple-text".       */
 /* -------------------------------------------------------------------------- */
 
 type WelcomeDmContent = { content: string };
+type TransformationContent = { candidates: string[] };
 
-export function WelcomeDmCard({
+export function TextModuleCard({
   asset,
   onAction,
   pendingAction = null,
@@ -191,11 +186,39 @@ export function WelcomeDmCard({
   onAction: ModuleActionHandler;
   pendingAction?: ModuleAction | null;
 }) {
+  const moduleName = asset.module;
+  if (moduleName === "transformation") {
+    const c = asset.content as TransformationContent;
+    return (
+      <Card>
+        <ModuleHeader module={moduleName} approved={asset.approved} />
+        <CardContent>
+          <ol className="divide-y rounded-md border">
+            {c.candidates.map((line, i) => (
+              <li key={i} className="flex gap-3 px-3 py-2 text-sm">
+                <span className="font-mono text-xs text-muted-foreground">
+                  {i + 1}.
+                </span>
+                <span>{line}</span>
+              </li>
+            ))}
+          </ol>
+        </CardContent>
+        <ModuleFooter
+          module={moduleName}
+          onAction={onAction}
+          approved={asset.approved}
+          pendingAction={pendingAction}
+        />
+      </Card>
+    );
+  }
+  // Default: welcome_dm-shaped { content: string } — preformatted body + word count.
   const c = asset.content as WelcomeDmContent;
   const wordCount = c.content.split(/\s+/).filter(Boolean).length;
   return (
     <Card>
-      <ModuleHeader module="welcome_dm" approved={asset.approved} />
+      <ModuleHeader module={moduleName} approved={asset.approved} />
       <CardContent className="space-y-3">
         <pre className="whitespace-pre-wrap rounded-md bg-muted p-3 font-mono text-xs leading-relaxed">
           {c.content}
@@ -203,48 +226,7 @@ export function WelcomeDmCard({
         <Badge variant="secondary">{wordCount} words</Badge>
       </CardContent>
       <ModuleFooter
-        module="welcome_dm"
-        onAction={onAction}
-        approved={asset.approved}
-        pendingAction={pendingAction}
-      />
-    </Card>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/* Transformation                                                              */
-/* -------------------------------------------------------------------------- */
-
-type TransformationContent = { candidates: string[] };
-
-export function TransformationCard({
-  asset,
-  onAction,
-  pendingAction = null,
-}: {
-  asset: GeneratedAsset;
-  onAction: ModuleActionHandler;
-  pendingAction?: ModuleAction | null;
-}) {
-  const c = asset.content as TransformationContent;
-  return (
-    <Card>
-      <ModuleHeader module="transformation" approved={asset.approved} />
-      <CardContent>
-        <ol className="divide-y rounded-md border">
-          {c.candidates.map((line, i) => (
-            <li key={i} className="flex gap-3 px-3 py-2 text-sm">
-              <span className="font-mono text-xs text-muted-foreground">
-                {i + 1}.
-              </span>
-              <span>{line}</span>
-            </li>
-          ))}
-        </ol>
-      </CardContent>
-      <ModuleFooter
-        module="transformation"
+        module={moduleName}
         onAction={onAction}
         approved={asset.approved}
         pendingAction={pendingAction}
@@ -491,3 +473,33 @@ export function CoverCard({
     </Card>
   );
 }
+
+/* -------------------------------------------------------------------------- */
+/* CARD_COMPONENTS — registry-driven card dispatch                            */
+/*                                                                            */
+/* PR #3 wires the four current cardVariant values. Forward-declared values   */
+/* (image, leaderboard, repeater, chips) intentionally omitted — the          */
+/* dispatcher in PackageDashboard throws on unwired variants so PR #5 fails   */
+/* loudly rather than silently rendering nothing.                             */
+/* -------------------------------------------------------------------------- */
+
+export type GenericModuleCardProps = {
+  asset: GeneratedAsset;
+  onAction: ModuleActionHandler;
+  pendingAction?: ModuleAction | null;
+};
+
+export const CARD_COMPONENTS: Partial<
+  Record<CardVariant, ComponentType<GenericModuleCardProps>>
+> = {
+  "simple-text": TextModuleCard,
+  "about-us": AboutUsCard,
+  "start-here": StartHereCard,
+  // cover is rendered separately in PackageDashboard because it carries
+  // unique props (onSelectVariant, selectingIndex). Keeping it out of the
+  // generic dispatcher keeps cover-specific concerns from leaking.
+};
+
+// Re-exports kept so the rest of the app's imports (PackageDashboard,
+// action-dialogs) compile without code churn.
+export type { ModuleKey } from "@/lib/modules/registry";
