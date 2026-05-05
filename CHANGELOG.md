@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Refactor
+- Module registry pattern; all modules configured in src/lib/modules/registry.ts instead of hardcoded switch statements.
+
 ### Planned
 - Classroom section: covers, titles, descriptions per classroom
 - Leaderboard name generator
