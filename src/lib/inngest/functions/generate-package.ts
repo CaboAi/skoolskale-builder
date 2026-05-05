@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { inngest } from "@/lib/inngest/client";
 import { db } from "@/lib/db";
 import { launchPackages } from "@/lib/db/schema";
+import { MODULE_REGISTRY, type ModuleKey } from "@/lib/modules/registry";
 import { generateWelcomeDm } from "./generate-welcome-dm";
 import { generateTransformation } from "./generate-transformation";
 import { generateAboutUs } from "./generate-about-us";
@@ -14,9 +15,30 @@ type PackageEventData = {
 };
 
 /**
- * Orchestrator: fans out the 4 copy module generations in parallel using
- * step.invoke. Each sub-function owns its own retry policy and failure
- * accounting; the orchestrator just cares whether they all completed.
+ * Module key → Inngest sub-function. Lives here (not in the registry) so
+ * `registry.ts` stays free of `server-only` imports and can be bundled into
+ * the client.
+ */
+const FUNCTIONS: Record<
+  ModuleKey,
+  | typeof generateWelcomeDm
+  | typeof generateTransformation
+  | typeof generateAboutUs
+  | typeof generateStartHere
+  | typeof generateCover
+> = {
+  welcome_dm: generateWelcomeDm,
+  transformation: generateTransformation,
+  about_us: generateAboutUs,
+  start_here: generateStartHere,
+  cover: generateCover,
+};
+
+/**
+ * Orchestrator: fans out every `includedByDefault` module generation in
+ * parallel using step.invoke. Each sub-function owns its own retry policy
+ * and failure accounting; the orchestrator just cares whether they all
+ * completed.
  *
  * On completion the launch_packages row is bumped to status='review'.
  * If any sub-invocation fails terminally, status goes to 'draft' (VA can
@@ -41,30 +63,23 @@ export const generatePackage = inngest.createFunction(
   async ({ event, step }) => {
     const data = event.data as PackageEventData;
 
-    // Fan-out via step.invoke — runs the 5 sub-functions in parallel.
-    const [welcome, transformation, aboutUs, startHere, cover] =
-      await Promise.all([
-        step.invoke("welcome-dm", {
-          function: generateWelcomeDm,
+    // Fan-out via step.invoke — every default-on module runs in parallel.
+    // Step IDs use kebab-case (welcome-dm, about-us, etc.) to preserve
+    // existing Inngest run history; the registry uses snake_case keys.
+    const modulesToRun = Object.values(MODULE_REGISTRY).filter(
+      (m) => m.includedByDefault,
+    );
+    const results = await Promise.all(
+      modulesToRun.map((m) =>
+        step.invoke(m.key.replace(/_/g, "-"), {
+          function: FUNCTIONS[m.key],
           data: { packageId: data.packageId, userId: data.userId },
         }),
-        step.invoke("transformation", {
-          function: generateTransformation,
-          data: { packageId: data.packageId, userId: data.userId },
-        }),
-        step.invoke("about-us", {
-          function: generateAboutUs,
-          data: { packageId: data.packageId, userId: data.userId },
-        }),
-        step.invoke("start-here", {
-          function: generateStartHere,
-          data: { packageId: data.packageId, userId: data.userId },
-        }),
-        step.invoke("cover", {
-          function: generateCover,
-          data: { packageId: data.packageId, userId: data.userId },
-        }),
-      ]);
+      ),
+    );
+    const byKey = Object.fromEntries(
+      modulesToRun.map((m, i) => [m.key, results[i]]),
+    ) as Record<ModuleKey, (typeof results)[number]>;
 
     await step.run("mark-package-ready", async () => {
       await db
@@ -75,11 +90,11 @@ export const generatePackage = inngest.createFunction(
 
     return {
       packageId: data.packageId,
-      welcome,
-      transformation,
-      aboutUs,
-      startHere,
-      cover,
+      welcome: byKey.welcome_dm,
+      transformation: byKey.transformation,
+      aboutUs: byKey.about_us,
+      startHere: byKey.start_here,
+      cover: byKey.cover,
     };
   },
 );
