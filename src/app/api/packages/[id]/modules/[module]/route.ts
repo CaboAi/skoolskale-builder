@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { and, desc, eq } from "drizzle-orm";
-import { z, type ZodSchema } from "zod";
+import { z } from "zod";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import {
@@ -9,10 +9,8 @@ import {
   type GeneratedAsset,
 } from "@/lib/db/schema";
 import { logAudit } from "@/lib/audit";
-import { WelcomeDmSchema } from "@/prompts/welcome-dm";
-import { TransformationSchema } from "@/prompts/transformation";
-import { AboutUsSchema } from "@/prompts/about-us";
-import { StartHereSchema } from "@/prompts/start-here";
+import { MODULE_REGISTRY, MODULE_KEYS } from "@/lib/modules/registry";
+import { CoverPatchSchema } from "@/prompts/cover";
 import type { ApiError } from "@/lib/validation";
 
 /**
@@ -30,26 +28,7 @@ import type { ApiError } from "@/lib/validation";
 
 const UuidParam = z.string().uuid();
 
-const ModuleParam = z.enum([
-  "welcome_dm",
-  "transformation",
-  "about_us",
-  "start_here",
-  "cover",
-]);
-
-type ModuleName = z.infer<typeof ModuleParam>;
-
-const COPY_SCHEMAS: Record<Exclude<ModuleName, "cover">, ZodSchema> = {
-  welcome_dm: WelcomeDmSchema,
-  transformation: TransformationSchema,
-  about_us: AboutUsSchema,
-  start_here: StartHereSchema,
-};
-
-const CoverPatchSchema = z.object({
-  selected_variant_index: z.number().int().min(0),
-});
+const ModuleParam = z.enum(MODULE_KEYS);
 
 const PatchSchema = z.object({
   content: z.unknown(),
@@ -158,7 +137,7 @@ export async function PATCH(req: NextRequest, { params }: RouteCtx) {
     }
     nextContent = { ...current, selected_variant_index: idx };
   } else {
-    const schema = COPY_SCHEMAS[modR.data];
+    const schema = MODULE_REGISTRY[modR.data].outputSchema;
     const result = schema.safeParse(bodyR.data.content);
     if (!result.success) {
       return NextResponse.json<ApiError>(

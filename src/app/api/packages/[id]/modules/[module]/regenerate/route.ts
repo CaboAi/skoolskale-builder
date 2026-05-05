@@ -7,6 +7,7 @@ import { launchPackages } from "@/lib/db/schema";
 import { inngest } from "@/lib/inngest/client";
 import { validateBody, ValidationError, type ApiError } from "@/lib/validation";
 import { logAudit } from "@/lib/audit";
+import { MODULE_KEYS } from "@/lib/modules/registry";
 
 /**
  * POST /api/packages/[id]/modules/[module]/regenerate
@@ -18,13 +19,7 @@ import { logAudit } from "@/lib/audit";
 
 const UuidParam = z.string().uuid();
 
-const ModuleParam = z.enum([
-  "welcome_dm",
-  "transformation",
-  "about_us",
-  "start_here",
-  "cover",
-]);
+const ModuleParam = z.enum(MODULE_KEYS);
 
 const RegenerateSchema = z
   .object({
