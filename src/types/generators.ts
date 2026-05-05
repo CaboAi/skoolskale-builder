@@ -6,6 +6,7 @@
  */
 import type { Creator } from "@/lib/db/schema";
 import type { CreatorIntake } from "@/types/schemas";
+import type { ModuleKey } from "@/lib/modules/registry";
 
 /**
  * The creator-level context every generator receives. This is a safe subset
@@ -75,12 +76,7 @@ export type GeneratorOutput<T> = {
   content: T;
 };
 
-export type GeneratorModule =
-  | "welcome_dm"
-  | "transformation"
-  | "about_us"
-  | "start_here"
-  | "cover";
+export type GeneratorModule = ModuleKey;
 
 /**
  * Convenience: build a CreatorContext from a DB Creator row. Strips
