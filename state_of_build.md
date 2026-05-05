@@ -66,7 +66,7 @@ Also during the session: discovered `GOOGLE_AI_API_KEY` in Vercel env vars was e
 | Production deploy (latest) | ✅ live |
 | Cover gen end-to-end | ✅ verified (package `0ba5c6de-...`, 21:21:43 UTC) |
 | All 4 copy modules end-to-end | ✅ verified same run |
-| Gemini API key + project quota | ✅ Skool Skale key, paid tier, $0.55 balance |
+| Gemini API key + project quota | ✅ Skool Skale key, paid tier |
 | Anthropic API key | ✅ working (Claude calls succeed) |
 | Inngest event delivery | ✅ working |
 | Supabase RLS on all tables | Assumed pass — no new tables since last review |
@@ -78,8 +78,8 @@ Also during the session: discovered `GOOGLE_AI_API_KEY` in Vercel env vars was e
 ### 1. Demo-mode auth bypass is still on (HIGH)
 Three commits (`eed3533`, `fc0a033`, `199a170`) bypass `requireUser` for the Monday demo. **Roll back or gate by env var before any non-demo deployment.** Currently anyone hitting the URL is auto-signed in as the demo user.
 
-### 2. Cover image-gen provider will swap to Ideogram at handover (MEDIUM)
-Client wants Ideogram, not Gemini. Agency's `GOOGLE_AI_API_KEY` and `ANTHROPIC_API_KEY` will be removed at handover; client supplies their own. **Action when next touching cover code:** abstract the provider behind an `ImageGenProvider` interface so the swap is a config flip, not a rewrite. Saved as a project memory.
+### 2. Cover image-gen provider may swap at handover (MEDIUM)
+Imagine Art was researched as an alternate image-gen provider and deferred. Agency's `GOOGLE_AI_API_KEY` and `ANTHROPIC_API_KEY` will be removed at handover; client supplies their own. If a swap is needed, the work is contained to `src/lib/gemini-image/` and `src/lib/inngest/functions/generate-cover.ts`.
 
 ### 3. Regenerate dialog note is collected but ignored for cover (LOW)
 Pressing **Regenerate** on the Community Cover module opens the standard dialog asking "What would you like changed?" The note is sent to the API and into the Inngest event as `regenerateNote` — but `generate-cover.ts` does not pass it to `buildImagePrompt`. Net effect: the note has no influence on cover output. Mentioned in `~/.claude/plans/i-forget-if-i-graceful-shell.md`. Plan for a dedicated cover prompt-editor UI was deferred until post-demo.
@@ -94,21 +94,21 @@ With 3 parallel calls per package, the preview model's RPM cap occasionally thro
 Generators log to `console`. Inngest's failure handler marks the job row `failed`, but VAs only see the surface state. A Sentry hook (or an Inngest observability integration) would surface these earlier.
 
 ### 7. No Canva integration yet
-PRD Phase 3. Out of scope for tomorrow's demo; will be the next sprint.
+Out of scope for tomorrow's demo; will be the next sprint.
 
 ### 8. No pattern library admin UI yet
-PRD Phase 4. Out of scope for tomorrow's demo.
+Out of scope for tomorrow's demo.
 
 ---
 
-## Phase status against PRD
+## Build scope status
 
-| Phase | PRD Status | Actual |
-|---|---|---|
-| Phase 1 — Foundation + Copy Engine | Build-ready | **✅ Shipped** (4 modules, dashboard, intake) |
-| Phase 2 — Visual Engine | Build-ready | **🟡 Partial** — cover only (no icon, no Start Here thumbnail, no Join Now banner) |
-| Phase 3 — Canva Integration | Build-ready | **❌ Not started** |
-| Phase 4 — Pattern Library Intelligence | Build-ready | **❌ Not started** (read-only fetch from DB exists) |
+| Scope | Status |
+|---|---|
+| Foundation + Copy Engine | **✅ Shipped** (4 modules, dashboard, intake) |
+| Visual Engine | **🟡 Partial** — cover only (no icon, no Start Here thumbnail, no Join Now banner) |
+| Canva Integration | **❌ Not started** |
+| Pattern Library Intelligence | **❌ Not started** (read-only fetch from DB exists) |
 
 ---
 
