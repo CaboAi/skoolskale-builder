@@ -97,6 +97,7 @@ describe("generateCoverImages", () => {
 
     expect(globalThis.fetch).toHaveBeenCalledWith(
       "https://example.test/photo.jpg",
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
     const call = generateContentMock.mock.calls[0][0];
     expect(call.model).toBe("gemini-3.1-flash-image-preview");
