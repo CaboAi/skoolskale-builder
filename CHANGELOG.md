@@ -15,7 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - VA deployment checklist visible during copy-paste mode
 
 ### Planned for 1.1.0 — Pre-handover hygiene
-- Auth bypass gating via `NEXT_PUBLIC_DEMO_MODE` env var
+- Production safety gate in `src/lib/env.ts`: reject `DEMO_MODE` truthy when `VERCEL_ENV=production`
+- Test coverage for the existing demo-mode bypass in `proxy.ts`, `demo-session.ts`, and the env schema
 - Migrate cover asset URLs from public to signed
 - Introduce `ImageGenProvider` abstraction (Gemini → Ideogram swap as config flip)
 - Sentry breadcrumbs on cover generation failures

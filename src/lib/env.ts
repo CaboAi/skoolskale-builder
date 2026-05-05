@@ -45,6 +45,11 @@ const serverSchema = z
     DEMO_USER_EMAIL: z.string().email().optional(),
     DEMO_USER_ID: z.string().uuid().optional(),
 
+    // Vercel runtime environment ('production' | 'preview' | 'development').
+    // Injected automatically by Vercel; undefined locally. Used by superRefine
+    // to forbid DEMO_MODE on production deploys.
+    VERCEL_ENV: z.enum(['production', 'preview', 'development']).optional(),
+
     // Deferred (optional for now)
     SENTRY_DSN: z.string().url().optional(),
     NEXT_PUBLIC_POSTHOG_KEY: z.string().optional(),
@@ -67,6 +72,15 @@ const serverSchema = z
           code: z.ZodIssueCode.custom,
           path: ['DEMO_USER_ID'],
           message: 'DEMO_USER_ID is required when DEMO_MODE is enabled',
+        });
+      }
+      if (data.VERCEL_ENV === 'production') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['DEMO_MODE'],
+          message:
+            'DEMO_MODE must not be truthy when VERCEL_ENV=production. ' +
+            'Remove or set to false in your Vercel production environment variables.',
         });
       }
     }
