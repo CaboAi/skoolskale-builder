@@ -96,6 +96,11 @@ export async function PATCH(req: NextRequest, { params }: RouteCtx) {
   if (body.support_contact !== undefined) updates.supportContact = body.support_contact;
   if (body.brand_prefs !== undefined) updates.brandPrefs = body.brand_prefs;
   if (body.creator_photo_url !== undefined) updates.creatorPhotoUrl = body.creator_photo_url;
+  if (body.classroom_intake !== undefined) updates.classroomIntake = body.classroom_intake;
+  if (body.calendar_intake !== undefined) updates.calendarIntake = body.calendar_intake;
+  if (body.leaderboard_levels !== undefined) updates.leaderboardLevels = body.leaderboard_levels;
+  if (body.categories !== undefined) updates.categories = body.categories;
+  if (body.discovery_keywords !== undefined) updates.discoveryKeywords = body.discovery_keywords;
 
   const [row] = await db
     .update(creators)
