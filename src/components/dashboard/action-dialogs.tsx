@@ -11,10 +11,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import type { GeneratedAsset } from "@/lib/db/schema";
 import { MODULE_LABELS } from "./module-cards";
+import { RepeaterField } from "@/components/wizard/RepeaterField";
+import { KeywordChipField } from "@/components/wizard/KeywordChipField";
 
 /* -------------------------------------------------------------------------- */
 /* Regenerate                                                                  */
@@ -91,6 +94,17 @@ export function RegenerateDialog({
 
 type WelcomeDmContent = { content: string };
 type TransformationContent = { candidates: string[] };
+type TitleDescriptionContent = { title: string; description: string };
+type LeaderboardContent = { levels: string[] };
+type CategoriesContent = {
+  categories: { name: string; description: string }[];
+};
+type DiscoverySeoContent = { keywords: string[] };
+
+const TITLE_DESCRIPTION_LIMITS = {
+  classroom: { titleMax: 50, descriptionMax: 500 },
+  calendar: { titleMax: 30, descriptionMax: 300 },
+} as const;
 
 function EditFormShell({
   description,
@@ -188,6 +202,58 @@ function EditDialogBody({
   if (module === "transformation") {
     return (
       <TransformationEditForm
+        asset={asset}
+        onSave={onSave}
+        onCancel={onCancel}
+        saving={saving}
+      />
+    );
+  }
+  if (module === "classroom") {
+    return (
+      <TitleDescriptionEditForm
+        kind="classroom"
+        asset={asset}
+        onSave={onSave}
+        onCancel={onCancel}
+        saving={saving}
+      />
+    );
+  }
+  if (module === "calendar") {
+    return (
+      <TitleDescriptionEditForm
+        kind="calendar"
+        asset={asset}
+        onSave={onSave}
+        onCancel={onCancel}
+        saving={saving}
+      />
+    );
+  }
+  if (module === "leaderboard") {
+    return (
+      <LeaderboardEditForm
+        asset={asset}
+        onSave={onSave}
+        onCancel={onCancel}
+        saving={saving}
+      />
+    );
+  }
+  if (module === "categories") {
+    return (
+      <CategoriesEditForm
+        asset={asset}
+        onSave={onSave}
+        onCancel={onCancel}
+        saving={saving}
+      />
+    );
+  }
+  if (module === "discovery_seo") {
+    return (
+      <DiscoverySeoEditForm
         asset={asset}
         onSave={onSave}
         onCancel={onCancel}
@@ -324,6 +390,168 @@ function JsonEditForm({
       {parseErr && (
         <p className="text-sm text-destructive">JSON parse error: {parseErr}</p>
       )}
+    </EditFormShell>
+  );
+}
+
+/* ---------- Classroom / Calendar — title + description ---------- */
+
+function TitleDescriptionEditForm({
+  kind,
+  asset,
+  onSave,
+  onCancel,
+  saving,
+}: {
+  kind: "classroom" | "calendar";
+  asset: GeneratedAsset;
+  onSave: (content: unknown) => void;
+  onCancel: () => void;
+  saving: boolean;
+}) {
+  const initial = asset.content as TitleDescriptionContent;
+  const [title, setTitle] = useState(initial.title);
+  const [description, setDescription] = useState(initial.description);
+  const limits = TITLE_DESCRIPTION_LIMITS[kind];
+  return (
+    <EditFormShell
+      description={`${MODULE_LABELS[kind]} title and description.`}
+      saving={saving}
+      onSave={() => onSave({ title, description })}
+      onCancel={onCancel}
+    >
+      <div className="space-y-1">
+        <Label htmlFor="td-title">
+          Title{" "}
+          <span className="text-xs text-muted-foreground">
+            (max {limits.titleMax})
+          </span>
+        </Label>
+        <Input
+          id="td-title"
+          value={title}
+          maxLength={limits.titleMax}
+          onChange={(e) => setTitle(e.target.value)}
+        />
+      </div>
+      <div className="space-y-1">
+        <Label htmlFor="td-description">
+          Description{" "}
+          <span className="text-xs text-muted-foreground">
+            (max {limits.descriptionMax})
+          </span>
+        </Label>
+        <Textarea
+          id="td-description"
+          rows={5}
+          value={description}
+          maxLength={limits.descriptionMax}
+          onChange={(e) => setDescription(e.target.value)}
+        />
+      </div>
+    </EditFormShell>
+  );
+}
+
+/* ---------- Leaderboard — 9 level names ---------- */
+
+function LeaderboardEditForm({
+  asset,
+  onSave,
+  onCancel,
+  saving,
+}: {
+  asset: GeneratedAsset;
+  onSave: (content: unknown) => void;
+  onCancel: () => void;
+  saving: boolean;
+}) {
+  const initial = (asset.content as LeaderboardContent).levels;
+  const [levels, setLevels] = useState<string[]>(initial.slice(0, 9));
+  return (
+    <EditFormShell
+      description="Nine leaderboard level names, in order from least- to most-advanced."
+      saving={saving}
+      onSave={() => onSave({ levels })}
+      onCancel={onCancel}
+    >
+      <RepeaterField
+        variant="single"
+        legend="Levels"
+        rowLabel={(i) => `Level ${i + 1}`}
+        values={levels}
+        onChange={setLevels}
+      />
+    </EditFormShell>
+  );
+}
+
+/* ---------- Categories — 3 named blocks ---------- */
+
+function CategoriesEditForm({
+  asset,
+  onSave,
+  onCancel,
+  saving,
+}: {
+  asset: GeneratedAsset;
+  onSave: (content: unknown) => void;
+  onCancel: () => void;
+  saving: boolean;
+}) {
+  const initial = (asset.content as CategoriesContent).categories;
+  const [rows, setRows] = useState<
+    { name: string; description: string }[]
+  >(initial.slice(0, 3));
+  return (
+    <EditFormShell
+      description="Three category names with descriptions (introduce, share-wins, creator-advice slots)."
+      saving={saving}
+      onSave={() => onSave({ categories: rows })}
+      onCancel={onCancel}
+    >
+      <RepeaterField
+        variant="grouped"
+        legend="Categories"
+        rowLabel={(i) => `Category ${i + 1}`}
+        values={rows}
+        onChange={setRows}
+        namePlaceholder="Category name"
+        descriptionPlaceholder="One-line description"
+      />
+    </EditFormShell>
+  );
+}
+
+/* ---------- Discovery SEO — keyword chips ---------- */
+
+function DiscoverySeoEditForm({
+  asset,
+  onSave,
+  onCancel,
+  saving,
+}: {
+  asset: GeneratedAsset;
+  onSave: (content: unknown) => void;
+  onCancel: () => void;
+  saving: boolean;
+}) {
+  const initial = (asset.content as DiscoverySeoContent).keywords;
+  const [keywords, setKeywords] = useState<string[]>(initial);
+  return (
+    <EditFormShell
+      description="Up to 11 keywords surfaced on Skool's Discovery search."
+      saving={saving}
+      onSave={() => onSave({ keywords })}
+      onCancel={onCancel}
+    >
+      <KeywordChipField
+        id="discovery-seo-edit"
+        label="Keywords"
+        values={keywords}
+        onChange={setKeywords}
+        max={11}
+      />
     </EditFormShell>
   );
 }

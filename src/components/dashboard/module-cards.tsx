@@ -176,6 +176,7 @@ export function CoverSkeleton() {
 
 type WelcomeDmContent = { content: string };
 type TransformationContent = { candidates: string[] };
+type TitleDescriptionContent = { title: string; description: string };
 
 export function TextModuleCard({
   asset,
@@ -203,6 +204,26 @@ export function TextModuleCard({
               </li>
             ))}
           </ol>
+        </CardContent>
+        <ModuleFooter
+          module={moduleName}
+          onAction={onAction}
+          approved={asset.approved}
+          pendingAction={pendingAction}
+        />
+      </Card>
+    );
+  }
+  if (moduleName === "classroom" || moduleName === "calendar") {
+    const c = asset.content as TitleDescriptionContent;
+    return (
+      <Card>
+        <ModuleHeader module={moduleName} approved={asset.approved} />
+        <CardContent className="space-y-3">
+          <p className="text-base font-semibold leading-tight">{c.title}</p>
+          <p className="whitespace-pre-wrap text-sm text-muted-foreground">
+            {c.description}
+          </p>
         </CardContent>
         <ModuleFooter
           module={moduleName}
@@ -475,12 +496,130 @@ export function CoverCard({
 }
 
 /* -------------------------------------------------------------------------- */
+/* Leaderboard — 9-level rank list                                            */
+/* -------------------------------------------------------------------------- */
+
+type LeaderboardContent = { levels: string[] };
+
+export function LeaderboardCard({
+  asset,
+  onAction,
+  pendingAction = null,
+}: {
+  asset: GeneratedAsset;
+  onAction: ModuleActionHandler;
+  pendingAction?: ModuleAction | null;
+}) {
+  const c = asset.content as LeaderboardContent;
+  return (
+    <Card>
+      <ModuleHeader module="leaderboard" approved={asset.approved} />
+      <CardContent>
+        <ol className="divide-y rounded-md border">
+          {c.levels.map((name, i) => (
+            <li key={i} className="flex gap-3 px-3 py-2 text-sm">
+              <span className="font-mono text-xs text-muted-foreground">
+                Lv {i + 1}
+              </span>
+              <span>{name}</span>
+            </li>
+          ))}
+        </ol>
+      </CardContent>
+      <ModuleFooter
+        module="leaderboard"
+        onAction={onAction}
+        approved={asset.approved}
+        pendingAction={pendingAction}
+      />
+    </Card>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Categories — 3 named blocks                                                */
+/* -------------------------------------------------------------------------- */
+
+type CategoriesContent = {
+  categories: { name: string; description: string }[];
+};
+
+export function CategoriesCard({
+  asset,
+  onAction,
+  pendingAction = null,
+}: {
+  asset: GeneratedAsset;
+  onAction: ModuleActionHandler;
+  pendingAction?: ModuleAction | null;
+}) {
+  const c = asset.content as CategoriesContent;
+  return (
+    <Card>
+      <ModuleHeader module="categories" approved={asset.approved} />
+      <CardContent className="space-y-3">
+        {c.categories.map((cat, i) => (
+          <div key={i} className="space-y-0.5 rounded-md border p-3">
+            <p className="text-sm font-semibold">{cat.name}</p>
+            <p className="text-xs text-muted-foreground">{cat.description}</p>
+          </div>
+        ))}
+      </CardContent>
+      <ModuleFooter
+        module="categories"
+        onAction={onAction}
+        approved={asset.approved}
+        pendingAction={pendingAction}
+      />
+    </Card>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Discovery SEO — keyword chips                                              */
+/* -------------------------------------------------------------------------- */
+
+type DiscoverySeoContent = { keywords: string[] };
+
+export function DiscoverySeoCard({
+  asset,
+  onAction,
+  pendingAction = null,
+}: {
+  asset: GeneratedAsset;
+  onAction: ModuleActionHandler;
+  pendingAction?: ModuleAction | null;
+}) {
+  const c = asset.content as DiscoverySeoContent;
+  return (
+    <Card>
+      <ModuleHeader module="discovery_seo" approved={asset.approved} />
+      <CardContent>
+        <div className="flex flex-wrap gap-1.5">
+          {c.keywords.map((kw, i) => (
+            <Badge key={i} variant="secondary">
+              {kw}
+            </Badge>
+          ))}
+        </div>
+      </CardContent>
+      <ModuleFooter
+        module="discovery_seo"
+        onAction={onAction}
+        approved={asset.approved}
+        pendingAction={pendingAction}
+      />
+    </Card>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
 /* CARD_COMPONENTS — registry-driven card dispatch                            */
 /*                                                                            */
-/* PR #3 wires the four current cardVariant values. Forward-declared values   */
-/* (image, leaderboard, repeater, chips) intentionally omitted — the          */
-/* dispatcher in PackageDashboard throws on unwired variants so PR #5 fails   */
-/* loudly rather than silently rendering nothing.                             */
+/* PR #6 wires three more cardVariants (leaderboard, repeater, chips) on top  */
+/* of PR #3's four. The remaining `image` variant is forward-declared for     */
+/* PR #7. Until then, the dispatcher in PackageDashboard throws on unwired    */
+/* variants so we fail loudly rather than silently rendering nothing.         */
 /* -------------------------------------------------------------------------- */
 
 export type GenericModuleCardProps = {
@@ -495,9 +634,13 @@ export const CARD_COMPONENTS: Partial<
   "simple-text": TextModuleCard,
   "about-us": AboutUsCard,
   "start-here": StartHereCard,
+  leaderboard: LeaderboardCard,
+  repeater: CategoriesCard,
+  chips: DiscoverySeoCard,
   // cover is rendered separately in PackageDashboard because it carries
   // unique props (onSelectVariant, selectingIndex). Keeping it out of the
   // generic dispatcher keeps cover-specific concerns from leaking.
+  // image variant lands in PR #7 alongside the icon variant-selection wiring.
 };
 
 // Re-exports kept so the rest of the app's imports (PackageDashboard,

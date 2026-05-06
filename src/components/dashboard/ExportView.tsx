@@ -393,6 +393,180 @@ function CoverSection({ asset }: { asset: GeneratedAsset }) {
 /* Deployment checklist                                                        */
 /* -------------------------------------------------------------------------- */
 
+/* -------------------------------------------------------------------------- */
+/* Section: Classroom (title + description)                                   */
+/* -------------------------------------------------------------------------- */
+
+type TitleDescriptionContent = { title: string; description: string };
+
+function ClassroomSection({ asset }: { asset: GeneratedAsset }) {
+  const c = asset.content as TitleDescriptionContent;
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-start justify-between space-y-0">
+        <CardTitle>Classroom</CardTitle>
+        <CopyButton text={`${c.title}\n\n${c.description}`} label="Copy both" />
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <div className="space-y-1 rounded-md border p-3">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">
+            Title
+          </p>
+          <p className="font-semibold">{c.title}</p>
+        </div>
+        <div className="space-y-1 rounded-md border p-3">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">
+            Description
+          </p>
+          <p className="whitespace-pre-wrap text-sm">{c.description}</p>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Paste these into Skool &gt; Classroom &gt; Settings.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Section: Calendar (title + description)                                    */
+/* -------------------------------------------------------------------------- */
+
+function CalendarSection({ asset }: { asset: GeneratedAsset }) {
+  const c = asset.content as TitleDescriptionContent;
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-start justify-between space-y-0">
+        <CardTitle>Calendar</CardTitle>
+        <CopyButton text={`${c.title}\n\n${c.description}`} label="Copy both" />
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <div className="space-y-1 rounded-md border p-3">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">
+            Title
+          </p>
+          <p className="font-semibold">{c.title}</p>
+        </div>
+        <div className="space-y-1 rounded-md border p-3">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">
+            Description
+          </p>
+          <p className="whitespace-pre-wrap text-sm">{c.description}</p>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Paste these into Skool &gt; Calendar &gt; Settings.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Section: Leaderboard (9 levels)                                            */
+/* -------------------------------------------------------------------------- */
+
+type LeaderboardContent = { levels: string[] };
+
+function LeaderboardSection({ asset }: { asset: GeneratedAsset }) {
+  const c = asset.content as LeaderboardContent;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Leaderboard Levels</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <ol className="space-y-1.5">
+          {c.levels.map((name, i) => (
+            <li
+              key={i}
+              className="flex items-center gap-3 rounded-md border p-2"
+            >
+              <span className="font-mono text-xs text-muted-foreground">
+                Lv {i + 1}
+              </span>
+              <span className="flex-1 text-sm">{name}</span>
+              <CopyButton text={name} />
+            </li>
+          ))}
+        </ol>
+        <p className="text-xs text-muted-foreground">
+          Paste each name into Skool &gt; Settings &gt; Leaderboard.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Section: Categories (3 named blocks)                                       */
+/* -------------------------------------------------------------------------- */
+
+type CategoriesContent = {
+  categories: { name: string; description: string }[];
+};
+
+function CategoriesSection({ asset }: { asset: GeneratedAsset }) {
+  const c = asset.content as CategoriesContent;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Categories</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {c.categories.map((cat, i) => (
+          <div
+            key={i}
+            className="flex items-start gap-3 rounded-md border p-3"
+          >
+            <span className="mt-0.5 font-mono text-xs text-muted-foreground">
+              {i + 1}.
+            </span>
+            <div className="flex-1 space-y-0.5">
+              <p className="font-semibold">{cat.name}</p>
+              <p className="text-xs text-muted-foreground">{cat.description}</p>
+            </div>
+            <CopyButton text={`${cat.name}\n${cat.description}`} />
+          </div>
+        ))}
+        <p className="text-xs text-muted-foreground">
+          Paste these into Skool &gt; Community &gt; Categories.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Section: Discovery SEO (keyword chips + CSV copy)                          */
+/* -------------------------------------------------------------------------- */
+
+type DiscoverySeoContent = { keywords: string[] };
+
+function DiscoverySeoSection({ asset }: { asset: GeneratedAsset }) {
+  const c = asset.content as DiscoverySeoContent;
+  const csv = c.keywords.join(", ");
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-start justify-between space-y-0">
+        <CardTitle>Discovery Search Keywords</CardTitle>
+        <CopyButton text={csv} label="Copy as CSV" />
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <div className="flex flex-wrap gap-1.5">
+          {c.keywords.map((kw, i) => (
+            <Badge key={i} variant="secondary">
+              {kw}
+            </Badge>
+          ))}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Paste into Skool &gt; Settings &gt; Discovery (search keywords).
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
 const CHECKLIST_ITEMS = [
   "Created Skool community",
   "Uploaded cover image",
@@ -401,6 +575,10 @@ const CHECKLIST_ITEMS = [
   'Created "Start Here" course with 4 lessons',
   "Configured welcome message automation",
   "Set pricing per the proposal",
+  "Named Classroom + Calendar areas",
+  "Renamed leaderboard levels",
+  "Created the 3 community categories",
+  "Pasted Discovery search keywords",
   "Tested join flow with a test account",
 ] as const;
 
@@ -493,6 +671,11 @@ export function ExportView({ package: pkg, creator, assets }: ExportViewProps) {
   const transformation = m.transformation;
   const aboutUs = m.about_us;
   const startHere = m.start_here;
+  const classroom = m.classroom;
+  const calendar = m.calendar;
+  const leaderboard = m.leaderboard;
+  const categories = m.categories;
+  const discoverySeo = m.discovery_seo;
 
   return (
     <div className="space-y-6">
@@ -532,6 +715,11 @@ export function ExportView({ package: pkg, creator, assets }: ExportViewProps) {
       {aboutUs && <AboutUsSection asset={aboutUs} />}
       {startHere && <StartHereSection asset={startHere} />}
       {cover && <CoverSection asset={cover} />}
+      {classroom && <ClassroomSection asset={classroom} />}
+      {calendar && <CalendarSection asset={calendar} />}
+      {leaderboard && <LeaderboardSection asset={leaderboard} />}
+      {categories && <CategoriesSection asset={categories} />}
+      {discoverySeo && <DiscoverySeoSection asset={discoverySeo} />}
 
       <DeploymentChecklist
         checked={checked}
