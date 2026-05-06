@@ -36,6 +36,12 @@ export const moduleEnum = pgEnum('module', [
   'icon',
   'start_here_thumb',
   'join_now_banner',
+  // Add-on modules — captured via wizard step 5; generators land in PR #5.
+  'classroom',
+  'calendar',
+  'leaderboard',
+  'categories',
+  'discovery_seo',
 ]);
 
 export const launchPackageStatusEnum = pgEnum('launch_package_status', [
@@ -88,6 +94,14 @@ export const creators = pgTable(
     supportContact: text('support_contact'),
     brandPrefs: text('brand_prefs'),
     creatorPhotoUrl: text('creator_photo_url'),
+    // Add-on intake (PR #4) — nullable so the Step 1 POST flow doesn't have
+    // to backfill. Step 5 PATCHes these in. Stored as jsonb / text[] mirrors
+    // of the Zod schemas in src/types/schemas.ts.
+    classroomIntake: jsonb('classroom_intake'),
+    calendarIntake: jsonb('calendar_intake'),
+    leaderboardLevels: jsonb('leaderboard_levels'),
+    categories: jsonb('categories'),
+    discoveryKeywords: text('discovery_keywords').array(),
     // FK to auth.users.id (Supabase Auth schema) — not a Drizzle-declared FK
     createdBy: uuid('created_by').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true })

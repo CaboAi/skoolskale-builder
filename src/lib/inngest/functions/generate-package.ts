@@ -18,14 +18,22 @@ type PackageEventData = {
  * Module key → Inngest sub-function. Lives here (not in the registry) so
  * `registry.ts` stays free of `server-only` imports and can be bundled into
  * the client.
+ *
+ * `Partial<Record<...>>` because not every registered module has a generator
+ * yet — add-on modules (PR #4) are registered with `includedByDefault: false`
+ * and get their generators in PR #5. The fan-out below filters by both
+ * `includedByDefault` and the presence of an entry here, so a module that's
+ * default-on but missing a function fails fast at startup rather than mid-run.
  */
-const FUNCTIONS: Record<
-  ModuleKey,
-  | typeof generateWelcomeDm
-  | typeof generateTransformation
-  | typeof generateAboutUs
-  | typeof generateStartHere
-  | typeof generateCover
+const FUNCTIONS: Partial<
+  Record<
+    ModuleKey,
+    | typeof generateWelcomeDm
+    | typeof generateTransformation
+    | typeof generateAboutUs
+    | typeof generateStartHere
+    | typeof generateCover
+  >
 > = {
   welcome_dm: generateWelcomeDm,
   transformation: generateTransformation,
@@ -70,12 +78,19 @@ export const generatePackage = inngest.createFunction(
       (m) => m.includedByDefault,
     );
     const results = await Promise.all(
-      modulesToRun.map((m) =>
-        step.invoke(m.key.replace(/_/g, "-"), {
-          function: FUNCTIONS[m.key],
+      modulesToRun.map((m) => {
+        const fn = FUNCTIONS[m.key];
+        if (!fn) {
+          // includedByDefault: true with no FUNCTIONS entry is a deploy bug.
+          // Fail loudly so the orchestrator's onFailure flips status='draft'
+          // and the VA can retry once the function is registered.
+          throw new Error(`No Inngest function registered for module ${m.key}`);
+        }
+        return step.invoke(m.key.replace(/_/g, "-"), {
+          function: fn,
           data: { packageId: data.packageId, userId: data.userId },
-        }),
-      ),
+        });
+      }),
     );
     const byKey = Object.fromEntries(
       modulesToRun.map((m, i) => [m.key, results[i]]),

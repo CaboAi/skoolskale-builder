@@ -7,8 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Wizard step 5 ("Launch package add-ons") capturing classroom title/description, calendar title/description, 9 leaderboard level names, 3 categories (name + description), and up to 11 Discovery search keywords.
+- New module schemas in `src/types/schemas.ts`: `ClassroomContentSchema`, `CalendarContentSchema`, `LeaderboardContentSchema` (9-tuple), `CategoriesContentSchema` (3-tuple), `DiscoverySeoContentSchema` (1-11 keywords).
+- Shared form components: `RepeaterField` (single + grouped variants) and `KeywordChipField` (Enter/comma to add, max enforcement, dedupe).
+- Module registry entries for `classroom`, `calendar`, `leaderboard`, `categories`, `discovery_seo` (all `includedByDefault: false` until generators land in PR #5).
+- `pnpm db:generate` script.
+
+### Changed
+- `module` enum extended with five add-on values (`classroom`, `calendar`, `leaderboard`, `categories`, `discovery_seo`).
+- `creators` table gains nullable add-on columns: `classroom_intake`, `calendar_intake`, `leaderboard_levels`, `categories`, `discovery_keywords`.
+- Orchestrator `FUNCTIONS` map relaxed to `Partial<Record<ModuleKey, ...>>`; throws if a `includedByDefault: true` module has no function entry.
+
 ### Refactor
 - Module registry pattern; all modules configured in src/lib/modules/registry.ts instead of hardcoded switch statements.
+
+### Fixed
+- Export readiness check now ignores modules registered with `includedByDefault: false` (e.g., the v1.1 add-ons before their generators land in PR #5).
 
 ### Planned
 - Classroom section: covers, titles, descriptions per classroom

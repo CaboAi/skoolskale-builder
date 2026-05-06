@@ -18,6 +18,7 @@ import { Step1CreatorInfo } from "./steps/step-1";
 import { Step2Offer } from "./steps/step-2";
 import { Step3Pricing } from "./steps/step-3";
 import { Step4Voice } from "./steps/step-4";
+import { Step5AddOns } from "./steps/step-5";
 
 const AUTOSAVE_MS = 30_000;
 
@@ -27,6 +28,13 @@ const STEP_FIELDS: FieldPath<CreatorIntake>[][] = [
   ["transformation", "audience", "offer_breakdown"],
   ["pricing", "trial_terms", "refund_policy"],
   ["tone", "brand_prefs"],
+  [
+    "classroom_intake",
+    "calendar_intake",
+    "leaderboard_levels",
+    "categories",
+    "discovery_keywords",
+  ],
 ];
 
 const DEFAULTS: CreatorIntake = {
@@ -158,7 +166,9 @@ export function IntakeWizard() {
       setError("No draft id — please go back to Step 1.");
       return;
     }
-    const valid = await trigger(STEP_FIELDS[3], { shouldFocus: true });
+    const valid = await trigger(STEP_FIELDS[STEP_FIELDS.length - 1], {
+      shouldFocus: true,
+    });
     if (!valid) return;
 
     setSubmitting(true);
@@ -200,7 +210,7 @@ export function IntakeWizard() {
     }
   };
 
-  const totalSteps = 4;
+  const totalSteps = STEP_FIELDS.length;
   const progressPct = ((step + 1) / totalSteps) * 100;
 
   return (
@@ -222,6 +232,7 @@ export function IntakeWizard() {
           {step === 1 && <Step2Offer form={form} />}
           {step === 2 && <Step3Pricing form={form} />}
           {step === 3 && <Step4Voice form={form} />}
+          {step === 4 && <Step5AddOns form={form} />}
 
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
 

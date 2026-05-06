@@ -18,6 +18,61 @@ export const NicheEnum = z.enum([
 
 export const ToneEnum = z.enum(['loving', 'direct', 'playful']);
 
+/* -------------------------------------------------------------------------- */
+/* Add-on module content schemas (PR #4)                                      */
+/*                                                                            */
+/* Each schema describes the persisted shape for one module. Used both as     */
+/* the wizard step-5 form constraints AND (via MODULE_REGISTRY.outputSchema)  */
+/* as the PATCH-route validator once the matching dashboard cards land in PR  */
+/* #5. For now these modules have includedByDefault: false so the orchestrator*/
+/* doesn't try to fan out to non-existent generators.                         */
+/* -------------------------------------------------------------------------- */
+
+export const ClassroomContentSchema = z.object({
+  title: z.string().min(1).max(50),
+  description: z.string().min(1).max(500),
+});
+export type ClassroomContent = z.infer<typeof ClassroomContentSchema>;
+
+export const CalendarContentSchema = z.object({
+  title: z.string().min(1).max(30),
+  description: z.string().min(1).max(300),
+});
+export type CalendarContent = z.infer<typeof CalendarContentSchema>;
+
+/** Skool exposes 9 leaderboard levels; users name them all. Tuple, not array. */
+export const LeaderboardContentSchema = z.object({
+  levels: z
+    .tuple([
+      z.string().min(1),
+      z.string().min(1),
+      z.string().min(1),
+      z.string().min(1),
+      z.string().min(1),
+      z.string().min(1),
+      z.string().min(1),
+      z.string().min(1),
+      z.string().min(1),
+    ]),
+});
+export type LeaderboardContent = z.infer<typeof LeaderboardContentSchema>;
+
+/** Skool defaults to 3 categories; this PR keeps the count fixed at 3. */
+export const CategoriesContentSchema = z.object({
+  categories: z.tuple([
+    z.object({ name: z.string().min(1), description: z.string().min(1) }),
+    z.object({ name: z.string().min(1), description: z.string().min(1) }),
+    z.object({ name: z.string().min(1), description: z.string().min(1) }),
+  ]),
+});
+export type CategoriesContent = z.infer<typeof CategoriesContentSchema>;
+
+/** Skool's Discovery search UI accepts up to 11 keywords. */
+export const DiscoverySeoContentSchema = z.object({
+  keywords: z.array(z.string().min(1)).min(1).max(11),
+});
+export type DiscoverySeoContent = z.infer<typeof DiscoverySeoContentSchema>;
+
 export const CreatorIntakeSchema = z.object({
   name: z.string().min(1).max(200),
   community_name: z.string().min(1).max(200),
@@ -54,6 +109,13 @@ export const CreatorIntakeSchema = z.object({
   support_contact: z.string().min(1),
   brand_prefs: z.string(),
   creator_photo_url: z.string().url().optional(),
+  // Add-on intake fields (PR #4 step 5). All optional during draft so existing
+  // POST-then-PATCH flow stays compatible; final-submit validation enforces.
+  classroom_intake: ClassroomContentSchema.optional(),
+  calendar_intake: CalendarContentSchema.optional(),
+  leaderboard_levels: LeaderboardContentSchema.shape.levels.optional(),
+  categories: CategoriesContentSchema.shape.categories.optional(),
+  discovery_keywords: DiscoverySeoContentSchema.shape.keywords.optional(),
 });
 
 export type CreatorIntake = z.infer<typeof CreatorIntakeSchema>;

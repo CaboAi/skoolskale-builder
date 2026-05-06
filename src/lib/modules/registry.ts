@@ -20,13 +20,26 @@ import { TransformationSchema } from "@/prompts/transformation";
 import { AboutUsSchema } from "@/prompts/about-us";
 import { StartHereSchema } from "@/prompts/start-here";
 import { CoverContentSchema } from "@/prompts/cover";
+import {
+  ClassroomContentSchema,
+  CalendarContentSchema,
+  LeaderboardContentSchema,
+  CategoriesContentSchema,
+  DiscoverySeoContentSchema,
+} from "@/types/schemas";
 
 export type ModuleKey =
   | "welcome_dm"
   | "transformation"
   | "about_us"
   | "start_here"
-  | "cover";
+  | "cover"
+  // Add-on modules — registered in PR #4 (intake), generators land in PR #5.
+  | "classroom"
+  | "calendar"
+  | "leaderboard"
+  | "categories"
+  | "discovery_seo";
 
 export type GeneratorKind = "claude-text" | "gemini-image" | "passthrough";
 
@@ -112,6 +125,53 @@ export const MODULE_REGISTRY: Record<ModuleKey, ModuleConfig> = {
     eventName: "generate.cover.requested",
     fullWidth: true,
     showEdit: false,
+  },
+  // Add-on modules — registered in PR #4 with includedByDefault: false so the
+  // orchestrator skips them. PR #5 wires the generators and flips the flag.
+  classroom: {
+    key: "classroom",
+    label: "Classroom",
+    outputSchema: ClassroomContentSchema,
+    generatorKind: "claude-text",
+    cardVariant: "simple-text",
+    includedByDefault: false,
+    eventName: "generate.classroom.requested",
+  },
+  calendar: {
+    key: "calendar",
+    label: "Calendar",
+    outputSchema: CalendarContentSchema,
+    generatorKind: "claude-text",
+    cardVariant: "simple-text",
+    includedByDefault: false,
+    eventName: "generate.calendar.requested",
+  },
+  leaderboard: {
+    key: "leaderboard",
+    label: "Leaderboard Levels",
+    outputSchema: LeaderboardContentSchema,
+    generatorKind: "claude-text",
+    cardVariant: "leaderboard",
+    includedByDefault: false,
+    eventName: "generate.leaderboard.requested",
+  },
+  categories: {
+    key: "categories",
+    label: "Categories",
+    outputSchema: CategoriesContentSchema,
+    generatorKind: "claude-text",
+    cardVariant: "repeater",
+    includedByDefault: false,
+    eventName: "generate.categories.requested",
+  },
+  discovery_seo: {
+    key: "discovery_seo",
+    label: "Discovery SEO",
+    outputSchema: DiscoverySeoContentSchema,
+    generatorKind: "claude-text",
+    cardVariant: "chips",
+    includedByDefault: false,
+    eventName: "generate.discovery_seo.requested",
   },
 };
 
