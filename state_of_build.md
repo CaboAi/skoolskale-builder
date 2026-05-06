@@ -14,12 +14,18 @@ A VA can:
 1. **Sign in** via the demo-mode auto-session (skips magic link for the demo window — see Open Items #1).
 2. **Create a creator profile** with intake form (`/creators/new`).
 3. **Spin up a launch package** (`POST /api/packages` → `POST /api/packages/[id]/generate`).
-4. **Watch all 5 modules generate in parallel** via Inngest + the package detail page polling:
+4. **Watch all 10 modules generate in parallel** via Inngest + the package detail page polling:
    - `welcome_dm` (Claude Sonnet 4.6)
    - `transformation` (Claude)
    - `about_us` (Claude)
    - `start_here` (Claude)
    - `cover` (Gemini 3.1 Flash Image — 3 variants in parallel)
+   - `classroom` — title + description (Claude)
+   - `calendar` — title + description (Claude)
+   - `leaderboard` — 9 level names (Claude)
+   - `categories` — 3 named blocks (Claude)
+   - `discovery_seo` — 11 search keywords (Claude)
+   - Image add-ons (`classroom_cover`, `calendar_cover`, `icon`) land in PR #7.
 5. **Edit, regenerate, or approve** each module from the dashboard.
 6. **Select one of three cover variants** and approve.
 7. **Hit the export page** and copy/paste-ready outputs for Skool deployment.
@@ -105,8 +111,8 @@ Out of scope for tomorrow's demo.
 
 | Scope | Status |
 |---|---|
-| Foundation + Copy Engine | **✅ Shipped** (4 modules, dashboard, intake) |
-| Visual Engine | **🟡 Partial** — cover only (no icon, no Start Here thumbnail, no Join Now banner) |
+| Foundation + Copy Engine | **✅ Shipped** (9 text modules, dashboard, intake step 5) |
+| Visual Engine | **🟡 Partial** — cover only; classroom_cover / calendar_cover / icon land in PR #7 |
 | Canva Integration | **❌ Not started** |
 | Pattern Library Intelligence | **❌ Not started** (read-only fetch from DB exists) |
 
@@ -116,7 +122,7 @@ Out of scope for tomorrow's demo.
 
 1. Start on `/creators/new`. Fill the form with a real-feeling creator (use Mario's profile or a stock one).
 2. Click **Generate launch package**.
-3. Land on the package page. Watch the 5 module cards populate. Talk through the streaming UX while it loads (~30–60s).
+3. Land on the package page. Watch the 10 module cards populate. Talk through the streaming UX while it loads (~60–120s — more parallel Claude calls than the 5-module demo).
 4. **Do not click Regenerate** on cover. (Note field is ignored; you'd just spin another ~90s wait for no observable change.)
 5. Show the edit-inline UX on one text module. Approve it.
 6. Pick a cover variant. Approve.
