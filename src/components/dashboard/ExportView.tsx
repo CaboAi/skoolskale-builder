@@ -18,6 +18,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import type { Creator, GeneratedAsset, LaunchPackage } from "@/lib/db/schema";
+import { MODULE_KEYS, type ModuleKey } from "@/lib/modules/registry";
 
 /* -------------------------------------------------------------------------- */
 /* Content type aliases (mirror what the parsers produce)                     */
@@ -480,11 +481,18 @@ export function ExportView({ package: pkg, creator, assets }: ExportViewProps) {
     },
   });
 
-  const cover = byModule.get("cover");
-  const welcomeDm = byModule.get("welcome_dm");
-  const transformation = byModule.get("transformation");
-  const aboutUs = byModule.get("about_us");
-  const startHere = byModule.get("start_here");
+  // Look up every registered module in one pass; section blocks below pull
+  // the per-module asset from this typed record. Adding a module to the
+  // registry is enough for it to be fetched here — the section block is the
+  // only thing that still needs hand-wiring.
+  const m = Object.fromEntries(
+    MODULE_KEYS.map((k) => [k, byModule.get(k)]),
+  ) as Record<ModuleKey, GeneratedAsset | undefined>;
+  const cover = m.cover;
+  const welcomeDm = m.welcome_dm;
+  const transformation = m.transformation;
+  const aboutUs = m.about_us;
+  const startHere = m.start_here;
 
   return (
     <div className="space-y-6">

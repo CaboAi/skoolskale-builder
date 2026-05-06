@@ -9,7 +9,33 @@
  * does not include cover examples yet, and for the demo we don't need
  * pattern-library lookup for images.
  */
+import { z } from "zod";
 import type { CreatorContext } from "@/types/generators";
+
+/**
+ * The shape stored in `generated_assets.content` for the cover module.
+ * Cover has no Claude/Gemini-text generator schema; this describes the
+ * post-Inngest persisted shape and is what the registry advertises as
+ * the module's `outputSchema`.
+ */
+export const CoverContentSchema = z.object({
+  variants: z.array(
+    z.object({
+      url: z.string().url(),
+      index: z.number().int().min(0),
+    }),
+  ),
+  selected_variant_index: z.number().int().min(0).optional(),
+});
+
+/**
+ * The PATCH-input shape for cover edits — the only field a VA can change
+ * is which of the existing variants is selected. Validated separately from
+ * `CoverContentSchema` because the input is partial.
+ */
+export const CoverPatchSchema = z.object({
+  selected_variant_index: z.number().int().min(0),
+});
 
 export type CoverStyle = "photographic" | "illustrated" | "minimalist";
 

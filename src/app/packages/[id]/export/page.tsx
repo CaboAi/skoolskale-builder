@@ -3,15 +3,9 @@ import { z } from "zod";
 import { requireUser } from "@/lib/auth";
 import { getPackageWithDetails } from "@/lib/db/packages";
 import { ExportView } from "@/components/dashboard/ExportView";
+import { MODULE_KEYS } from "@/lib/modules/registry";
 
 const UuidParam = z.string().uuid();
-const REQUIRED_MODULES = [
-  "welcome_dm",
-  "transformation",
-  "about_us",
-  "start_here",
-  "cover",
-] as const;
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -29,7 +23,7 @@ export default async function PackageExportPage({ params }: Props) {
   const approved = new Set(
     details.assets.filter((a) => a.approved).map((a) => a.module),
   );
-  const missing = REQUIRED_MODULES.filter((m) => !approved.has(m));
+  const missing = MODULE_KEYS.filter((m) => !approved.has(m));
   if (missing.length > 0) {
     redirect(`/packages/${idResult.data}`);
   }

@@ -7,23 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Planned for 1.1.0 — Phase 1.5 features
+### Refactor
+- Module registry pattern; all modules configured in src/lib/modules/registry.ts instead of hardcoded switch statements.
+
+### Planned
 - Classroom section: covers, titles, descriptions per classroom
 - Leaderboard name generator
 - Editable image generation prompt (wire up regenerateNote flow + dedicated prompt editor UI)
 - "Mark as deployed" state with post-deployment edit capability
 - VA deployment checklist visible during copy-paste mode
 
-### Planned for 1.1.0 — Pre-handover hygiene
+### Hardening
 - Production safety gate in `src/lib/env.ts`: reject `DEMO_MODE` truthy when `VERCEL_ENV=production`
 - Test coverage for the existing demo-mode bypass in `proxy.ts`, `demo-session.ts`, and the env schema
 - Migrate cover asset URLs from public to signed
-- Introduce `ImageGenProvider` abstraction (Gemini → Ideogram swap as config flip)
+- Note: alternate image-gen providers were researched (Imagine Art) and deferred.
 - Sentry breadcrumbs on cover generation failures
 
 ## [1.0.0] - 2026-05-04
 
-Initial demo release. Live walkthrough delivered to Ramsha Ahmad and Domenic Iandolo (Skool Skale). Phase 1 closed at $5,000.
+Initial demo release. Live walkthrough delivered to Ramsha Ahmad and Domenic Iandolo (Skool Skale).
 
 ### Added
 - Creator intake form at `/creators/new` capturing niche, audience, course details, brand preferences
@@ -55,7 +58,7 @@ Initial demo release. Live walkthrough delivered to Ramsha Ahmad and Domenic Ian
 ### Known limitations (carried forward, slated for 1.1.0)
 - Demo-mode auth bypass active in production (`eed3533`, `fc0a033`, `199a170`)
 - Cover asset URLs are public, not signed (violates internal CLAUDE.md storage rule)
-- No `ImageGenProvider` abstraction yet — Gemini is hardcoded; client handover requires refactor
+- Gemini is the only image-gen provider wired up; alternate providers deferred.
 - No Sentry breadcrumbs on cover generation failures
 
 [Unreleased]: https://github.com/CaboAi/skoolskale-builder/compare/v1.0.0...HEAD

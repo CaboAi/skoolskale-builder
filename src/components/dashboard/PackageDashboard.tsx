@@ -17,17 +17,18 @@ import {
 import { cn } from "@/lib/utils";
 import type { Creator, GeneratedAsset, LaunchPackage } from "@/lib/db/schema";
 import {
-  AboutUsCard,
-  COPY_MODULES,
+  CARD_COMPONENTS,
   CopyModuleSkeleton,
   CoverCard,
   CoverSkeleton,
-  MODULE_LABELS,
-  StartHereCard,
-  TransformationCard,
-  WelcomeDmCard,
   type ModuleActionHandler,
 } from "./module-cards";
+import {
+  COPY_MODULE_KEYS,
+  MODULE_LABELS,
+  MODULE_REGISTRY,
+  type ModuleKey,
+} from "@/lib/modules/registry";
 import { EditDialog, RegenerateDialog } from "./action-dialogs";
 
 export type PackageDashboardProps = {
@@ -162,6 +163,9 @@ export function PackageDashboard(initial: PackageDashboardProps) {
     assets.map((a) => [a.module, a]),
   );
   const approvedCount = assets.filter((a) => a.approved).length;
+  const totalModules = Object.values(MODULE_REGISTRY).filter(
+    (m) => m.includedByDefault,
+  ).length;
 
   // When an asset's id changes for a module we're regenerating, we're done.
   for (const [mod, startId] of Object.entries(regenerating)) {
@@ -381,48 +385,24 @@ export function PackageDashboard(initial: PackageDashboardProps) {
     ? (selectVariantMutation.variables ?? null)
     : null;
 
-  function renderCopyCard(module: (typeof COPY_MODULES)[number]) {
+  function renderCopyCard(module: ModuleKey) {
     const asset = byModule.get(module);
     if (!asset || regenerating[module] !== undefined) {
       return <CopyModuleSkeleton key={module} module={module} />;
     }
-    const pa = pendingActionFor(module);
-    if (module === "welcome_dm") {
-      return (
-        <WelcomeDmCard
-          key={module}
-          asset={asset}
-          onAction={handleAction}
-          pendingAction={pa}
-        />
-      );
-    }
-    if (module === "transformation") {
-      return (
-        <TransformationCard
-          key={module}
-          asset={asset}
-          onAction={handleAction}
-          pendingAction={pa}
-        />
-      );
-    }
-    if (module === "about_us") {
-      return (
-        <AboutUsCard
-          key={module}
-          asset={asset}
-          onAction={handleAction}
-          pendingAction={pa}
-        />
-      );
+    const cfg = MODULE_REGISTRY[module];
+    const Component = CARD_COMPONENTS[cfg.cardVariant];
+    if (!Component) {
+      // PR #5 will fill in the new variants; this guard makes the omission
+      // loud instead of silently rendering nothing.
+      throw new Error(`Unwired cardVariant: ${cfg.cardVariant}`);
     }
     return (
-      <StartHereCard
+      <Component
         key={module}
         asset={asset}
         onAction={handleAction}
-        pendingAction={pa}
+        pendingAction={pendingActionFor(module)}
       />
     );
   }
@@ -438,7 +418,7 @@ export function PackageDashboard(initial: PackageDashboardProps) {
             {creator.communityName}
           </p>
           <p className="text-sm text-muted-foreground">
-            {approvedCount} of 5 modules approved
+            {approvedCount} of {totalModules} modules approved
           </p>
         </div>
         <StatusBadge status={pkg.status} />
@@ -459,11 +439,11 @@ export function PackageDashboard(initial: PackageDashboardProps) {
           ) : (
             <CoverSkeleton />
           )}
-          {COPY_MODULES.map(renderCopyCard)}
+          {COPY_MODULE_KEYS.map(renderCopyCard)}
         </div>
       )}
 
-      {approvedCount === 5 && (
+      {approvedCount === totalModules && (
         <div className="flex justify-end">
           <Link
             href={`/packages/${pkg.id}/export`}

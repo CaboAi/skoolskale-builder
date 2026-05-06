@@ -9,6 +9,7 @@ import {
   type GeneratedAsset,
 } from "@/lib/db/schema";
 import { logAudit } from "@/lib/audit";
+import { MODULE_KEYS } from "@/lib/modules/registry";
 import type { ApiError } from "@/lib/validation";
 
 /**
@@ -21,13 +22,7 @@ import type { ApiError } from "@/lib/validation";
 
 const UuidParam = z.string().uuid();
 
-const ModuleParam = z.enum([
-  "welcome_dm",
-  "transformation",
-  "about_us",
-  "start_here",
-  "cover",
-]);
+const ModuleParam = z.enum(MODULE_KEYS);
 
 type RouteCtx = { params: Promise<{ id: string; module: string }> };
 
