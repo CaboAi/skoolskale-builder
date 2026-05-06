@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "db:generate": "dotenv -e .env.local -- drizzle-kit generate",
     "db:seed": "dotenv -e .env.local -- tsx drizzle/seed.ts",
     "storage:setup": "dotenv -e .env.local -- tsx scripts/setup-storage.ts",
     "demo:seed": "dotenv -e .env.local -- tsx scripts/seed-demo-user.ts",
