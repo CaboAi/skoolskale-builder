@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Shared form components: `RepeaterField` (single + grouped variants) and `KeywordChipField` (Enter/comma to add, max enforcement, dedupe).
 - Module registry entries for `classroom`, `calendar`, `leaderboard`, `categories`, `discovery_seo` (all `includedByDefault: false` until generators land in PR #5).
 - `pnpm db:generate` script.
+- DOM testing infrastructure (`@testing-library/react` + `jsdom`). Component-level tests now possible alongside existing pure-logic tests under `tests/unit/`.
 
 ### Changed
 - `module` enum extended with five add-on values (`classroom`, `calendar`, `leaderboard`, `categories`, `discovery_seo`).

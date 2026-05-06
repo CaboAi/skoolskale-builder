@@ -59,8 +59,9 @@ Scope optional but encouraged: `feat(intake): add creator photo upload`
 
 ## Testing Standards
 
-- **Unit:** Vitest. Business logic, parsers, utilities.
-- **Integration:** Vitest + Supabase test container. API routes, DB queries with RLS.
+- **Unit:** Vitest. Business logic, parsers, utilities. Place in `tests/unit/`.
+- **Integration:** Vitest + Supabase test container. API routes, DB queries with RLS. Place in `tests/integration/`.
+- **DOM/component:** `@testing-library/react` with the jsdom environment. Place in `tests/dom/` and opt into jsdom per file via `// @vitest-environment jsdom`. Pure-logic tests stay in `tests/unit/`.
 - **E2E:** Playwright. Happy paths per phase gate.
 - Minimum 70% coverage on business logic. 100% on generator output parsers.
 
