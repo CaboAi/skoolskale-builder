@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { commitChip, removeChipAt } from "./keyword-chip-logic";
 
 /**
  * Chip input for Skool's Discovery search keywords. Mirrors the Skool
@@ -39,15 +40,10 @@ export function KeywordChipField({
   const atMax = values.length >= max;
 
   function commit(raw: string) {
-    const trimmed = raw.trim();
-    if (!trimmed) return;
-    if (values.includes(trimmed)) {
-      // De-dupe silently — the user already added this one.
-      setDraft("");
-      return;
-    }
-    if (atMax) return;
-    onChange([...values, trimmed]);
+    const result = commitChip(values, raw, max);
+    if (result.committed) onChange(result.values);
+    // Clear the draft on dedupe/blank too — user expectation is that pressing
+    // Enter empties the input, even if the value was a duplicate.
     setDraft("");
   }
 
@@ -64,9 +60,7 @@ export function KeywordChipField({
   }
 
   function removeAt(i: number) {
-    const next = [...values];
-    next.splice(i, 1);
-    onChange(next);
+    onChange(removeChipAt(values, i));
   }
 
   return (
