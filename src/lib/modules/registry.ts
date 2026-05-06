@@ -76,6 +76,12 @@ export interface ModuleConfig {
   fullWidth?: boolean;
   /** UI hint: hide the Edit button (cover only — variant selection is the edit). */
   showEdit?: boolean;
+  /**
+   * Image modules with multiple variants. PR #6 sets this only for cover;
+   * PR #7 will set it for icon and use it to drive a generic
+   * /modules/[module]/select-variant API route.
+   */
+  hasVariants?: boolean;
 }
 
 export const MODULE_REGISTRY: Record<ModuleKey, ModuleConfig> = {
@@ -125,16 +131,16 @@ export const MODULE_REGISTRY: Record<ModuleKey, ModuleConfig> = {
     eventName: "generate.cover.requested",
     fullWidth: true,
     showEdit: false,
+    hasVariants: true,
   },
-  // Add-on modules — registered in PR #4 with includedByDefault: false so the
-  // orchestrator skips them. PR #5 wires the generators and flips the flag.
+  // Add-on text modules — generators wired in PR #6.
   classroom: {
     key: "classroom",
     label: "Classroom",
     outputSchema: ClassroomContentSchema,
     generatorKind: "claude-text",
     cardVariant: "simple-text",
-    includedByDefault: false,
+    includedByDefault: true,
     eventName: "generate.classroom.requested",
   },
   calendar: {
@@ -143,7 +149,7 @@ export const MODULE_REGISTRY: Record<ModuleKey, ModuleConfig> = {
     outputSchema: CalendarContentSchema,
     generatorKind: "claude-text",
     cardVariant: "simple-text",
-    includedByDefault: false,
+    includedByDefault: true,
     eventName: "generate.calendar.requested",
   },
   leaderboard: {
@@ -152,7 +158,7 @@ export const MODULE_REGISTRY: Record<ModuleKey, ModuleConfig> = {
     outputSchema: LeaderboardContentSchema,
     generatorKind: "claude-text",
     cardVariant: "leaderboard",
-    includedByDefault: false,
+    includedByDefault: true,
     eventName: "generate.leaderboard.requested",
   },
   categories: {
@@ -161,7 +167,7 @@ export const MODULE_REGISTRY: Record<ModuleKey, ModuleConfig> = {
     outputSchema: CategoriesContentSchema,
     generatorKind: "claude-text",
     cardVariant: "repeater",
-    includedByDefault: false,
+    includedByDefault: true,
     eventName: "generate.categories.requested",
   },
   discovery_seo: {
@@ -170,7 +176,7 @@ export const MODULE_REGISTRY: Record<ModuleKey, ModuleConfig> = {
     outputSchema: DiscoverySeoContentSchema,
     generatorKind: "claude-text",
     cardVariant: "chips",
-    includedByDefault: false,
+    includedByDefault: true,
     eventName: "generate.discovery_seo.requested",
   },
 };
