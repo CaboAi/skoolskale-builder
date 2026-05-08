@@ -3,8 +3,11 @@
  * Ensures all required buckets exist with the correct policies. Currently:
  *   - `creator-photos`    — user-uploaded creator portraits (jpg/png/webp)
  *   - `cover-variants`    — Gemini-generated cover image variants (png)
+ *   - `image-variants`    — Gemini-generated image variants for non-cover
+ *                           image modules (icon, classroom_cover,
+ *                           calendar_cover). Subpathed by `${packageId}/${module}/`.
  *
- * Both buckets: public read, authenticated INSERT/UPDATE/DELETE on
+ * All buckets: public read, authenticated INSERT/UPDATE/DELETE on
  * storage.objects scoped by bucket_id.
  *
  * Run: `pnpm storage:setup`
@@ -29,6 +32,11 @@ const BUCKETS: BucketConfig[] = [
   {
     name: "cover-variants",
     policyPrefix: "cover_variants",
+    allowedMimeTypes: ["image/png"],
+  },
+  {
+    name: "image-variants",
+    policyPrefix: "image_variants",
     allowedMimeTypes: ["image/png"],
   },
 ];
