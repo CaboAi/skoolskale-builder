@@ -5,11 +5,9 @@ import { db } from "@/lib/db";
 import { generationJobs, generatedAssets } from "@/lib/db/schema";
 import { createServiceClient } from "@/lib/supabase/server";
 import { toCreatorContext } from "@/types/generators";
-import {
-  generateCoverImages,
-  DEFAULT_MODEL,
-} from "@/lib/gemini-image/generate";
+import { DEFAULT_MODEL } from "@/lib/gemini-image/generate";
 import { logGeminiImageUsage } from "@/lib/gemini-image/usage";
+import { getImageProvider } from "@/lib/image-providers";
 import { buildImagePrompt, type CoverStyle } from "@/prompts/cover";
 import {
   createJobRow,
@@ -129,12 +127,14 @@ export const generateCover = inngest.createFunction(
         for (let attempt = 1; attempt <= VARIANT_INLINE_RETRIES; attempt++) {
           try {
             console.log(
-              `${tag} variant-${idx} calling Gemini (attempt ${attempt}/${VARIANT_INLINE_RETRIES})`,
+              `${tag} variant-${idx} calling image provider (attempt ${attempt}/${VARIANT_INLINE_RETRIES})`,
             );
-            const { images } = await generateCoverImages({
+            const { images } = await getImageProvider().generate({
               prompt: prep.prompt,
               referenceImageUrl: prep.referenceImageUrl ?? undefined,
               numVariants: 1,
+              width: 1456,
+              height: 816,
               packageId: data.packageId,
               // Intentionally omit jobId — three parallel variants would
               // race on gemini_image_usage. Aggregate usage is logged once
