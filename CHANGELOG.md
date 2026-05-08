@@ -11,14 +11,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Wizard step 5 ("Launch package add-ons") capturing classroom title/description, calendar title/description, 9 leaderboard level names, 3 categories (name + description), and up to 11 Discovery search keywords.
 - New module schemas in `src/types/schemas.ts`: `ClassroomContentSchema`, `CalendarContentSchema`, `LeaderboardContentSchema` (9-tuple), `CategoriesContentSchema` (3-tuple), `DiscoverySeoContentSchema` (1-11 keywords).
 - Shared form components: `RepeaterField` (single + grouped variants) and `KeywordChipField` (Enter/comma to add, max enforcement, dedupe).
-- Module registry entries for `classroom`, `calendar`, `leaderboard`, `categories`, `discovery_seo` (all `includedByDefault: false` until generators land in PR #5).
+- Module registry entries for `classroom`, `calendar`, `leaderboard`, `categories`, `discovery_seo`.
 - `pnpm db:generate` script.
 - DOM testing infrastructure (`@testing-library/react` + `jsdom`). Component-level tests now possible alongside existing pure-logic tests under `tests/unit/`.
+- Generators (Claude prompts + Inngest functions) for the 5 text add-on modules. Package generation now produces 10 modules end-to-end (5 originals + 5 add-ons).
+- Dashboard cards (`LeaderboardCard`, `CategoriesCard`, `DiscoverySeoCard`) and edit forms (`TitleDescriptionEditForm`, `LeaderboardEditForm`, `CategoriesEditForm`, `DiscoverySeoEditForm`); `TextModuleCard` extended to render `{title, description}` for classroom + calendar.
+- ExportView sections + Copy-as-CSV button for Discovery keywords; deployment checklist gains 4 add-on items.
+- Module registry `hasVariants?: boolean` field; `cover.hasVariants = true` (PR #7 will set the same on `icon` and use it to drive a generic `/select-variant/` route).
 
 ### Changed
 - `module` enum extended with five add-on values (`classroom`, `calendar`, `leaderboard`, `categories`, `discovery_seo`).
 - `creators` table gains nullable add-on columns: `classroom_intake`, `calendar_intake`, `leaderboard_levels`, `categories`, `discovery_keywords`.
 - Orchestrator `FUNCTIONS` map relaxed to `Partial<Record<ModuleKey, ...>>`; throws if a `includedByDefault: true` module has no function entry.
+- The 5 text add-on modules flipped from `includedByDefault: false` to `true` now that their generators are wired. Package generation now fans out to 10 modules in parallel.
 
 ### Refactor
 - Module registry pattern; all modules configured in src/lib/modules/registry.ts instead of hardcoded switch statements.
