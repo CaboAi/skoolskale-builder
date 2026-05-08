@@ -151,11 +151,21 @@ export function CopyModuleSkeleton({
   );
 }
 
-export function CoverSkeleton() {
+/**
+ * Skeleton for image-variants modules (cover, icon). Three placeholder
+ * tiles in a row. Cover-shaped 16:9; icon also fits visually in this grid.
+ */
+export function ImageVariantsSkeleton({
+  module,
+  fullWidth = false,
+}: {
+  module: string;
+  fullWidth?: boolean;
+}) {
   return (
-    <Card className="md:col-span-2">
+    <Card className={cn(fullWidth && "md:col-span-2")}>
       <CardHeader>
-        <CardTitle className="text-base">{MODULE_LABELS.cover}</CardTitle>
+        <CardTitle className="text-base">{MODULE_LABELS[module]}</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -163,6 +173,29 @@ export function CoverSkeleton() {
           <Skeleton className="aspect-[16/9] w-full" />
           <Skeleton className="aspect-[16/9] w-full" />
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * Skeleton for single-variant image modules (classroom_cover, calendar_cover).
+ * One placeholder banner.
+ */
+export function ImageSingleSkeleton({
+  module,
+  fullWidth = false,
+}: {
+  module: string;
+  fullWidth?: boolean;
+}) {
+  return (
+    <Card className={cn(fullWidth && "md:col-span-2")}>
+      <CardHeader>
+        <CardTitle className="text-base">{MODULE_LABELS[module]}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Skeleton className="aspect-[16/9] w-full" />
       </CardContent>
     </Card>
   );
@@ -414,16 +447,20 @@ export function StartHereCard({
 }
 
 /* -------------------------------------------------------------------------- */
-/* Cover                                                                       */
+/* Image-variants card — multi-variant image modules (cover, icon).           */
+/*                                                                            */
+/* Renders N variants in a grid; clicking a variant calls onSelectVariant     */
+/* with the asset's module key and the chosen index. Generalized from PR #6's */
+/* CoverCard (renamed in PR #7) so cover and icon share the same UI.          */
 /* -------------------------------------------------------------------------- */
 
-type CoverVariant = { url: string; index: number };
-type CoverContent = {
-  variants: CoverVariant[];
+type ImageVariant = { url: string; index: number };
+type ImageVariantsContent = {
+  variants: ImageVariant[];
   selected_variant_index?: number;
 };
 
-export function CoverCard({
+export function ImageVariantsCard({
   asset,
   onAction,
   onSelectVariant,
@@ -432,17 +469,19 @@ export function CoverCard({
 }: {
   asset: GeneratedAsset;
   onAction: ModuleActionHandler;
-  onSelectVariant: (index: number) => void;
+  onSelectVariant?: (module: string, index: number) => void;
   pendingAction?: ModuleAction | null;
   /** Index of the variant whose select-variant request is in flight, if any. */
   selectingIndex?: number | null;
 }) {
-  const c = asset.content as CoverContent;
+  const c = asset.content as ImageVariantsContent;
   const selected = c.selected_variant_index ?? 0;
   const variantSelectInFlight = selectingIndex !== null;
+  const moduleName = asset.module;
+  const moduleLabel = MODULE_LABELS[moduleName] ?? moduleName;
   return (
     <Card className="md:col-span-2">
-      <ModuleHeader module="cover" approved={asset.approved} />
+      <ModuleHeader module={moduleName} approved={asset.approved} />
       <CardContent>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {c.variants.map((v) => {
@@ -452,8 +491,8 @@ export function CoverCard({
               <button
                 type="button"
                 key={v.index}
-                onClick={() => onSelectVariant(v.index)}
-                disabled={variantSelectInFlight}
+                onClick={() => onSelectVariant?.(moduleName, v.index)}
+                disabled={variantSelectInFlight || !onSelectVariant}
                 className={cn(
                   "relative overflow-hidden rounded-md border-2 transition",
                   isSelected
@@ -464,7 +503,7 @@ export function CoverCard({
               >
                 <Image
                   src={v.url}
-                  alt={`Cover variant ${v.index + 1}`}
+                  alt={`${moduleLabel} variant ${v.index + 1}`}
                   width={480}
                   height={270}
                   className="h-auto w-full"
@@ -485,7 +524,54 @@ export function CoverCard({
         </div>
       </CardContent>
       <ModuleFooter
-        module="cover"
+        module={moduleName}
+        onAction={onAction}
+        showEdit={false}
+        approved={asset.approved}
+        pendingAction={pendingAction}
+      />
+    </Card>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Image-single card — single-variant image modules (classroom_cover,         */
+/* calendar_cover). One image, one download/select target.                    */
+/* -------------------------------------------------------------------------- */
+
+export function ImageModuleCard({
+  asset,
+  onAction,
+  pendingAction = null,
+}: {
+  asset: GeneratedAsset;
+  onAction: ModuleActionHandler;
+  pendingAction?: ModuleAction | null;
+}) {
+  const c = asset.content as ImageVariantsContent;
+  const moduleName = asset.module;
+  const moduleLabel = MODULE_LABELS[moduleName] ?? moduleName;
+  const variant = c.variants[0];
+  return (
+    <Card className="md:col-span-2">
+      <ModuleHeader module={moduleName} approved={asset.approved} />
+      <CardContent>
+        {variant ? (
+          <div className="overflow-hidden rounded-md border">
+            <Image
+              src={variant.url}
+              alt={`${moduleLabel}`}
+              width={1456}
+              height={816}
+              className="h-auto w-full"
+            />
+          </div>
+        ) : (
+          <Skeleton className="aspect-[16/9] w-full" />
+        )}
+      </CardContent>
+      <ModuleFooter
+        module={moduleName}
         onAction={onAction}
         showEdit={false}
         approved={asset.approved}
@@ -616,31 +702,40 @@ export function DiscoverySeoCard({
 /* -------------------------------------------------------------------------- */
 /* CARD_COMPONENTS — registry-driven card dispatch                            */
 /*                                                                            */
-/* PR #6 wires three more cardVariants (leaderboard, repeater, chips) on top  */
-/* of PR #3's four. The remaining `image` variant is forward-declared for     */
-/* PR #7. Until then, the dispatcher in PackageDashboard throws on unwired    */
-/* variants so we fail loudly rather than silently rendering nothing.         */
+/* PR #7 tightens this from `Partial<Record<>>` to `Record<>` — every         */
+/* CardVariant in the registry now has a wired component. Adding a new        */
+/* variant without a component is a compile-time error.                       */
+/*                                                                            */
+/* Variant-aware modules (image-variants) read onSelectVariant +              */
+/* selectingIndex from the props bag; non-variant modules ignore them.        */
 /* -------------------------------------------------------------------------- */
 
 export type GenericModuleCardProps = {
   asset: GeneratedAsset;
   onAction: ModuleActionHandler;
   pendingAction?: ModuleAction | null;
+  /**
+   * Variant-aware modules (cover, icon) call this with their module key
+   * + chosen variant index. The dashboard maps module key → API route.
+   * Non-variant modules ignore this prop.
+   */
+  onSelectVariant?: (module: string, index: number) => void;
+  /** Index of the variant whose select-variant request is in flight. */
+  selectingIndex?: number | null;
 };
 
-export const CARD_COMPONENTS: Partial<
-  Record<CardVariant, ComponentType<GenericModuleCardProps>>
+export const CARD_COMPONENTS: Record<
+  CardVariant,
+  ComponentType<GenericModuleCardProps>
 > = {
   "simple-text": TextModuleCard,
   "about-us": AboutUsCard,
   "start-here": StartHereCard,
+  "image-variants": ImageVariantsCard,
+  "image-single": ImageModuleCard,
   leaderboard: LeaderboardCard,
   repeater: CategoriesCard,
   chips: DiscoverySeoCard,
-  // cover is rendered separately in PackageDashboard because it carries
-  // unique props (onSelectVariant, selectingIndex). Keeping it out of the
-  // generic dispatcher keeps cover-specific concerns from leaking.
-  // image variant lands in PR #7 alongside the icon variant-selection wiring.
 };
 
 // Re-exports kept so the rest of the app's imports (PackageDashboard,

@@ -20,6 +20,9 @@ import { TransformationSchema } from "@/prompts/transformation";
 import { AboutUsSchema } from "@/prompts/about-us";
 import { StartHereSchema } from "@/prompts/start-here";
 import { CoverContentSchema } from "@/prompts/cover";
+import { IconContentSchema } from "@/prompts/icon";
+import { ClassroomCoverContentSchema } from "@/prompts/classroom_cover";
+import { CalendarCoverContentSchema } from "@/prompts/calendar_cover";
 import {
   ClassroomContentSchema,
   CalendarContentSchema,
@@ -34,31 +37,40 @@ export type ModuleKey =
   | "about_us"
   | "start_here"
   | "cover"
-  // Add-on modules — registered in PR #4 (intake), generators land in PR #5.
+  // Add-on text modules — registered in PR #4 (intake), generators in PR #6.
   | "classroom"
   | "calendar"
   | "leaderboard"
   | "categories"
-  | "discovery_seo";
+  | "discovery_seo"
+  // Image companions for the add-on text modules — generators in PR #7.
+  | "icon"
+  | "classroom_cover"
+  | "calendar_cover";
 
 export type GeneratorKind = "claude-text" | "gemini-image" | "passthrough";
 
 /**
- * Renderer-component lookup key. PR #3 wires four variants:
- *   simple-text -> TextModuleCard (welcome_dm + transformation)
- *   about-us    -> AboutUsCard
- *   start-here  -> StartHereCard
- *   cover       -> CoverCard
+ * Renderer-component lookup key. Every CardVariant must have a CARD_COMPONENTS
+ * entry — the dispatcher in PackageDashboard is now `Record<>`, not
+ * `Partial<Record<>>`. Adding a new variant without a component is a
+ * compile-time error.
  *
- * Forward-declared for future module additions (no map entry yet — a
- * runtime guard in PackageDashboard throws if an unwired variant ships).
+ *   simple-text     -> TextModuleCard (welcome_dm + transformation)
+ *   about-us        -> AboutUsCard
+ *   start-here      -> StartHereCard
+ *   image-variants  -> ImageVariantsCard (cover + icon)
+ *   image-single    -> ImageModuleCard (classroom_cover + calendar_cover)
+ *   leaderboard     -> LeaderboardCard
+ *   repeater        -> CategoriesCard
+ *   chips           -> DiscoverySeoCard
  */
 export type CardVariant =
   | "simple-text"
   | "about-us"
   | "start-here"
-  | "cover"
-  | "image"
+  | "image-variants"
+  | "image-single"
   | "leaderboard"
   | "repeater"
   | "chips";
@@ -126,7 +138,7 @@ export const MODULE_REGISTRY: Record<ModuleKey, ModuleConfig> = {
     label: "Community Cover",
     outputSchema: CoverContentSchema,
     generatorKind: "gemini-image",
-    cardVariant: "cover",
+    cardVariant: "image-variants",
     includedByDefault: true,
     eventName: "generate.cover.requested",
     fullWidth: true,
@@ -179,6 +191,40 @@ export const MODULE_REGISTRY: Record<ModuleKey, ModuleConfig> = {
     includedByDefault: true,
     eventName: "generate.discovery_seo.requested",
   },
+  // Image companions — generators wired in PR #7.
+  icon: {
+    key: "icon",
+    label: "Community Icon",
+    outputSchema: IconContentSchema,
+    generatorKind: "gemini-image",
+    cardVariant: "image-variants",
+    includedByDefault: true,
+    eventName: "generate.icon.requested",
+    showEdit: false,
+    hasVariants: true,
+  },
+  classroom_cover: {
+    key: "classroom_cover",
+    label: "Classroom Cover",
+    outputSchema: ClassroomCoverContentSchema,
+    generatorKind: "gemini-image",
+    cardVariant: "image-single",
+    includedByDefault: true,
+    eventName: "generate.classroom_cover.requested",
+    fullWidth: true,
+    showEdit: false,
+  },
+  calendar_cover: {
+    key: "calendar_cover",
+    label: "Calendar Cover",
+    outputSchema: CalendarCoverContentSchema,
+    generatorKind: "gemini-image",
+    cardVariant: "image-single",
+    includedByDefault: true,
+    eventName: "generate.calendar_cover.requested",
+    fullWidth: true,
+    showEdit: false,
+  },
 };
 
 /** Tuple form for `z.enum(...)`, narrowed so callers don't need to cast. */
@@ -196,7 +242,11 @@ export const MODULE_LABELS: Record<string, string> = Object.fromEntries(
   Object.values(MODULE_REGISTRY).map((m) => [m.key, m.label]),
 );
 
-/** Modules included by default, excluding the special-cased cover module. */
-export const COPY_MODULE_KEYS = MODULE_KEYS.filter(
-  (k) => k !== "cover" && MODULE_REGISTRY[k].includedByDefault,
+/**
+ * Order in which modules render on the package dashboard. All default-on
+ * modules — cover and icon now flow through the generic CARD_COMPONENTS
+ * dispatcher (PR #7) instead of being special-cased.
+ */
+export const DASHBOARD_MODULE_KEYS = MODULE_KEYS.filter(
+  (k) => MODULE_REGISTRY[k].includedByDefault,
 ) as ModuleKey[];
