@@ -65,6 +65,11 @@ Scope optional but encouraged: `feat(intake): add creator photo upload`
 - **E2E:** Playwright. Happy paths per phase gate.
 - Minimum 70% coverage on business logic. 100% on generator output parsers.
 
+### Mocking conventions
+
+- **Stateless `vi.mock` factories.** If you're mocking a module that another test file also mocks, prefer stateless factories. Closure-captured state inside a `vi.mock` factory leaks across parallel workers and surfaces as timeouts in unrelated test files. Symptom: per-file tests pass, full suite hangs on a different file's tests. Fix: hoist all state out of the factory, or use the minimal `() => ({ thing: {} })` shape if the test path doesn't actually exercise the mocked module.
+- **Clipboard spies install AFTER `userEvent.setup()`.** `userEvent.setup()` unconditionally replaces `navigator.clipboard` with its own stub, regardless of the `writeToClipboard` option (which only controls cut/copy/paste keyboard behavior, not the install). To assert against `navigator.clipboard.writeText`, define your spy via `Object.defineProperty(navigator, "clipboard", { configurable: true, writable: true, value: { writeText, readText } })` **after** `userEvent.setup()` runs in the test body — beforeEach is too early.
+
 ## Before Any Merge
 
 - Tests pass (`pnpm test`)
@@ -73,6 +78,26 @@ Scope optional but encouraged: `feat(intake): add creator photo upload`
 - `qa-reviewer` agent has reviewed the diff
 - Vercel preview deploys cleanly
 - No new Sentry errors in preview
+
+## Migration & Storage Setup
+
+`.env.local` points at the **same** Supabase project Vercel deploys to. There is no separate dev DB. Migration files in `drizzle/` and bucket definitions in `scripts/setup-storage.ts` are committed to the repo but **do not auto-apply on deploy**. PRs that change either need a manual step before/after merge, or the deployed Inngest functions will fail with `invalid input value for enum` or 404 storage errors.
+
+### When a PR adds or modifies a Drizzle migration
+
+1. **Apply to prod**: `npx dotenv -e .env.local -- drizzle-kit migrate`
+2. **Verify**: `pnpm verify:enum` (or the relevant `verify:*` script). For ad-hoc enum checks, `select unnest(enum_range(NULL::<enum_name>));` against prod.
+3. Confirm the new enum values / table columns appear before merging or before the next package generation runs against the deployed app.
+
+### When a PR adds or modifies a Supabase Storage bucket
+
+1. **Apply to prod**: `pnpm storage:setup` (idempotent — uses `listBuckets` + `DROP POLICY IF EXISTS` so re-runs are safe).
+   - **Gotcha**: the script transitively imports `@/lib/env`, which validates *all* server env vars at module load. If `ANTHROPIC_API_KEY` is empty in `.env.local`, prepend `ANTHROPIC_API_KEY=placeholder pnpm storage:setup`. The script doesn't actually call Claude.
+2. **Verify**: `pnpm verify:bucket` confirms the new bucket exists with the expected shape (public, MIME types, RLS policies on `storage.objects`). Or visually via the Supabase Storage UI for project `ljztalkcswueuhxgchtc`.
+
+### Reference
+
+The 2026-05-08 `wiki/log.md` entry "PR #7 deploy ops (post-merge infra catch-up)" captures the incident that motivated this section: PR #7 merged with code green but its Wave 0 migration + bucket steps were never applied to prod, surfacing as Inngest enum-cast failures during the deployed-app smoke. The PR-template checklist (`/.github/PULL_REQUEST_TEMPLATE.md`) now forces a pause-and-think on every PR; this section explains *what* to do when the answer is yes.
 
 ## Agents — When to Use Which
 

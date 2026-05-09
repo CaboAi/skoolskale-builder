@@ -77,7 +77,7 @@ export function IntakeWizard() {
     mode: "onChange",
   });
 
-  const { getValues, trigger, watch } = form;
+  const { getValues, trigger } = form;
 
   // --- POST on Step 1 completion ---
   const createDraft = useCallback(async (): Promise<string | null> => {
@@ -123,10 +123,15 @@ export function IntakeWizard() {
   );
 
   // --- Autosave: every 30s, PATCH diffs since last save. ---
-  const formState = watch();
+  // Read the latest form state via getValues() inside the timer rather
+  // than subscribing via watch()/useWatch. Two wins: (1) React Compiler
+  // can memoize this component (watch() is flagged as an incompatible
+  // library API); (2) the timer no longer resets on every keystroke —
+  // it ticks at a fixed 30s cadence and snapshots whatever's current.
   useEffect(() => {
     if (!creatorId) return;
     const timer = setInterval(() => {
+      const formState = getValues();
       const snapshot = JSON.stringify(formState);
       if (snapshot === lastSavedRef.current) return;
       void patchCreator(creatorId, formState).then((ok) => {
@@ -134,7 +139,7 @@ export function IntakeWizard() {
       });
     }, AUTOSAVE_MS);
     return () => clearInterval(timer);
-  }, [creatorId, formState, patchCreator]);
+  }, [creatorId, getValues, patchCreator]);
 
   const goNext = async () => {
     setError(null);
