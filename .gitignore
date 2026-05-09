@@ -45,3 +45,7 @@ next-env.d.ts
 drizzle/.drizzle/
 
 .vercel
+
+# Claude Code local state — per-session settings, worktrees, transcripts.
+# Local-only; nothing under .claude/ should be committed.
+.claude/
