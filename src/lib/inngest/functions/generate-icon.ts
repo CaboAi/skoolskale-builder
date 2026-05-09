@@ -8,7 +8,7 @@ import { toCreatorContext } from "@/types/generators";
 import { DEFAULT_MODEL } from "@/lib/gemini-image/generate";
 import { logGeminiImageUsage } from "@/lib/gemini-image/usage";
 import { getImageProvider } from "@/lib/image-providers";
-import { buildImagePrompt, type CoverStyle } from "@/prompts/cover";
+import { buildIconPrompt, ICON_STYLES } from "@/prompts/icon";
 import {
   createJobRow,
   loadCreatorForPackage,
@@ -17,44 +17,28 @@ import {
   type ModuleResult,
 } from "./_shared";
 
-const COVER_BUCKET = "cover-variants";
-const NUM_VARIANTS = 3;
+const IMAGE_BUCKET = "image-variants";
+const ICON_PATH_PREFIX = "icon";
+
+type IconEventData = ModuleEventData;
+type IconVariant = { url: string; index: number; durationMs: number };
 
 /**
- * Event payload shape. Extends the shared ModuleEventData with an optional
- * VA-supplied style override that wins over the niche default in
- * buildImagePrompt.
+ * Generate the community icon (PRD I2): three text-forward logo concepts
+ * at 512x512. Mirrors generate-cover.ts structurally (durable per-variant
+ * step, parallel fan-out, inline retry, finalize-step persistence) but
+ * uses the shared image-variants bucket and three distinct stylistic
+ * prompts so variants are visually different rather than three samples
+ * of the same prompt.
  */
-type CoverEventData = ModuleEventData & {
-  styleOverride?: CoverStyle;
-};
-
-type CoverVariant = { url: string; index: number; durationMs: number };
-
-/**
- * Generate the cover image for a launch package.
- *
- * Steps (each is durable across retries — Inngest persists results, so a
- * timeout on variant 3 won't re-do variants 1 and 2):
- *   1. create-job — insert generation_jobs row (status: running)
- *   2. prepare — load creator, build prompt, return prompt + reference url
- *   3. variant-1, variant-2, variant-3 — run in parallel; each generates one
- *      Gemini image and uploads it to cover-variants. Each is its own step,
- *      so they retry independently.
- *   4. finalize — write generated_assets, log aggregate Gemini usage, mark
- *      job done.
- *
- * On 3-retry exhaustion the onFailure handler marks the job 'failed' so the
- * VA sees a surfaceable error.
- */
-export const generateCover = inngest.createFunction(
+export const generateIcon = inngest.createFunction(
   {
-    id: "generate-cover",
-    name: "Generate cover image",
+    id: "generate-icon",
+    name: "Generate community icon",
     retries: 3,
-    triggers: [{ event: "generate.cover.requested" }],
+    triggers: [{ event: "generate.icon.requested" }],
     onFailure: async ({ event, error }) => {
-      const data = (event.data as { event?: { data?: CoverEventData } }).event
+      const data = (event.data as { event?: { data?: IconEventData } }).event
         ?.data;
       if (!data?.packageId) return;
       const [row] = await db
@@ -63,7 +47,7 @@ export const generateCover = inngest.createFunction(
         .where(
           and(
             eq(generationJobs.packageId, data.packageId),
-            eq(generationJobs.module, "cover"),
+            eq(generationJobs.module, "icon"),
             eq(generationJobs.status, "running"),
           ),
         )
@@ -78,51 +62,39 @@ export const generateCover = inngest.createFunction(
     },
   },
   async ({ event, step, runId }): Promise<ModuleResult> => {
-    const data = event.data as CoverEventData;
-    const tag = "[gen/cover]";
+    const data = event.data as IconEventData;
+    const tag = "[gen/icon]";
 
     const jobId = await step.run("create-job", () =>
       createJobRow({
         packageId: data.packageId,
-        module: "cover",
+        module: "icon",
         userId: data.userId,
         inngestRunId: runId,
       }),
     );
 
     const prep = await step.run("prepare", async () => {
-      console.log(`${tag} loadCreatorForPackage`);
       const creator = await loadCreatorForPackage({
         packageId: data.packageId,
         userId: data.userId,
       });
       const creatorContext = toCreatorContext(creator);
-      const prompt = buildImagePrompt({
-        creator: creatorContext,
-        transformationLine: creatorContext.transformation,
-        styleOverride: data.styleOverride,
-      });
-      console.log(`${tag} prompt built (length=${prompt.length})`);
-      return {
-        prompt,
-        referenceImageUrl: creatorContext.creator_photo_url ?? null,
-      };
+      const prompts = ICON_STYLES.map((style) =>
+        buildIconPrompt({ creator: creatorContext, style }),
+      );
+      console.log(
+        `${tag} ${prompts.length} variant prompts built (lengths=${prompts.map((p) => p.length).join(",")})`,
+      );
+      return { prompts };
     });
 
-    // Max attempts per variant when Gemini hangs or returns a transient
-    // error. We retry inline (inside the same step.run) instead of relying
-    // on Inngest's function-level retry, because Inngest applies an
-    // exponential backoff that can add 1-2 min of dead time. Inline retry
-    // reuses the warm Vercel function and starts immediately.
     const VARIANT_INLINE_RETRIES = 2;
 
-    // Each variant gets its own step.run so a successful URL is persisted
-    // across function-level retries. Promise.all runs all three concurrently.
-    const variantSteps = Array.from({ length: NUM_VARIANTS }, (_, i) => {
+    const variantSteps = ICON_STYLES.map((_, i) => {
       const idx = i + 1;
-      return step.run(`variant-${idx}`, async (): Promise<CoverVariant> => {
+      return step.run(`variant-${idx}`, async (): Promise<IconVariant> => {
         const start = Date.now();
-
         let lastErr: unknown;
         for (let attempt = 1; attempt <= VARIANT_INLINE_RETRIES; attempt++) {
           try {
@@ -130,32 +102,29 @@ export const generateCover = inngest.createFunction(
               `${tag} variant-${idx} calling image provider (attempt ${attempt}/${VARIANT_INLINE_RETRIES})`,
             );
             const { images } = await getImageProvider().generate({
-              prompt: prep.prompt,
-              referenceImageUrl: prep.referenceImageUrl ?? undefined,
+              prompt: prep.prompts[i],
               numVariants: 1,
-              width: 1456,
-              height: 816,
+              width: 512,
+              height: 512,
               packageId: data.packageId,
-              // Intentionally omit jobId — three parallel variants would
-              // race on gemini_image_usage. Aggregate usage is logged once
-              // in the finalize step.
+              // Aggregate usage logged once in finalize.
             });
 
             const supabase = createServiceClient();
-            const path = `${data.packageId}/variant-${idx}.png`;
+            const path = `${data.packageId}/${ICON_PATH_PREFIX}/variant-${idx}.png`;
             const { error: upErr } = await supabase.storage
-              .from(COVER_BUCKET)
+              .from(IMAGE_BUCKET)
               .upload(path, images[0], {
                 contentType: "image/png",
                 upsert: true,
               });
             if (upErr) {
               throw new Error(
-                `cover upload failed for variant ${idx}: ${upErr.message}`,
+                `icon upload failed for variant ${idx}: ${upErr.message}`,
               );
             }
             const { data: pub } = supabase.storage
-              .from(COVER_BUCKET)
+              .from(IMAGE_BUCKET)
               .getPublicUrl(path);
 
             const durationMs = Date.now() - start;
@@ -169,13 +138,8 @@ export const generateCover = inngest.createFunction(
             console.warn(
               `${tag} variant-${idx} attempt ${attempt} failed: ${msg}`,
             );
-            // Loop and try again immediately. No backoff — the most common
-            // cause is a hung Gemini socket that's already been aborted.
           }
         }
-
-        // All inline attempts failed. Throw so Inngest's function-level
-        // retry can take a fresh stab from a clean function instance.
         throw lastErr instanceof Error
           ? lastErr
           : new Error(`variant-${idx} exhausted inline retries`);
@@ -200,7 +164,7 @@ export const generateCover = inngest.createFunction(
         .insert(generatedAssets)
         .values({
           packageId: data.packageId,
-          module: "cover",
+          module: "icon",
           version: 1,
           content: { variants: persistedVariants },
           approved: false,
@@ -210,7 +174,6 @@ export const generateCover = inngest.createFunction(
         .returning({ id: generatedAssets.id });
       console.log(`${tag} asset inserted id=${asset.id}`);
 
-      // Best-effort usage write — logger swallows its own errors.
       await logGeminiImageUsage({
         jobId,
         model: DEFAULT_MODEL,

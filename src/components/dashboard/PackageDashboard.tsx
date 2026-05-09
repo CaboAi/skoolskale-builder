@@ -19,12 +19,12 @@ import type { Creator, GeneratedAsset, LaunchPackage } from "@/lib/db/schema";
 import {
   CARD_COMPONENTS,
   CopyModuleSkeleton,
-  CoverCard,
-  CoverSkeleton,
+  ImageVariantsSkeleton,
+  ImageSingleSkeleton,
   type ModuleActionHandler,
 } from "./module-cards";
 import {
-  COPY_MODULE_KEYS,
+  DASHBOARD_MODULE_KEYS,
   MODULE_LABELS,
   MODULE_REGISTRY,
   type ModuleKey,
@@ -299,11 +299,11 @@ export function PackageDashboard(initial: PackageDashboardProps) {
   });
 
   // Variant selection is a presentation choice, not a content edit, so it
-  // doesn't go through the PATCH endpoint. See /modules/cover/select-variant.
+  // doesn't go through the PATCH endpoint. See /modules/[module]/select-variant.
   const selectVariantMutation = useMutation({
-    mutationFn: async (index: number) => {
+    mutationFn: async ({ module, index }: { module: string; index: number }) => {
       const res = await fetch(
-        `/api/packages/${pkg.id}/modules/cover/select-variant`,
+        `/api/packages/${pkg.id}/modules/${module}/select-variant`,
         {
           method: "PUT",
           headers: { "content-type": "application/json" },
@@ -316,14 +316,14 @@ export function PackageDashboard(initial: PackageDashboardProps) {
       }
       return (await res.json()) as GeneratedAsset;
     },
-    onMutate: async (index: number) => {
+    onMutate: async ({ module, index }) => {
       await queryClient.cancelQueries({ queryKey });
       const prev = queryClient.getQueryData<PackageWithDetails>(queryKey);
       if (prev) {
         queryClient.setQueryData<PackageWithDetails>(queryKey, {
           ...prev,
           assets: prev.assets.map((a) => {
-            if (a.module !== "cover") return a;
+            if (a.module !== module) return a;
             const content = a.content as {
               variants: unknown[];
               selected_variant_index?: number;
@@ -337,10 +337,10 @@ export function PackageDashboard(initial: PackageDashboardProps) {
       }
       return { prev };
     },
-    onSuccess: (_updated, index) => {
+    onSuccess: (_updated, { index }) => {
       toast.success(`Variant ${index + 1} selected`);
     },
-    onError: (err, _index, ctx) => {
+    onError: (err, _vars, ctx) => {
       if (ctx?.prev) queryClient.setQueryData(queryKey, ctx.prev);
       toast.error(`Could not select variant: ${err.message}`);
     },
@@ -363,8 +363,8 @@ export function PackageDashboard(initial: PackageDashboardProps) {
     }
   };
 
-  const handleSelectVariant = (index: number) => {
-    selectVariantMutation.mutate(index);
+  const handleSelectVariant = (module: string, index: number) => {
+    selectVariantMutation.mutate({ module, index });
   };
 
   /* ---------- Render ---------- */
@@ -381,28 +381,57 @@ export function PackageDashboard(initial: PackageDashboardProps) {
     return pendingApproveModule === module ? ("approve" as const) : null;
   }
 
-  const selectingVariantIndex = selectVariantMutation.isPending
-    ? (selectVariantMutation.variables ?? null)
+  // While a select-variant request is in flight, drive the spinner on the
+  // *specific* variant the user clicked. Scoped to a module key so that
+  // having one variant selection in flight doesn't dim variants of another
+  // image module.
+  const selectingVariant = selectVariantMutation.isPending
+    ? selectVariantMutation.variables
     : null;
+  function selectingIndexFor(module: string): number | null {
+    return selectingVariant?.module === module ? selectingVariant.index : null;
+  }
 
-  function renderCopyCard(module: ModuleKey) {
+  function renderModuleCard(module: ModuleKey) {
+    const cfg = MODULE_REGISTRY[module];
     const asset = byModule.get(module);
     if (!asset || regenerating[module] !== undefined) {
-      return <CopyModuleSkeleton key={module} module={module} />;
+      // Pick the right skeleton shape based on the registered cardVariant.
+      if (cfg.cardVariant === "image-variants") {
+        return (
+          <ImageVariantsSkeleton
+            key={module}
+            module={module}
+            fullWidth={cfg.fullWidth}
+          />
+        );
+      }
+      if (cfg.cardVariant === "image-single") {
+        return (
+          <ImageSingleSkeleton
+            key={module}
+            module={module}
+            fullWidth={cfg.fullWidth}
+          />
+        );
+      }
+      return (
+        <CopyModuleSkeleton
+          key={module}
+          module={module}
+          fullWidth={cfg.fullWidth}
+        />
+      );
     }
-    const cfg = MODULE_REGISTRY[module];
     const Component = CARD_COMPONENTS[cfg.cardVariant];
-    if (!Component) {
-      // PR #5 will fill in the new variants; this guard makes the omission
-      // loud instead of silently rendering nothing.
-      throw new Error(`Unwired cardVariant: ${cfg.cardVariant}`);
-    }
     return (
       <Component
         key={module}
         asset={asset}
         onAction={handleAction}
         pendingAction={pendingActionFor(module)}
+        onSelectVariant={cfg.hasVariants ? handleSelectVariant : undefined}
+        selectingIndex={cfg.hasVariants ? selectingIndexFor(module) : null}
       />
     );
   }
@@ -428,18 +457,7 @@ export function PackageDashboard(initial: PackageDashboardProps) {
         <DraftEmptyState packageId={pkg.id} />
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {byModule.has("cover") && regenerating.cover === undefined ? (
-            <CoverCard
-              asset={byModule.get("cover")!}
-              onAction={handleAction}
-              onSelectVariant={handleSelectVariant}
-              pendingAction={pendingActionFor("cover")}
-              selectingIndex={selectingVariantIndex}
-            />
-          ) : (
-            <CoverSkeleton />
-          )}
-          {COPY_MODULE_KEYS.map(renderCopyCard)}
+          {DASHBOARD_MODULE_KEYS.map(renderModuleCard)}
         </div>
       )}
 

@@ -13,6 +13,9 @@ import { generateCalendar } from "./generate-calendar";
 import { generateLeaderboard } from "./generate-leaderboard";
 import { generateCategories } from "./generate-categories";
 import { generateDiscoverySeo } from "./generate-discovery-seo";
+import { generateIcon } from "./generate-icon";
+import { generateClassroomCover } from "./generate-classroom-cover";
+import { generateCalendarCover } from "./generate-calendar-cover";
 
 type PackageEventData = {
   packageId: string;
@@ -43,6 +46,9 @@ const FUNCTIONS: Partial<
     | typeof generateLeaderboard
     | typeof generateCategories
     | typeof generateDiscoverySeo
+    | typeof generateIcon
+    | typeof generateClassroomCover
+    | typeof generateCalendarCover
   >
 > = {
   welcome_dm: generateWelcomeDm,
@@ -55,6 +61,9 @@ const FUNCTIONS: Partial<
   leaderboard: generateLeaderboard,
   categories: generateCategories,
   discovery_seo: generateDiscoverySeo,
+  icon: generateIcon,
+  classroom_cover: generateClassroomCover,
+  calendar_cover: generateCalendarCover,
 };
 
 /**

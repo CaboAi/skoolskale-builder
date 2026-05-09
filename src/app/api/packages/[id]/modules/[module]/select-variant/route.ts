@@ -10,42 +10,64 @@ import {
 } from "@/lib/db/schema";
 import { logAudit } from "@/lib/audit";
 import type { ApiError } from "@/lib/validation";
+import { MODULE_KEYS, MODULE_REGISTRY } from "@/lib/modules/registry";
 
 /**
- * PUT /api/packages/[id]/modules/cover/select-variant
+ * PUT /api/packages/[id]/modules/[module]/select-variant
  *
- * Sets `content.selected_variant_index` on the latest cover asset. This is a
- * presentation choice, NOT a content edit, so:
+ * Sets `content.selected_variant_index` on the latest asset for the
+ * module. This is a presentation choice, NOT a content edit, so:
  *   - approval state is preserved (no `approved=false` reset)
  *   - the version is NOT bumped
  *   - edit_history is NOT appended
  *
- * The general PATCH /modules/[module] endpoint is for actual content changes
- * and intentionally invalidates approval. Variant selection deserves its own
- * verb.
+ * Gated by `MODULE_REGISTRY[module].hasVariants === true`. Modules
+ * without variants (any text module, classroom_cover, calendar_cover)
+ * return 400.
+ *
+ * Replaces the cover-specific route from PR #6.
  */
 
 const UuidParam = z.string().uuid();
+const ModuleParam = z.enum(MODULE_KEYS);
 
 const BodySchema = z.object({
   index: z.number().int().min(0),
 });
 
-type CoverContent = {
+type ImageVariantsContent = {
   variants: { url: string; index: number }[];
   selected_variant_index?: number;
 };
 
-type RouteCtx = { params: Promise<{ id: string }> };
+type RouteCtx = { params: Promise<{ id: string; module: string }> };
 
 export async function PUT(req: NextRequest, { params }: RouteCtx) {
   const user = await requireUser();
-  const { id } = await params;
+  const { id, module } = await params;
 
   const idR = UuidParam.safeParse(id);
   if (!idR.success) {
     return NextResponse.json<ApiError>(
       { error: "Invalid package id.", code: "invalid_id" },
+      { status: 400 },
+    );
+  }
+
+  const moduleR = ModuleParam.safeParse(module);
+  if (!moduleR.success) {
+    return NextResponse.json<ApiError>(
+      { error: "Unknown module.", code: "invalid_module" },
+      { status: 400 },
+    );
+  }
+
+  if (!MODULE_REGISTRY[moduleR.data].hasVariants) {
+    return NextResponse.json<ApiError>(
+      {
+        error: `Module ${moduleR.data} does not support variant selection.`,
+        code: "no_variants",
+      },
       { status: 400 },
     );
   }
@@ -77,26 +99,29 @@ export async function PUT(req: NextRequest, { params }: RouteCtx) {
     );
   }
 
-  // Latest cover asset.
+  // Latest asset for this module.
   const [latest] = await db
     .select()
     .from(generatedAssets)
     .where(
       and(
         eq(generatedAssets.packageId, idR.data),
-        eq(generatedAssets.module, "cover"),
+        eq(generatedAssets.module, moduleR.data),
       ),
     )
     .orderBy(desc(generatedAssets.version), desc(generatedAssets.createdAt))
     .limit(1);
   if (!latest) {
     return NextResponse.json<ApiError>(
-      { error: "No cover asset to select from.", code: "not_found" },
+      {
+        error: `No ${moduleR.data} asset to select from.`,
+        code: "not_found",
+      },
       { status: 404 },
     );
   }
 
-  const current = latest.content as CoverContent;
+  const current = latest.content as ImageVariantsContent;
   if (bodyR.data.index >= current.variants.length) {
     return NextResponse.json<ApiError>(
       { error: "Variant index out of range.", code: "invalid_index" },
@@ -114,7 +139,7 @@ export async function PUT(req: NextRequest, { params }: RouteCtx) {
 
   await logAudit(
     user.id,
-    "module.cover.select_variant",
+    `module.${moduleR.data}.select_variant`,
     "generated_asset",
     updated.id,
     { index: bodyR.data.index },

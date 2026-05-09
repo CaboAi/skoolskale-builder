@@ -390,6 +390,143 @@ function CoverSection({ asset }: { asset: GeneratedAsset }) {
 }
 
 /* -------------------------------------------------------------------------- */
+/* Section: Icon (3 variant grid, mirrors CoverSection)                       */
+/* -------------------------------------------------------------------------- */
+
+function IconSection({ asset }: { asset: GeneratedAsset }) {
+  const c = asset.content as CoverContent;
+  const selectedIdx = c.selected_variant_index ?? 0;
+  const selected =
+    c.variants.find((v) => v.index === selectedIdx) ?? c.variants[0];
+  const others = c.variants.filter((v) => v.index !== selected.index);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Community Icon</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <div className="overflow-hidden rounded-md border bg-muted/30 p-4">
+            <Image
+              src={selected.url}
+              alt="Selected community icon"
+              width={512}
+              height={512}
+              className="mx-auto h-auto max-w-[256px]"
+            />
+          </div>
+          <DownloadButton
+            url={selected.url}
+            filename={`icon-variant-${selected.index + 1}.png`}
+            label="Download icon"
+          />
+        </div>
+        {others.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Other variants</p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {others.map((v) => (
+                <div key={v.index} className="space-y-2">
+                  <div className="overflow-hidden rounded-md border bg-muted/30 p-3">
+                    <Image
+                      src={v.url}
+                      alt={`Icon variant ${v.index + 1}`}
+                      width={512}
+                      height={512}
+                      className="mx-auto h-auto max-w-[160px]"
+                    />
+                  </div>
+                  <DownloadButton
+                    url={v.url}
+                    filename={`icon-variant-${v.index + 1}.png`}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        <p className="text-xs text-muted-foreground">
+          Upload to Skool &gt; Settings &gt; Branding &gt; Community icon.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Section: Classroom Cover (single banner image)                             */
+/* -------------------------------------------------------------------------- */
+
+function ClassroomCoverSection({ asset }: { asset: GeneratedAsset }) {
+  const c = asset.content as CoverContent;
+  const variant = c.variants[0];
+  if (!variant) return null;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Classroom Cover</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <div className="overflow-hidden rounded-md border">
+          <Image
+            src={variant.url}
+            alt="Classroom cover banner"
+            width={1456}
+            height={816}
+            className="h-auto w-full"
+          />
+        </div>
+        <DownloadButton
+          url={variant.url}
+          filename="classroom-cover.png"
+          label="Download classroom cover"
+        />
+        <p className="text-xs text-muted-foreground">
+          Upload to Skool &gt; Classroom &gt; Settings (cover image).
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Section: Calendar Cover (single banner image)                              */
+/* -------------------------------------------------------------------------- */
+
+function CalendarCoverSection({ asset }: { asset: GeneratedAsset }) {
+  const c = asset.content as CoverContent;
+  const variant = c.variants[0];
+  if (!variant) return null;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Calendar Cover</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <div className="overflow-hidden rounded-md border">
+          <Image
+            src={variant.url}
+            alt="Calendar cover banner"
+            width={1456}
+            height={816}
+            className="h-auto w-full"
+          />
+        </div>
+        <DownloadButton
+          url={variant.url}
+          filename="calendar-cover.png"
+          label="Download calendar cover"
+        />
+        <p className="text-xs text-muted-foreground">
+          Upload to Skool &gt; Calendar &gt; Settings (cover image).
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
 /* Deployment checklist                                                        */
 /* -------------------------------------------------------------------------- */
 
@@ -570,12 +707,14 @@ function DiscoverySeoSection({ asset }: { asset: GeneratedAsset }) {
 const CHECKLIST_ITEMS = [
   "Created Skool community",
   "Uploaded cover image",
+  "Uploaded community icon",
   "Set community description (transformation line)",
   "Pasted About Us page",
   'Created "Start Here" course with 4 lessons',
   "Configured welcome message automation",
   "Set pricing per the proposal",
   "Named Classroom + Calendar areas",
+  "Uploaded Classroom + Calendar cover images",
   "Renamed leaderboard levels",
   "Created the 3 community categories",
   "Pasted Discovery search keywords",
@@ -667,6 +806,7 @@ export function ExportView({ package: pkg, creator, assets }: ExportViewProps) {
     MODULE_KEYS.map((k) => [k, byModule.get(k)]),
   ) as Record<ModuleKey, GeneratedAsset | undefined>;
   const cover = m.cover;
+  const icon = m.icon;
   const welcomeDm = m.welcome_dm;
   const transformation = m.transformation;
   const aboutUs = m.about_us;
@@ -676,6 +816,8 @@ export function ExportView({ package: pkg, creator, assets }: ExportViewProps) {
   const leaderboard = m.leaderboard;
   const categories = m.categories;
   const discoverySeo = m.discovery_seo;
+  const classroomCover = m.classroom_cover;
+  const calendarCover = m.calendar_cover;
 
   return (
     <div className="space-y-6">
@@ -715,8 +857,11 @@ export function ExportView({ package: pkg, creator, assets }: ExportViewProps) {
       {aboutUs && <AboutUsSection asset={aboutUs} />}
       {startHere && <StartHereSection asset={startHere} />}
       {cover && <CoverSection asset={cover} />}
+      {icon && <IconSection asset={icon} />}
       {classroom && <ClassroomSection asset={classroom} />}
+      {classroomCover && <ClassroomCoverSection asset={classroomCover} />}
       {calendar && <CalendarSection asset={calendar} />}
+      {calendarCover && <CalendarCoverSection asset={calendarCover} />}
       {leaderboard && <LeaderboardSection asset={leaderboard} />}
       {categories && <CategoriesSection asset={categories} />}
       {discoverySeo && <DiscoverySeoSection asset={discoverySeo} />}

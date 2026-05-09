@@ -8,6 +8,9 @@ export { generateCalendar } from "./generate-calendar";
 export { generateLeaderboard } from "./generate-leaderboard";
 export { generateCategories } from "./generate-categories";
 export { generateDiscoverySeo } from "./generate-discovery-seo";
+export { generateIcon } from "./generate-icon";
+export { generateClassroomCover } from "./generate-classroom-cover";
+export { generateCalendarCover } from "./generate-calendar-cover";
 export { generatePackage } from "./generate-package";
 
 import { generateWelcomeDm } from "./generate-welcome-dm";
@@ -20,6 +23,9 @@ import { generateCalendar } from "./generate-calendar";
 import { generateLeaderboard } from "./generate-leaderboard";
 import { generateCategories } from "./generate-categories";
 import { generateDiscoverySeo } from "./generate-discovery-seo";
+import { generateIcon } from "./generate-icon";
+import { generateClassroomCover } from "./generate-classroom-cover";
+import { generateCalendarCover } from "./generate-calendar-cover";
 import { generatePackage } from "./generate-package";
 
 /**
@@ -37,5 +43,8 @@ export const functions = [
   generateLeaderboard,
   generateCategories,
   generateDiscoverySeo,
+  generateIcon,
+  generateClassroomCover,
+  generateCalendarCover,
   generatePackage,
 ];
