@@ -6,6 +6,7 @@ const config = [
     ignores: [
       'node_modules/**',
       '.next/**',
+      '.claude/**',
       'drizzle/**',
       'next-env.d.ts',
       'tests/server-only-shim.ts',
