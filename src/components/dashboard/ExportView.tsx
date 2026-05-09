@@ -536,29 +536,34 @@ function CalendarCoverSection({ asset }: { asset: GeneratedAsset }) {
 
 type TitleDescriptionContent = { title: string; description: string };
 
-function ClassroomSection({ asset }: { asset: GeneratedAsset }) {
+export function ClassroomSection({ asset }: { asset: GeneratedAsset }) {
   const c = asset.content as TitleDescriptionContent;
   return (
     <Card>
-      <CardHeader className="flex flex-row items-start justify-between space-y-0">
+      <CardHeader>
         <CardTitle>Classroom</CardTitle>
-        <CopyButton text={`${c.title}\n\n${c.description}`} label="Copy both" />
       </CardHeader>
       <CardContent className="space-y-2">
         <div className="space-y-1 rounded-md border p-3">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">
-            Title
-          </p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+              Title
+            </p>
+            <CopyButton text={c.title} label="Copy title" />
+          </div>
           <p className="font-semibold">{c.title}</p>
         </div>
         <div className="space-y-1 rounded-md border p-3">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">
-            Description
-          </p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+              Description
+            </p>
+            <CopyButton text={c.description} label="Copy description" />
+          </div>
           <p className="whitespace-pre-wrap text-sm">{c.description}</p>
         </div>
         <p className="text-xs text-muted-foreground">
-          Paste these into Skool &gt; Classroom &gt; Settings.
+          Paste these into Skool &gt; Classroom &gt; Settings (separate fields).
         </p>
       </CardContent>
     </Card>
@@ -569,29 +574,34 @@ function ClassroomSection({ asset }: { asset: GeneratedAsset }) {
 /* Section: Calendar (title + description)                                    */
 /* -------------------------------------------------------------------------- */
 
-function CalendarSection({ asset }: { asset: GeneratedAsset }) {
+export function CalendarSection({ asset }: { asset: GeneratedAsset }) {
   const c = asset.content as TitleDescriptionContent;
   return (
     <Card>
-      <CardHeader className="flex flex-row items-start justify-between space-y-0">
+      <CardHeader>
         <CardTitle>Calendar</CardTitle>
-        <CopyButton text={`${c.title}\n\n${c.description}`} label="Copy both" />
       </CardHeader>
       <CardContent className="space-y-2">
         <div className="space-y-1 rounded-md border p-3">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">
-            Title
-          </p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+              Title
+            </p>
+            <CopyButton text={c.title} label="Copy title" />
+          </div>
           <p className="font-semibold">{c.title}</p>
         </div>
         <div className="space-y-1 rounded-md border p-3">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">
-            Description
-          </p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+              Description
+            </p>
+            <CopyButton text={c.description} label="Copy description" />
+          </div>
           <p className="whitespace-pre-wrap text-sm">{c.description}</p>
         </div>
         <p className="text-xs text-muted-foreground">
-          Paste these into Skool &gt; Calendar &gt; Settings.
+          Paste these into Skool &gt; Calendar &gt; Settings (separate fields).
         </p>
       </CardContent>
     </Card>
