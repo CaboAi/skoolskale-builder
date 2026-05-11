@@ -1,5 +1,6 @@
 import { CalendarContentSchema, type CalendarContent } from '@/types/schemas';
 import type { GeneratorInput } from '@/types/generators';
+import { regenerateNoteSuffix } from './_shared';
 
 const TITLE_MAX = 30;
 const DESCRIPTION_MAX = 300;
@@ -57,10 +58,10 @@ Tone: ${input.creator.tone}
 Live calls cadence: ${liveCalls}
 Events: ${events}
 </creator_context>
-${input.regenerateNote ? `\n<regenerate_note>${input.regenerateNote}</regenerate_note>\n` : ''}
+
 <task>
 Write a Calendar title (max ${TITLE_MAX} chars) and description (max ${DESCRIPTION_MAX} chars) for this community in a ${input.creator.tone} tone.
-</task>`;
+</task>${regenerateNoteSuffix(input.regenerateNote)}`;
 }
 
 export function parseOutput(raw: string): CalendarContent {

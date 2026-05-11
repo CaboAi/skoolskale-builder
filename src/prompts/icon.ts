@@ -11,6 +11,7 @@
  */
 import { z } from "zod";
 import type { CreatorContext } from "@/types/generators";
+import { regenerateNoteSuffix } from "./_shared";
 
 export const IconContentSchema = z.object({
   variants: z.array(
@@ -80,8 +81,9 @@ function moodForNiche(niche: CreatorContext["niche"]): string {
 export function buildIconPrompt(input: {
   creator: CreatorContext;
   style: IconStyle;
+  regenerateNote?: string;
 }): string {
-  const { creator, style } = input;
+  const { creator, style, regenerateNote } = input;
   const mood = moodForNiche(creator.niche);
   const toneMood = moodForTone(creator.tone);
 
@@ -93,5 +95,5 @@ export function buildIconPrompt(input: {
     toneMood,
     `Niche cue: ${creator.niche}. The icon should subtly evoke "${creator.transformation}" without spelling it out.`,
     `Hard constraints: solid centered composition; no photographs of people; no gibberish or garbled text; if any text appears it must read exactly "${creator.community_name}" and be perfectly legible; no watermarks, signatures, or extra logos; flat clean rendering, no drop-shadows or chrome effects.`,
-  ].join("\n");
+  ].join("\n") + regenerateNoteSuffix(regenerateNote);
 }

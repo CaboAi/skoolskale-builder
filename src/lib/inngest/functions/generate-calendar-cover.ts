@@ -77,6 +77,7 @@ export const generateCalendarCover = inngest.createFunction(
       });
       const prompt = buildCalendarCoverPrompt({
         creator: toCreatorContext(creator),
+        regenerateNote: data.regenerateNote,
       });
       console.log(`${tag} prompt built (length=${prompt.length})`);
       return { prompt };

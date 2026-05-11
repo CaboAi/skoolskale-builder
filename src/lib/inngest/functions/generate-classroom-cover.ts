@@ -77,6 +77,7 @@ export const generateClassroomCover = inngest.createFunction(
       });
       const prompt = buildClassroomCoverPrompt({
         creator: toCreatorContext(creator),
+        regenerateNote: data.regenerateNote,
       });
       console.log(`${tag} prompt built (length=${prompt.length})`);
       return { prompt };

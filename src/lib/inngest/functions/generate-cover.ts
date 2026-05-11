@@ -101,6 +101,7 @@ export const generateCover = inngest.createFunction(
         creator: creatorContext,
         transformationLine: creatorContext.transformation,
         styleOverride: data.styleOverride,
+        regenerateNote: data.regenerateNote,
       });
       console.log(`${tag} prompt built (length=${prompt.length})`);
       return {

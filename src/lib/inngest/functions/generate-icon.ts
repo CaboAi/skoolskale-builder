@@ -81,7 +81,11 @@ export const generateIcon = inngest.createFunction(
       });
       const creatorContext = toCreatorContext(creator);
       const prompts = ICON_STYLES.map((style) =>
-        buildIconPrompt({ creator: creatorContext, style }),
+        buildIconPrompt({
+          creator: creatorContext,
+          style,
+          regenerateNote: data.regenerateNote,
+        }),
       );
       console.log(
         `${tag} ${prompts.length} variant prompts built (lengths=${prompts.map((p) => p.length).join(",")})`,

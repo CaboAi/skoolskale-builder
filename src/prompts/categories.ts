@@ -3,6 +3,7 @@ import {
   type CategoriesContent,
 } from '@/types/schemas';
 import type { GeneratorInput } from '@/types/generators';
+import { regenerateNoteSuffix } from './_shared';
 
 const NUM_CATEGORIES = 3;
 const NAME_MAX = 60;
@@ -73,10 +74,10 @@ Audience: ${input.creator.audience}
 Transformation promise: ${input.creator.transformation}
 Tone: ${input.creator.tone}
 </creator_context>
-${input.regenerateNote ? `\n<regenerate_note>${input.regenerateNote}</regenerate_note>\n` : ''}
+
 <task>
 Write the 3 community categories for this community in a ${input.creator.tone} tone, in the canonical slot order (introduce, share-wins, creator-advice).
-</task>`;
+</task>${regenerateNoteSuffix(input.regenerateNote)}`;
 }
 
 export function parseOutput(raw: string): CategoriesContent {

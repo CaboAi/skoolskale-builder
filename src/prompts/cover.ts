@@ -11,6 +11,7 @@
  */
 import { z } from "zod";
 import type { CreatorContext } from "@/types/generators";
+import { regenerateNoteSuffix } from "./_shared";
 
 /**
  * The shape stored in `generated_assets.content` for the cover module.
@@ -130,8 +131,9 @@ export function buildImagePrompt(input: {
   creator: CreatorContext;
   transformationLine?: string;
   styleOverride?: CoverStyle;
+  regenerateNote?: string;
 }): string {
-  const { creator, transformationLine, styleOverride } = input;
+  const { creator, transformationLine, styleOverride, regenerateNote } = input;
   const style = STYLES[styleOverride ?? defaultStyleFor(creator.niche)];
   const mood = moodFor(creator.niche);
   const toneMood = moodForTone(creator.tone);
@@ -151,5 +153,5 @@ export function buildImagePrompt(input: {
     taglineBlock,
     `Vibrant colors, high contrast, professional commercial quality, modern community cover aesthetic.`,
     `Hard constraints: no gibberish or garbled text anywhere in the image; every character of the title must be spelled exactly as written; no extra watermarks or logos; no malformed hands, fingers, or facial features; typography must be crisp and readable.`,
-  ].join("\n");
+  ].join("\n") + regenerateNoteSuffix(regenerateNote);
 }

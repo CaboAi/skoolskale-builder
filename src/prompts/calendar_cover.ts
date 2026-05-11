@@ -7,6 +7,7 @@
  */
 import { z } from "zod";
 import type { CreatorContext } from "@/types/generators";
+import { regenerateNoteSuffix } from "./_shared";
 
 export const CalendarCoverContentSchema = z.object({
   variants: z.array(
@@ -54,8 +55,9 @@ function moodForNiche(niche: CreatorContext["niche"]): string {
 
 export function buildCalendarCoverPrompt(input: {
   creator: CreatorContext;
+  regenerateNote?: string;
 }): string {
-  const { creator } = input;
+  const { creator, regenerateNote } = input;
   return [
     `A horizontal banner image for the "Calendar" section of the Skool community "${creator.community_name}".`,
     `Aspect ratio 16:9 (1456x816). Designed as a sectional header — title legible at small sizes.`,
@@ -66,5 +68,5 @@ export function buildCalendarCoverPrompt(input: {
     moodForTone(creator.tone),
     `Niche cue: ${creator.niche}. Visual references should feel native to a ${creator.niche} community.`,
     `Hard constraints: no photographs of identifiable people; no gibberish or garbled text; both "Calendar" and "${creator.community_name}" must be spelled exactly as written; no watermarks; modern community-cover aesthetic.`,
-  ].join("\n");
+  ].join("\n") + regenerateNoteSuffix(regenerateNote);
 }
