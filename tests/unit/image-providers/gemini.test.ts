@@ -7,7 +7,10 @@
  */
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-const generateCoverImagesMock = vi.fn();
+// Hoisted per-file. See CLAUDE.md § "Mocking conventions".
+const { generateCoverImagesMock } = vi.hoisted(() => ({
+  generateCoverImagesMock: vi.fn(),
+}));
 
 vi.mock("@/lib/gemini-image/generate", () => ({
   DEFAULT_MODEL: "gemini-3.1-flash-image-preview",
