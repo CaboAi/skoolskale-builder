@@ -18,6 +18,10 @@ import type { GeneratedAsset } from "@/lib/db/schema";
 import { MODULE_LABELS } from "./module-cards";
 import { RepeaterField } from "@/components/wizard/RepeaterField";
 import { KeywordChipField } from "@/components/wizard/KeywordChipField";
+import { AboutUsEditForm } from "./edit-forms/AboutUsEditForm";
+import { StartHereEditForm } from "./edit-forms/StartHereEditForm";
+import type { AboutUsOutput } from "@/prompts/about-us";
+import type { StartHereOutput } from "@/prompts/start-here";
 
 /* -------------------------------------------------------------------------- */
 /* Regenerate                                                                  */
@@ -261,7 +265,31 @@ function EditDialogBody({
       />
     );
   }
-  // about_us, start_here → JSON editor.
+  if (module === "about_us") {
+    return (
+      <AboutUsEditForm
+        initial={asset.content as Partial<AboutUsOutput>}
+        onSave={onSave}
+        onCancel={onCancel}
+        saving={saving}
+      />
+    );
+  }
+  if (module === "start_here") {
+    return (
+      <StartHereEditForm
+        initial={asset.content as Partial<StartHereOutput>}
+        onSave={onSave}
+        onCancel={onCancel}
+        saving={saving}
+      />
+    );
+  }
+  // Defensive fallback. Per the PR #15 audit, no other module currently
+  // routes through EditDialog with a structured-only shape — the per-
+  // module forms above cover every dispatched module key. Kept so that
+  // adding a new module without an explicit form branch surfaces
+  // editable JSON instead of a runtime crash.
   return (
     <JsonEditForm
       asset={asset}
