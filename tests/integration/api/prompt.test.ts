@@ -23,8 +23,8 @@ vi.mock("@/lib/prompts/dispatch", () => ({
   buildPromptFor: buildPromptForMock,
 }));
 
-const route = () =>
-  import("@/app/api/packages/[id]/modules/[module]/prompt/route");
+// Static import — see regenerate.test.ts for rationale.
+import { GET } from "@/app/api/packages/[id]/modules/[module]/prompt/route";
 
 function getRequest(url: string) {
   return new NextRequest(url, { method: "GET" });
@@ -40,7 +40,6 @@ beforeEach(() => {
 
 describe("GET /api/packages/[id]/modules/[module]/prompt", () => {
   test("happy path returns { prompt: string }", async () => {
-    const { GET } = await route();
     const res = await GET(
       getRequest(`http://test/api/packages/${PKG_ID}/modules/welcome_dm/prompt`),
       { params: Promise.resolve({ id: PKG_ID, module: "welcome_dm" }) },
@@ -59,7 +58,6 @@ describe("GET /api/packages/[id]/modules/[module]/prompt", () => {
   });
 
   test("threads ?note= through to the dispatch", async () => {
-    const { GET } = await route();
     const res = await GET(
       getRequest(
         `http://test/api/packages/${PKG_ID}/modules/cover/prompt?note=less%20abstract`,
@@ -76,7 +74,6 @@ describe("GET /api/packages/[id]/modules/[module]/prompt", () => {
   });
 
   test("rejects unknown module with 400 invalid_module", async () => {
-    const { GET } = await route();
     const res = await GET(
       getRequest(`http://test/api/packages/${PKG_ID}/modules/nope/prompt`),
       { params: Promise.resolve({ id: PKG_ID, module: "nope" }) },
@@ -88,7 +85,6 @@ describe("GET /api/packages/[id]/modules/[module]/prompt", () => {
   });
 
   test("rejects invalid uuid with 400 invalid_id", async () => {
-    const { GET } = await route();
     const res = await GET(
       getRequest(`http://test/api/packages/not-a-uuid/modules/welcome_dm/prompt`),
       {
@@ -101,7 +97,6 @@ describe("GET /api/packages/[id]/modules/[module]/prompt", () => {
   });
 
   test("rejects oversized note with 400 invalid_note", async () => {
-    const { GET } = await route();
     const note = encodeURIComponent("x".repeat(1001));
     const res = await GET(
       getRequest(
@@ -119,7 +114,6 @@ describe("GET /api/packages/[id]/modules/[module]/prompt", () => {
     buildPromptForMock.mockRejectedValueOnce(
       new Error(`launch_package ${PKG_ID} not found`),
     );
-    const { GET } = await route();
     const res = await GET(
       getRequest(`http://test/api/packages/${PKG_ID}/modules/welcome_dm/prompt`),
       { params: Promise.resolve({ id: PKG_ID, module: "welcome_dm" }) },

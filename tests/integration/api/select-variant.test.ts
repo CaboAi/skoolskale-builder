@@ -51,12 +51,12 @@ function jsonRequest(url: string, method: string, body?: unknown) {
   });
 }
 
-const route = () =>
-  import("@/app/api/packages/[id]/modules/[module]/select-variant/route");
+// Static import — see regenerate.test.ts for rationale. Eliminates the
+// "first test in file timeout" flake this file has been hitting since #11.
+import { PUT } from "@/app/api/packages/[id]/modules/[module]/select-variant/route";
 
 describe("PUT /api/packages/[id]/modules/[module]/select-variant", () => {
   test("classroom_cover: rejects with 400 (no variants)", async () => {
-    const { PUT } = await route();
     const res = await PUT(
       jsonRequest(
         `http://test/api/packages/${PKG_ID}/modules/classroom_cover/select-variant`,
@@ -73,7 +73,6 @@ describe("PUT /api/packages/[id]/modules/[module]/select-variant", () => {
   });
 
   test("calendar_cover: rejects with 400 (no variants)", async () => {
-    const { PUT } = await route();
     const res = await PUT(
       jsonRequest(
         `http://test/api/packages/${PKG_ID}/modules/calendar_cover/select-variant`,
@@ -90,7 +89,6 @@ describe("PUT /api/packages/[id]/modules/[module]/select-variant", () => {
   });
 
   test("text module (classroom): rejects with 400 (no variants)", async () => {
-    const { PUT } = await route();
     const res = await PUT(
       jsonRequest(
         `http://test/api/packages/${PKG_ID}/modules/classroom/select-variant`,
@@ -105,7 +103,6 @@ describe("PUT /api/packages/[id]/modules/[module]/select-variant", () => {
   });
 
   test("unknown module: rejects with 400", async () => {
-    const { PUT } = await route();
     const res = await PUT(
       jsonRequest(
         `http://test/api/packages/${PKG_ID}/modules/not_a_module/select-variant`,
@@ -120,7 +117,6 @@ describe("PUT /api/packages/[id]/modules/[module]/select-variant", () => {
   });
 
   test("invalid package id: rejects with 400 invalid_id", async () => {
-    const { PUT } = await route();
     const res = await PUT(
       jsonRequest(
         `http://test/api/packages/not-a-uuid/modules/cover/select-variant`,

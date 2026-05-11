@@ -82,6 +82,9 @@ vi.mock("@/lib/claude/generate", () => ({
   generate: generateMock,
 }));
 
+// Static import — see regenerate.test.ts for rationale.
+import { runModule } from "@/lib/inngest/functions/_shared";
+
 const PROMPT_FIXTURE = {
   systemPrompt: "system prompt body",
   buildUserMessage: vi.fn(() => "BUILT BY THE BUILDER"),
@@ -127,7 +130,6 @@ beforeEach(() => {
 
 describe("runModule editedPrompt branch", () => {
   test("WITHOUT editedPrompt: calls builder + pattern lookup + uses builder output", async () => {
-    const { runModule } = await import("@/lib/inngest/functions/_shared");
     await runModule({
       packageId: "pkg-1",
       module: "welcome_dm",
@@ -143,7 +145,6 @@ describe("runModule editedPrompt branch", () => {
   });
 
   test("WITH editedPrompt: skips builder + pattern lookup; passes edited string verbatim", async () => {
-    const { runModule } = await import("@/lib/inngest/functions/_shared");
     await runModule({
       packageId: "pkg-1",
       module: "welcome_dm",
@@ -162,7 +163,6 @@ describe("runModule editedPrompt branch", () => {
   });
 
   test("WITH editedPrompt: regenerateNote is ignored (suffix not added)", async () => {
-    const { runModule } = await import("@/lib/inngest/functions/_shared");
     await runModule({
       packageId: "pkg-1",
       module: "welcome_dm",

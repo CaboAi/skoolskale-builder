@@ -75,8 +75,12 @@ function jsonRequest(url: string, method: string, body?: unknown) {
   });
 }
 
-const route = () =>
-  import("@/app/api/packages/[id]/modules/[module]/regenerate/route");
+// Static import — vitest hoists vi.mock above this line via AST
+// transformation, so the route sees the mocked deps. Cold-load happens
+// once at file boot (governed by hookTimeout, default 10s) instead of
+// once per test against the 5s testTimeout — eliminates the
+// "first test in file timeout" flake under parallel-suite contention.
+import { POST } from "@/app/api/packages/[id]/modules/[module]/regenerate/route";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -89,7 +93,6 @@ beforeEach(() => {
 describe("POST /api/packages/[id]/modules/[module]/regenerate", () => {
   describe("validation", () => {
     test("accepts editedPrompt up to 10000 chars", async () => {
-      const { POST } = await route();
       const res = await POST(
         jsonRequest(`http://test/regen`, "POST", {
           editedPrompt: "x".repeat(10000),
@@ -100,7 +103,6 @@ describe("POST /api/packages/[id]/modules/[module]/regenerate", () => {
     });
 
     test("rejects editedPrompt over 10000 chars with 400", async () => {
-      const { POST } = await route();
       const res = await POST(
         jsonRequest(`http://test/regen`, "POST", {
           editedPrompt: "x".repeat(10001),
@@ -111,7 +113,6 @@ describe("POST /api/packages/[id]/modules/[module]/regenerate", () => {
     });
 
     test("accepts both note and editedPrompt in the same request", async () => {
-      const { POST } = await route();
       const res = await POST(
         jsonRequest(`http://test/regen`, "POST", {
           note: "be concise",
@@ -125,7 +126,6 @@ describe("POST /api/packages/[id]/modules/[module]/regenerate", () => {
 
   describe("event payload", () => {
     test("emits editedPrompt into Inngest event data when set", async () => {
-      const { POST } = await route();
       await POST(
         jsonRequest(`http://test/regen`, "POST", {
           editedPrompt: "Write exactly one sentence with no emoji.",
@@ -145,7 +145,6 @@ describe("POST /api/packages/[id]/modules/[module]/regenerate", () => {
     });
 
     test("does NOT include editedPrompt key when absent (no regression)", async () => {
-      const { POST } = await route();
       await POST(
         jsonRequest(`http://test/regen`, "POST", { note: "softer please" }),
         { params: Promise.resolve({ id: PKG_ID, module: "welcome_dm" }) },
@@ -156,7 +155,6 @@ describe("POST /api/packages/[id]/modules/[module]/regenerate", () => {
     });
 
     test("works on an image module (cover) too", async () => {
-      const { POST } = await route();
       await POST(
         jsonRequest(`http://test/regen`, "POST", {
           editedPrompt: "A serene mountain at dawn.",
@@ -171,7 +169,6 @@ describe("POST /api/packages/[id]/modules/[module]/regenerate", () => {
 
   describe("audit log", () => {
     test("records editedPrompt presence as boolean (not full content)", async () => {
-      const { POST } = await route();
       await POST(
         jsonRequest(`http://test/regen`, "POST", {
           editedPrompt: "Sensitive contents the VA typed in.",
@@ -187,7 +184,6 @@ describe("POST /api/packages/[id]/modules/[module]/regenerate", () => {
     });
 
     test("omits editedPrompt key from audit when absent", async () => {
-      const { POST } = await route();
       await POST(
         jsonRequest(`http://test/regen`, "POST", { note: "x" }),
         { params: Promise.resolve({ id: PKG_ID, module: "welcome_dm" }) },
