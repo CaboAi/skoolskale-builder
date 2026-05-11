@@ -25,6 +25,8 @@ import {
   MODULE_LABELS,
   type CardVariant,
 } from "@/lib/modules/registry";
+import { useDashboardContext } from "./dashboard-context";
+import { PromptExpander } from "./PromptExpander";
 
 /* -------------------------------------------------------------------------- */
 /* Module → human label (re-exported from registry for back-compat)           */
@@ -90,36 +92,54 @@ function ModuleFooter({
 }) {
   const approving = pendingAction === "approve";
   const anyPending = pendingAction !== null;
+  // Optional dashboard-level wiring — null when card is rendered in
+  // isolation (tests), in which case the prompt-editor affordance is
+  // hidden. The footer otherwise renders byte-identical to pre-Phase-2.
+  const dashboard = useDashboardContext();
+  const editedPending =
+    dashboard?.pendingEditedRegenerateModule === module || false;
   return (
-    <CardFooter className="flex flex-wrap gap-2 border-t pt-4">
-      {showEdit && (
+    <CardFooter className="flex flex-col gap-3 border-t pt-4">
+      <div className="flex w-full flex-wrap gap-2">
+        {showEdit && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onAction(module, "edit")}
+            disabled={anyPending || editedPending}
+          >
+            Edit
+          </Button>
+        )}
         <Button
           variant="outline"
           size="sm"
-          onClick={() => onAction(module, "edit")}
-          disabled={anyPending}
+          onClick={() => onAction(module, "regenerate")}
+          disabled={anyPending || editedPending}
         >
-          Edit
+          Regenerate
         </Button>
+        <Button
+          variant={approved ? "secondary" : "default"}
+          size="sm"
+          className="ml-auto"
+          onClick={() => onAction(module, "approve")}
+          disabled={approved || anyPending || editedPending}
+        >
+          {approving && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+          {approving ? "Approving…" : approved ? "Approved" : "Approve"}
+        </Button>
+      </div>
+      {dashboard && (
+        <PromptExpander
+          packageId={dashboard.packageId}
+          module={module}
+          onRegenerateEdited={(prompt) =>
+            dashboard.onRegenerateEditedPrompt(module, prompt)
+          }
+          disabled={editedPending || anyPending}
+        />
       )}
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => onAction(module, "regenerate")}
-        disabled={anyPending}
-      >
-        Regenerate
-      </Button>
-      <Button
-        variant={approved ? "secondary" : "default"}
-        size="sm"
-        className="ml-auto"
-        onClick={() => onAction(module, "approve")}
-        disabled={approved || anyPending}
-      >
-        {approving && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
-        {approving ? "Approving…" : approved ? "Approved" : "Approve"}
-      </Button>
     </CardFooter>
   );
 }

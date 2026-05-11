@@ -24,6 +24,14 @@ const ModuleParam = z.enum(MODULE_KEYS);
 const RegenerateSchema = z
   .object({
     note: z.string().max(1000).optional(),
+    /**
+     * When present, the Inngest function uses this string verbatim as
+     * the prompt and skips the builder entirely. Powers the
+     * "Regenerate with edited prompt" affordance on each module card
+     * (Phase 2). 10000 chars is generous — full About Us / Start Here
+     * user messages run ~3-5k.
+     */
+    editedPrompt: z.string().max(10000).optional(),
   })
   .default({});
 
@@ -86,6 +94,7 @@ export async function POST(req: NextRequest, { params }: RouteCtx) {
       packageId: idR.data,
       userId: user.id,
       regenerateNote: body.note,
+      editedPrompt: body.editedPrompt,
     },
   });
 
@@ -94,7 +103,11 @@ export async function POST(req: NextRequest, { params }: RouteCtx) {
     `module.regenerate.${modR.data}`,
     "package",
     idR.data,
-    { module: modR.data, note: body.note },
+    {
+      module: modR.data,
+      note: body.note,
+      editedPrompt: body.editedPrompt ? true : undefined,
+    },
   );
 
   return NextResponse.json(

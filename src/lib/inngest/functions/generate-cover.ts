@@ -91,6 +91,15 @@ export const generateCover = inngest.createFunction(
     );
 
     const prep = await step.run("prepare", async () => {
+      // Edited-prompt path: skip creator lookup AND reference image. The
+      // VA owns the prompt; if they want the creator photo to influence
+      // the result they can describe it in the edited prompt directly.
+      if (data.editedPrompt) {
+        console.log(
+          `${tag} editedPrompt path (length=${data.editedPrompt.length}); skipping builder`,
+        );
+        return { prompt: data.editedPrompt, referenceImageUrl: null };
+      }
       console.log(`${tag} loadCreatorForPackage`);
       const creator = await loadCreatorForPackage({
         packageId: data.packageId,
