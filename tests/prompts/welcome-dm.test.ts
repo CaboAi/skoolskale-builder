@@ -92,16 +92,20 @@ ${GOOD_DM}
       expect(msg).toContain('namaste');
     });
 
-    test('includes regenerate_note when provided', () => {
+    test('appends USER FEEDBACK suffix when regenerateNote is provided', () => {
       const msg = buildUserMessage({
         ...MINIMAL_INPUT,
         regenerateNote: 'less flowery',
       });
-      expect(msg).toContain('<regenerate_note>less flowery</regenerate_note>');
+      expect(msg).toContain('USER FEEDBACK TO INCORPORATE:\nless flowery');
+      expect(msg).toContain('Treat this feedback as priority guidance');
+      // Suffix is at the END, after </task> — that's the whole point.
+      expect(msg.endsWith('the user feedback wins.')).toBe(true);
     });
 
-    test('omits regenerate_note tag when absent', () => {
+    test('omits USER FEEDBACK suffix when regenerateNote is absent', () => {
       const msg = buildUserMessage(MINIMAL_INPUT);
+      expect(msg).not.toContain('USER FEEDBACK TO INCORPORATE');
       expect(msg).not.toContain('<regenerate_note>');
     });
 

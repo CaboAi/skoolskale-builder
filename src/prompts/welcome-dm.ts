@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { GeneratorInput } from '@/types/generators';
+import { regenerateNoteSuffix } from './_shared';
 
 export const WelcomeDmSchema = z.object({
   content: z.string().min(50),
@@ -73,10 +74,10 @@ Support contact: ${input.creator.support_contact}
 Tone: ${input.creator.tone}
 Niche: ${input.creator.niche}
 </creator_context>
-${input.regenerateNote ? `\n<regenerate_note>${input.regenerateNote}</regenerate_note>\n` : ''}
+
 <task>
 Write a Welcome DM for this community in a ${input.creator.tone} tone. Stay between 80 and 120 words. Use #NAME# and #GROUPNAME# verbatim.
-</task>`;
+</task>${regenerateNoteSuffix(input.regenerateNote)}`;
 }
 
 /**

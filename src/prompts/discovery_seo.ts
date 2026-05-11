@@ -3,6 +3,7 @@ import {
   type DiscoverySeoContent,
 } from '@/types/schemas';
 import type { GeneratorInput } from '@/types/generators';
+import { regenerateNoteSuffix } from './_shared';
 
 const TARGET_KEYWORDS = 11; // Skool's max as of v1.1
 const KEYWORD_MAX = 40;
@@ -63,10 +64,10 @@ Transformation promise: ${input.creator.transformation}
 Tone: ${input.creator.tone}
 Offer hints: ${offerHints.length ? offerHints.join('; ') : '<!-- none -->'}
 </creator_context>
-${input.regenerateNote ? `\n<regenerate_note>${input.regenerateNote}</regenerate_note>\n` : ''}
+
 <task>
 Produce ${TARGET_KEYWORDS} Discovery search keywords for this community. Mix niche / transformation / audience descriptors. Lowercase, 1-4 words each, no duplicates.
-</task>`;
+</task>${regenerateNoteSuffix(input.regenerateNote)}`;
 }
 
 export function parseOutput(raw: string): DiscoverySeoContent {

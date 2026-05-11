@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { GeneratorInput } from '@/types/generators';
+import { regenerateNoteSuffix } from './_shared';
 
 export const ValueBucketSchema = z.object({
   emoji: z.string().max(4),
@@ -112,10 +113,10 @@ Trial terms: ${JSON.stringify(input.creator.trial_terms)}
 Refund policy: ${input.creator.refund_policy || '(not provided)'}
 Brand prefs: ${input.creator.brand_prefs || '(none)'}
 </creator_context>
-${input.regenerateNote ? `\n<regenerate_note>${input.regenerateNote}</regenerate_note>\n` : ''}
+
 <task>
 Write the About Us page in a ${input.creator.tone} tone. Produce 3-6 value_buckets with 2-5 items each. Output only the JSON inside the <about_us_json> tags.
-</task>`;
+</task>${regenerateNoteSuffix(input.regenerateNote)}`;
 }
 
 export function parseOutput(raw: string): AboutUsOutput {

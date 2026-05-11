@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { GeneratorInput } from '@/types/generators';
+import { regenerateNoteSuffix } from './_shared';
 
 export const TransformationSchema = z.object({
   candidates: z
@@ -63,10 +64,10 @@ Audience: ${input.creator.audience}
 Transformation promise: ${input.creator.transformation}
 Tone: ${input.creator.tone}
 </creator_context>
-${input.regenerateNote ? `\n<regenerate_note>${input.regenerateNote}</regenerate_note>\n` : ''}
+
 <task>
 Write 3 candidate taglines for this community in a ${input.creator.tone} tone. Each tagline: 6-12 words, captures the transformation, distinct from the other two.
-</task>`;
+</task>${regenerateNoteSuffix(input.regenerateNote)}`;
 }
 
 export function parseOutput(raw: string): TransformationOutput {
