@@ -12,6 +12,16 @@
 import { describe, expect, test, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 
+// Static route imports — see tests/integration/api/regenerate.test.ts
+// for rationale. Cold-load shifts to file boot (10s hookTimeout) instead
+// of per-test (5s testTimeout). vi.mock above is hoisted by vitest's AST
+// transform so the routes see the mocked deps.
+import { POST, GET as GET_CREATORS } from '@/app/api/creators/route';
+import {
+  GET as GET_CREATOR_BY_ID,
+  PATCH,
+} from '@/app/api/creators/[id]/route';
+
 const fakeUser = { id: '00000000-0000-0000-0000-000000000001', email: 't@e.com' };
 
 // ---- Mocks ----
@@ -131,9 +141,6 @@ describe('POST /api/creators', () => {
     const inserted = { id: 'c-1', name: VALID_CREATOR.name, created_by: fakeUser.id };
     dbState.insertReturning = [inserted];
 
-    const { POST } = await import('@/app/api/creators/route');
-    const { logAudit } = await import('@/lib/audit');
-
     const res = await POST(
       jsonRequest('http://test/api/creators', 'POST', VALID_CREATOR),
     );
@@ -149,7 +156,7 @@ describe('POST /api/creators', () => {
       supportContact: VALID_CREATOR.support_contact,
       createdBy: fakeUser.id,
     });
-    expect(logAudit).toHaveBeenCalledWith(
+    expect(logAuditMock).toHaveBeenCalledWith(
       fakeUser.id,
       'creator.create',
       'creator',
@@ -159,7 +166,6 @@ describe('POST /api/creators', () => {
   });
 
   test('returns 400 with validation_failed on missing required field', async () => {
-    const { POST } = await import('@/app/api/creators/route');
     const bad = { ...VALID_CREATOR, name: '' };
 
     const res = await POST(
@@ -180,8 +186,7 @@ describe('GET /api/creators', () => {
       { id: 'c-1', name: 'Older', created_by: fakeUser.id },
     ];
 
-    const { GET } = await import('@/app/api/creators/route');
-    const res = await GET();
+    const res = await GET_CREATORS();
     const body = await res.json();
 
     expect(res.status).toBe(200);
@@ -195,8 +200,7 @@ describe('GET /api/creators/[id]', () => {
     const uuid = '550e8400-e29b-41d4-a716-446655440000';
     dbState.selectRows = [{ id: uuid, name: 'Jane', created_by: fakeUser.id }];
 
-    const { GET } = await import('@/app/api/creators/[id]/route');
-    const res = await GET(jsonRequest(`http://test/api/creators/${uuid}`, 'GET'), {
+    const res = await GET_CREATOR_BY_ID(jsonRequest(`http://test/api/creators/${uuid}`, 'GET'), {
       params: Promise.resolve({ id: uuid }),
     });
     const body = await res.json();
@@ -209,8 +213,7 @@ describe('GET /api/creators/[id]', () => {
     const uuid = '550e8400-e29b-41d4-a716-446655440000';
     dbState.selectRows = [];
 
-    const { GET } = await import('@/app/api/creators/[id]/route');
-    const res = await GET(jsonRequest(`http://test/api/creators/${uuid}`, 'GET'), {
+    const res = await GET_CREATOR_BY_ID(jsonRequest(`http://test/api/creators/${uuid}`, 'GET'), {
       params: Promise.resolve({ id: uuid }),
     });
 
@@ -219,8 +222,7 @@ describe('GET /api/creators/[id]', () => {
   });
 
   test('returns 400 on non-uuid id', async () => {
-    const { GET } = await import('@/app/api/creators/[id]/route');
-    const res = await GET(jsonRequest('http://test/api/creators/not-a-uuid', 'GET'), {
+    const res = await GET_CREATOR_BY_ID(jsonRequest('http://test/api/creators/not-a-uuid', 'GET'), {
       params: Promise.resolve({ id: 'not-a-uuid' }),
     });
     expect(res.status).toBe(400);
@@ -236,9 +238,6 @@ describe('PATCH /api/creators/[id]', () => {
 
     const patch = { name: 'Renamed', community_name: 'NewCo' };
 
-    const { PATCH } = await import('@/app/api/creators/[id]/route');
-    const { logAudit } = await import('@/lib/audit');
-
     const res = await PATCH(
       jsonRequest(`http://test/api/creators/${uuid}`, 'PATCH', patch),
       { params: Promise.resolve({ id: uuid }) },
@@ -251,7 +250,7 @@ describe('PATCH /api/creators/[id]', () => {
       name: 'Renamed',
       communityName: 'NewCo',
     });
-    expect(logAudit).toHaveBeenCalledWith(
+    expect(logAuditMock).toHaveBeenCalledWith(
       fakeUser.id,
       'creator.update',
       'creator',
@@ -263,7 +262,6 @@ describe('PATCH /api/creators/[id]', () => {
   test('rejects empty patch body', async () => {
     const uuid = '550e8400-e29b-41d4-a716-446655440000';
 
-    const { PATCH } = await import('@/app/api/creators/[id]/route');
     const res = await PATCH(
       jsonRequest(`http://test/api/creators/${uuid}`, 'PATCH', {}),
       { params: Promise.resolve({ id: uuid }) },
