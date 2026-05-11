@@ -88,6 +88,7 @@ Scope optional but encouraged: `feat(intake): add creator photo upload`
 1. **Apply to prod**: `npx dotenv -e .env.local -- drizzle-kit migrate`
 2. **Verify**: `pnpm verify:enum` (or the relevant `verify:*` script). For ad-hoc enum checks, `select unnest(enum_range(NULL::<enum_name>));` against prod.
 3. Confirm the new enum values / table columns appear before merging or before the next package generation runs against the deployed app.
+4. **Gotcha when hand-writing migration SQL**: Drizzle's SQL splitter uses `--> statement-breakpoint` as a literal token — never include this string inside a comment, even as documentation. It will silently chop the migration.
 
 ### When a PR adds or modifies a Supabase Storage bucket
 
