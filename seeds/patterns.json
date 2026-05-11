@@ -2,7 +2,7 @@
   "welcome_dm": [
     {
       "niche": null,
-      "tone": "loving",
+      "tone": "warm",
       "source_creator": "Sianna / Rasa Yoga Sanctuary",
       "example_content": {
         "text": "Namaste #NAME# 🤍 welcome to #GROUPNAME#\n\nYou've arrived in the sanctuary. Begin in Classroom > Start Here—this will gently guide you into the rhythm of this space.\n\nFor support, message Ramsha A."
@@ -45,7 +45,7 @@
     },
     {
       "niche": "spiritual",
-      "tone": "loving",
+      "tone": "warm",
       "source_creator": "Sianna / Alchemy: Soul Sanctuary",
       "example_content": {
         "text": "A living sanctuary where practice becomes ritual and ritual becomes Alchemy."
@@ -163,7 +163,7 @@
     },
     {
       "niche": "spiritual",
-      "tone": "loving",
+      "tone": "warm",
       "source_creator": "Sianna / Alchemy: Soul Sanctuary",
       "example_content": {
         "hero": "A living sanctuary where practice becomes ritual and ritual becomes Alchemy. This is an all-in-one ecosystem for Sianna's life's work, where everything she has created now lives, breathes, and evolves together.",

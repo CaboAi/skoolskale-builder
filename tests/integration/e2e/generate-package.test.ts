@@ -58,7 +58,7 @@ describe("E2E: generate-package pipeline", () => {
         'E2E Creator', 'E2E Community', 'spiritual',
         'Soul-led women 30-55',
         'Reclaim your power and step into your truth.',
-        'loving',
+        'warm',
         ${sql.json({ courses: [{ name: "Foundations" }], perks: [], events: [], guest_sessions: false })},
         ${sql.json({ monthly: 47, annual: 470, tiers: [] })},
         ${sql.json({ has_trial: true, duration_days: 7 })},

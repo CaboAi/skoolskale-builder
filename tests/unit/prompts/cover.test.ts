@@ -9,7 +9,7 @@ function makeCreator(overrides: Partial<CreatorContext> = {}): CreatorContext {
     niche: "spiritual",
     audience: "women 30-55",
     transformation: "reclaim your power",
-    tone: "loving",
+    tone: "warm",
     offer_breakdown: {
       courses: [],
       perks: [],
@@ -100,5 +100,28 @@ describe("buildImagePrompt", () => {
     const prompt = buildImagePrompt({ creator: makeCreator() });
     expect(prompt).toMatch(/no gibberish/i);
     expect(prompt).toMatch(/no malformed hands/i);
+  });
+
+  describe("tone-driven mood injection", () => {
+    const cases: Array<{
+      tone: CreatorContext["tone"];
+      expected: RegExp;
+    }> = [
+      { tone: "warm", expected: /soft natural light/i },
+      { tone: "direct", expected: /clean composition/i },
+      { tone: "playful", expected: /saturated accents/i },
+      { tone: "authoritative", expected: /clean lines, confident/i },
+      { tone: "inspirational", expected: /luminous golden-hour light/i },
+      { tone: "bold", expected: /high-contrast palette/i },
+    ];
+
+    test.each(cases)(
+      "$tone tone injects its mood descriptor",
+      ({ tone, expected }) => {
+        const prompt = buildImagePrompt({ creator: makeCreator({ tone }) });
+        expect(prompt).toContain(`Tone: ${tone}`);
+        expect(prompt).toMatch(expected);
+      },
+    );
   });
 });

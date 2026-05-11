@@ -9,7 +9,7 @@ function makeCreator(overrides: Partial<CreatorContext> = {}): CreatorContext {
     niche: "spiritual",
     audience: "women 30-55",
     transformation: "reclaim your power",
-    tone: "loving",
+    tone: "warm",
     offer_breakdown: {
       courses: [],
       perks: [],

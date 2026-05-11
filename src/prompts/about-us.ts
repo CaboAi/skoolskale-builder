@@ -73,6 +73,14 @@ Hard rules:
 - No preamble or commentary outside the tags.
 - Tone applies to hero + trial_callout + pricing framing. Buckets stay crisp.
 
+Voice calibration (applies to hero, trial_callout, pricing framing):
+- "warm": nurturing, inclusive, supportive — "you'll find / we / together / here for". Avoid spiritual-influencer banlist (sacred, beloved, dear one, etc.).
+- "direct": no fluff. State who it's for, what they get, what it costs.
+- "playful": light wordplay, casual register.
+- "authoritative": expert, confident, declarative. Industry vocabulary used precisely. No exclamation marks.
+- "inspirational": vision-forward — connect each beat to the transformation. "imagine / step into / what becomes possible" used sparingly, always grounded.
+- "bold": high-energy declarative. Short punchy sentences. Strong verbs. No hedging.
+
 Respond in this exact format:
 <about_us_json>
 { ... valid JSON object matching the schema ... }

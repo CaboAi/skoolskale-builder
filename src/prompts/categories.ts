@@ -28,6 +28,14 @@ Hard rules:
 - Don't number the categories inside their names (we render order separately).
 - No preamble, no explanation.
 
+Voice calibration:
+- "warm": nurturing, inclusive names ("Land here", "Our wins", "Ask the host"). Avoid spiritual-influencer banlist.
+- "direct": short, transactional ("Introduce yourself", "Wins", "Ask the host").
+- "playful": light wordplay ("Plant your flag", "Brag board", "Pick the host's brain").
+- "authoritative": expert framing ("Member introductions", "Progress reports", "Expert Q&A").
+- "inspirational": transformation-tinted ("Step into the room", "Mark the moment", "Wisdom from the source").
+- "bold": high-energy ("Make your entrance", "Drop your wins", "Hit me up").
+
 Respond in this exact format:
 <categories>
 <category index="1">

@@ -20,9 +20,12 @@ Hard rules:
 - Each name: 1-${LEVEL_MAX_CHARS} characters. No emojis. No numbering inside the name (we render "1." separately).
 - Levels MUST progress from least-advanced (level 1) to most-advanced (level 9). The arc should feel earned, not arbitrary.
 - Stay inside ONE coherent metaphor or theme. Don't mix unrelated registers (e.g., don't go "Newcomer", "Yogi", "Founder" — pick a lane).
-- For "loving" tone: warm, archetypal language. Avoid the spiritual-influencer banlist (sacred, divine, soul, beloved, etc.).
+- For "warm" tone: nurturing, archetypal language. Names should feel inclusive and inviting. Avoid the spiritual-influencer banlist (sacred, divine, soul, beloved, etc.).
 - For "direct" tone: status-clear, no-fluff names.
 - For "playful" tone: niche-flavored wordplay is fine; emojis still off.
+- For "authoritative" tone: expert-progression names. Levels read as clear ranks of mastery (e.g., "Apprentice → Practitioner → Architect → Authority"). Industry vocabulary used precisely.
+- For "inspirational" tone: transformation arc. Each level evokes a step in the member's becoming — vision-forward without lapsing into generic motivational language.
+- For "bold" tone: high-energy, declarative names. Short, punchy, strong verbs or status nouns ("Striker", "Beast Mode", "Champion"). No hedging or softeners.
 - No preamble, no explanation.
 
 Respond in this exact format:

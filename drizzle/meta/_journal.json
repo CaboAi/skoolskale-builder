@@ -36,6 +36,13 @@
       "when": 1778278560024,
       "tag": "0004_addons_image_modules",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1778459384388,
+      "tag": "0005_tone_refresh",
+      "breakpoints": true
     }
   ]
 }

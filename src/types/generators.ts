@@ -39,7 +39,14 @@ export type CreatorContext = Pick<
  * to a prompt-safe shape (prompts decide how to render).
  */
 export type PatternExample = {
-  tone: "loving" | "direct" | "playful" | null;
+  tone:
+    | "warm"
+    | "direct"
+    | "playful"
+    | "authoritative"
+    | "inspirational"
+    | "bold"
+    | null;
   niche:
     | "spiritual"
     | "business"

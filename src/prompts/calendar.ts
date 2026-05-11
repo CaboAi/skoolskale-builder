@@ -17,6 +17,14 @@ Hard rules:
 - Reference real cadence/format if the creator's offer mentions live calls, events, or recurring sessions. If none mentioned, focus on what members can expect when events DO happen.
 - No preamble, no explanation outside the tags.
 
+Voice calibration:
+- "warm": nurturing, inclusive — "we gather / together / here for". Avoid spiritual-influencer banlist.
+- "direct": state cadence + format, nothing else.
+- "playful": light wordplay; emojis off.
+- "authoritative": expert, declarative. Frame the calendar as the structured rhythm it is.
+- "inspirational": tie the cadence to the transformation when natural.
+- "bold": high-energy, declarative. Short, punchy. Strong verbs.
+
 Respond in this exact format:
 <calendar>
 <title>...the title...</title>

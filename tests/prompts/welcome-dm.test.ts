@@ -11,7 +11,7 @@ const MINIMAL_INPUT: GeneratorInput = {
     niche: 'spiritual',
     audience: 'soul-led women',
     transformation: 'reclaim power',
-    tone: 'loving',
+    tone: 'warm',
     offer_breakdown: {
       courses: [],
       perks: [],
@@ -25,7 +25,7 @@ const MINIMAL_INPUT: GeneratorInput = {
     brand_prefs: '',
   },
   patternLibrary: [
-    { tone: 'loving', niche: 'spiritual', sourceCreator: 'Test', content: 'namaste', raw: { text: 'namaste' } },
+    { tone: 'warm', niche: 'spiritual', sourceCreator: 'Test', content: 'namaste', raw: { text: 'namaste' } },
   ],
 };
 
@@ -85,7 +85,7 @@ ${GOOD_DM}
   describe('buildUserMessage', () => {
     test('includes tone, community name, support contact, and the example block', () => {
       const msg = buildUserMessage(MINIMAL_INPUT);
-      expect(msg).toContain('Tone: loving');
+      expect(msg).toContain('Tone: warm');
       expect(msg).toContain('Sanctuary');
       expect(msg).toContain('Ramsha A.');
       expect(msg).toContain('<examples>');
@@ -104,5 +104,27 @@ ${GOOD_DM}
       const msg = buildUserMessage(MINIMAL_INPUT);
       expect(msg).not.toContain('<regenerate_note>');
     });
+
+    test.each(['authoritative', 'inspirational', 'bold'] as const)(
+      'threads %s tone into the user message',
+      (tone) => {
+        const msg = buildUserMessage({
+          ...MINIMAL_INPUT,
+          creator: { ...MINIMAL_INPUT.creator, tone },
+        });
+        expect(msg).toContain(`Tone: ${tone}`);
+        expect(msg).toContain(`in a ${tone} tone`);
+      },
+    );
+  });
+
+  describe('systemPrompt voice calibration', () => {
+    test.each(['warm', 'authoritative', 'inspirational', 'bold'] as const)(
+      'mentions %s in the per-tone calibration block',
+      async (tone) => {
+        const { systemPrompt } = await import('@/prompts/welcome-dm');
+        expect(systemPrompt).toContain(`"${tone}"`);
+      },
+    );
   });
 });

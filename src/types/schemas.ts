@@ -16,7 +16,14 @@ export const NicheEnum = z.enum([
   'other',
 ]);
 
-export const ToneEnum = z.enum(['loving', 'direct', 'playful']);
+export const ToneEnum = z.enum([
+  'warm',
+  'direct',
+  'playful',
+  'authoritative',
+  'inspirational',
+  'bold',
+]);
 
 /* -------------------------------------------------------------------------- */
 /* Add-on module content schemas (PR #4)                                      */

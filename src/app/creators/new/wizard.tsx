@@ -43,7 +43,7 @@ const DEFAULTS: CreatorIntake = {
   niche: "other",
   audience: "",
   transformation: "",
-  tone: "loving",
+  tone: "warm",
   offer_breakdown: {
     courses: [],
     live_calls: undefined,

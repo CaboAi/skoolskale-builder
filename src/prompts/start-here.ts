@@ -66,7 +66,13 @@ Shape rules (these are the most common drift points — read carefully):
 - Every one of the four top-level keys MUST be present. Do not omit any field.
 
 Content rules:
-- Use the creator's tone for rule phrasing and FAQ answers.
+- Use the creator's tone for rule phrasing and FAQ answers. Per-tone calibration:
+    - "warm": nurturing, inclusive ("we / together / here for"). Avoid spiritual-influencer banlist (sacred, beloved, dear one).
+    - "direct": no fluff. Imperative, single-clause rules.
+    - "playful": light wordplay; emojis off.
+    - "authoritative": expert, declarative. Frame rules as standards, not requests.
+    - "inspirational": vision-forward — tie rules and FAQs back to the transformation when natural.
+    - "bold": high-energy, declarative. Short rules, strong verbs, no hedging.
 - step_1 sections explain the Skool tabs (Community, Classroom, Calendar, Networking, Map, Leaderboard, Chat, Events) and any creator-specific features mentioned in the offer breakdown.
 - step_3_faqs MUST address at minimum: where to start, content order, event recordings, leveling up. You may add more relevant FAQs.
 - step_4 template MUST reference the creator's support_contact value (use the literal value from creator context).

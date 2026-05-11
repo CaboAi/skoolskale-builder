@@ -21,7 +21,7 @@ const DEFAULTS: CreatorIntake = {
   niche: "other",
   audience: "x",
   transformation: "x",
-  tone: "loving",
+  tone: "warm",
   offer_breakdown: { courses: [], perks: [], events: [], guest_sessions: false },
   pricing: { tiers: [] },
   trial_terms: { has_trial: false },
