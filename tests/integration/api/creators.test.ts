@@ -15,27 +15,44 @@ import { NextRequest } from 'next/server';
 const fakeUser = { id: '00000000-0000-0000-0000-000000000001', email: 't@e.com' };
 
 // ---- Mocks ----
+//
+// All factory-captured state hoisted per-file. See CLAUDE.md
+// § "Mocking conventions". Spies are hoisted too — every test that
+// asserts against logAudit re-imports it via `await import('@/lib/audit')`
+// and the hoisted ref is what the dynamic import resolves to.
+const { dbState, requireUserMock, requireAdminMock, isAllowedEmailMock, logAuditMock } =
+  vi.hoisted(() => ({
+    dbState: {
+      insertReturning: [] as unknown[],
+      selectRows: [] as unknown[],
+      updateReturning: [] as unknown[],
+      lastInsertValues: undefined as unknown,
+      lastUpdateSet: undefined as unknown,
+    },
+    requireUserMock: vi.fn(async () => ({
+      id: '00000000-0000-0000-0000-000000000001',
+      email: 't@e.com',
+    })),
+    requireAdminMock: vi.fn(async () => ({
+      id: '00000000-0000-0000-0000-000000000001',
+      email: 't@e.com',
+    })),
+    isAllowedEmailMock: vi.fn(() => true),
+    logAuditMock: vi.fn(async () => undefined),
+  }));
 
 vi.mock('@/lib/auth', () => ({
-  requireUser: vi.fn(async () => fakeUser),
-  requireAdmin: vi.fn(async () => fakeUser),
-  isAllowedEmail: vi.fn(() => true),
+  requireUser: requireUserMock,
+  requireAdmin: requireAdminMock,
+  isAllowedEmail: isAllowedEmailMock,
 }));
 
 vi.mock('@/lib/audit', () => ({
-  logAudit: vi.fn(async () => undefined),
+  logAudit: logAuditMock,
 }));
 
-const dbState = {
-  insertReturning: [] as unknown[],
-  selectRows: [] as unknown[],
-  updateReturning: [] as unknown[],
-  lastInsertValues: undefined as unknown,
-  lastUpdateSet: undefined as unknown,
-};
-
-vi.mock('@/lib/db', () => {
-  const db = {
+vi.mock('@/lib/db', () => ({
+  db: {
     insert: () => ({
       values: (v: unknown) => {
         dbState.lastInsertValues = v;
@@ -63,9 +80,8 @@ vi.mock('@/lib/db', () => {
         };
       },
     }),
-  };
-  return { db };
-});
+  },
+}));
 
 // ---- Test helpers ----
 

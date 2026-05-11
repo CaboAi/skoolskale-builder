@@ -8,7 +8,10 @@
  */
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-const generateContentMock = vi.fn();
+// Hoisted per-file. See CLAUDE.md § "Mocking conventions".
+const { generateContentMock } = vi.hoisted(() => ({
+  generateContentMock: vi.fn(),
+}));
 
 vi.mock("@google/genai", () => ({
   GoogleGenAI: class {

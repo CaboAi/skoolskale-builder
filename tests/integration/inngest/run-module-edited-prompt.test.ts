@@ -23,23 +23,33 @@
  */
 import { describe, expect, test, vi, beforeEach } from "vitest";
 
+// Explicit signatures so .mockResolvedValue() accepts richer rows than
+// the initial-return inference would allow, and so mock.calls[N][M]
+// resolves to the captured arg (not `undefined`).
 const { fetchPatternExamplesMock, generateMock, dbMock } = vi.hoisted(() => {
-  const dbInsertReturning = vi.fn(async () => [{ id: "asset-1" }]);
+  const dbInsertReturning = vi.fn<() => Promise<{ id: string }[]>>(async () => [
+    { id: "asset-1" },
+  ]);
   const dbUpdate = vi.fn(() => ({
     set: () => ({
       where: () => undefined,
     }),
   }));
-  const dbSelectLimit = vi.fn(async () => [
-    {
-      id: "pkg-1",
-      creatorId: "cr-1",
-      createdBy: "user-1",
-    },
-  ]);
+  const dbSelectLimit =
+    vi.fn<() => Promise<Record<string, unknown>[]>>(async () => [
+      { id: "pkg-1", creatorId: "cr-1", createdBy: "user-1" },
+    ]);
   return {
-    fetchPatternExamplesMock: vi.fn(async () => []),
-    generateMock: vi.fn(async () => ({
+    fetchPatternExamplesMock:
+      vi.fn<(...args: unknown[]) => Promise<unknown[]>>(async () => []),
+    generateMock: vi.fn<
+      (input: { systemPrompt: string; userMessage: string; jobId: string; maxTokens?: number }) => Promise<{
+        text: string;
+        inputTokens: number;
+        outputTokens: number;
+        durationMs: number;
+      }>
+    >(async () => ({
       text: "<welcome_dm>generated</welcome_dm>",
       inputTokens: 10,
       outputTokens: 20,
