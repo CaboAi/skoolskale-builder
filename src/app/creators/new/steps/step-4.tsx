@@ -89,12 +89,12 @@ export function Step4Voice({ form }: Props) {
           <SelectTrigger id="tone">
             <SelectValue />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="w-[420px] max-w-[calc(100vw-2rem)]">
             {TONES.map((t) => (
               <SelectItem key={t.value} value={t.value}>
                 <div className="flex flex-col">
                   <span className="font-medium">{t.label}</span>
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-xs text-muted-foreground whitespace-normal">
                     {t.description}
                   </span>
                 </div>
