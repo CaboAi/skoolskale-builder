@@ -39,6 +39,23 @@ export const ICON_STYLES: ReadonlyArray<IconStyle> = [
   "iconic",
 ];
 
+function moodForTone(tone: CreatorContext["tone"]): string {
+  switch (tone) {
+    case "warm":
+      return "Tone: warm — friendly curves, soft edges, inviting weight.";
+    case "direct":
+      return "Tone: direct — clean geometry, no ornament, restrained palette.";
+    case "playful":
+      return "Tone: playful — energetic accent shape, light asymmetry, lively color.";
+    case "authoritative":
+      return "Tone: authoritative — premium proportions, balanced symmetry, controlled palette, confident weight.";
+    case "inspirational":
+      return "Tone: inspirational — upward motion, luminous accent, sense of openness or ascent.";
+    case "bold":
+      return "Tone: bold — high-contrast, saturated accent, decisive negative space, strong silhouette.";
+  }
+}
+
 function moodForNiche(niche: CreatorContext["niche"]): string {
   switch (niche) {
     case "spiritual":
@@ -66,12 +83,14 @@ export function buildIconPrompt(input: {
 }): string {
   const { creator, style } = input;
   const mood = moodForNiche(creator.niche);
+  const toneMood = moodForTone(creator.tone);
 
   return [
     `A community icon (square logo) for the Skool community "${creator.community_name}".`,
     `Aspect ratio 1:1 (512x512). Designed to read clearly at small sizes (down to 64x64).`,
     `Style: ${STYLES[style]}`,
     mood,
+    toneMood,
     `Niche cue: ${creator.niche}. The icon should subtly evoke "${creator.transformation}" without spelling it out.`,
     `Hard constraints: solid centered composition; no photographs of people; no gibberish or garbled text; if any text appears it must read exactly "${creator.community_name}" and be perfectly legible; no watermarks, signatures, or extra logos; flat clean rendering, no drop-shadows or chrome effects.`,
   ].join("\n");

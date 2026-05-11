@@ -29,7 +29,14 @@ beforeEach(() => {
 });
 
 type Row = {
-  tone: 'loving' | 'direct' | 'playful' | null;
+  tone:
+    | 'warm'
+    | 'direct'
+    | 'playful'
+    | 'authoritative'
+    | 'inspirational'
+    | 'bold'
+    | null;
   niche:
     | 'spiritual'
     | 'business'
@@ -45,7 +52,7 @@ type Row = {
 
 function row(overrides: Partial<Row> = {}): Row {
   return {
-    tone: 'loving',
+    tone: 'warm',
     niche: 'spiritual',
     sourceCreator: 'Test Creator',
     exampleContent: { text: 'hello example' },
@@ -63,7 +70,7 @@ describe('fetchPatternExamples', () => {
     const result = await fetchPatternExamples({
       module: 'welcome_dm',
       niche: 'spiritual',
-      tone: 'loving',
+      tone: 'warm',
     });
 
     expect(result).toHaveLength(2);
@@ -81,7 +88,7 @@ describe('fetchPatternExamples', () => {
     const result = await fetchPatternExamples({
       module: 'about_us',
       niche: 'spiritual',
-      tone: 'loving',
+      tone: 'warm',
     });
 
     expect(result).toHaveLength(1);
@@ -137,7 +144,7 @@ describe('fetchPatternExamples', () => {
     const result = await fetchPatternExamples({
       module: 'about_us',
       niche: 'spiritual',
-      tone: 'loving',
+      tone: 'warm',
     });
 
     expect(result).toHaveLength(1);
@@ -161,7 +168,7 @@ describe('fetchPatternExamples', () => {
     const result = await fetchPatternExamples({
       module: 'welcome_dm',
       niche: 'spiritual',
-      tone: 'loving',
+      tone: 'warm',
       limit: 5,
     });
     expect(result).toHaveLength(5);

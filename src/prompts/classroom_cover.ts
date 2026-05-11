@@ -22,6 +22,23 @@ export const ClassroomCoverContentSchema = z.object({
   selected_variant_index: z.number().int().min(0).optional(),
 });
 
+function moodForTone(tone: CreatorContext["tone"]): string {
+  switch (tone) {
+    case "warm":
+      return "Tone: warm — soft natural light, gentle gradients, inviting layout.";
+    case "direct":
+      return "Tone: direct — clean composition, restrained palette, decisive structure.";
+    case "playful":
+      return "Tone: playful — bright accents, lively angles, energetic layout.";
+    case "authoritative":
+      return "Tone: authoritative — premium feel, balanced symmetry, clean lines, controlled palette.";
+    case "inspirational":
+      return "Tone: inspirational — luminous light, expansive composition, hopeful upward motion.";
+    case "bold":
+      return "Tone: bold — high-contrast palette, dynamic angles, saturated colors, decisive composition.";
+  }
+}
+
 function moodForNiche(niche: CreatorContext["niche"]): string {
   switch (niche) {
     case "spiritual":
@@ -50,6 +67,7 @@ export function buildClassroomCoverPrompt(input: {
     `Primary text overlay: "Classroom" — large, bold, modern sans-serif, centered or left-anchored in a clear zone of the image.`,
     `Secondary text (smaller, supporting): "${creator.community_name}" — confidently placed below or alongside the primary title.`,
     moodForNiche(creator.niche),
+    moodForTone(creator.tone),
     `Niche cue: ${creator.niche}. Visual references should feel native to a ${creator.niche} community.`,
     `Hard constraints: no photographs of identifiable people; no gibberish or garbled text; both "Classroom" and "${creator.community_name}" must be spelled exactly as written; no watermarks; modern community-cover aesthetic.`,
   ].join("\n");

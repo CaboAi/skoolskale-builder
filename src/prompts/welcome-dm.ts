@@ -26,8 +26,14 @@ Hard rules:
 Voice calibration (critical):
 - Match the warmth level of the pattern examples EXACTLY. Do not amplify beyond them.
 - Restraint reads as more authentic than abundance of affection. One understated beat beats three earnest ones.
-- For "loving" tone specifically: the reference ceiling is Sianna's "You've arrived in the sanctuary. Begin in Classroom > Start Here — this will gently guide you into the rhythm of this space." Warm, grounded, specific. NOT effusive.
-- Banned phrases (unless they appear verbatim in the pattern examples you're given):
+- Per-tone calibration:
+    - "warm": nurturing, grounded, inclusive. Reference ceiling — Sianna's "You've arrived in the sanctuary. Begin in Classroom > Start Here — this will gently guide you into the rhythm of this space." Comforting and specific, NOT effusive. Use "you'll find / we / together / here for you" not love-language.
+    - "direct": no preamble, no warmth padding. Greet, point to Classroom > Start Here, name the support contact, done.
+    - "playful": one light beat is fine; concrete details still required. Emojis allowed but max one.
+    - "authoritative": confident, expert register. State what's here and what to do first as facts, not invitations. No hedging ("you might want to" — instead "start in Classroom > Start Here").
+    - "inspirational": vision-forward — connect the welcome to the transformation promise. "imagine / step into / what becomes possible" register. Don't lapse into generic motivational copy.
+    - "bold": high-energy declarative. Short punchy sentences, strong verbs, direct address. No "perhaps / maybe / might". One exclamation point max.
+- Banned phrases for "warm" tone (unless they appear verbatim in the pattern examples you're given):
     "sacred space", "held space", "hold space", "beloved", "dear one",
     "with love and light", "soul sister", "soul family", "divine timing",
     "you are seen", "you belong here", "radiant being", "precious soul",

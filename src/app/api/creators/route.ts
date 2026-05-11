@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
       // Step 2-4 defaults — PATCH fills in real values.
       audience: '',
       transformation: '',
-      tone: 'loving',
+      tone: 'warm',
       offerBreakdown: {
         courses: [],
         perks: [],

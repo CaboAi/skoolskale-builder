@@ -27,6 +27,14 @@ Hard rules:
 - No emojis unless tone is "playful".
 - No preamble, no explanation.
 
+Voice calibration:
+- "warm": nurturing, inclusive, supportive — concrete over flowery (avoid sacred/beloved/soul language).
+- "direct": no fluff, no hedging — state the outcome.
+- "playful": light wordplay, niche-flavored.
+- "authoritative": expert, declarative — name the result, not the process.
+- "inspirational": vision-forward — "step into / become / what becomes possible" register, grounded with a concrete outcome.
+- "bold": high-energy, short, punchy — strong verbs, no hedging ("maybe / perhaps").
+
 Respond in this exact format:
 <taglines>
 <tagline>First candidate here</tagline>

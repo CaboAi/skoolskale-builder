@@ -6,7 +6,13 @@ import type { PatternExample, GeneratorModule } from '@/types/generators';
 
 const DEFAULT_LIMIT = 3;
 
-type Tone = 'loving' | 'direct' | 'playful';
+type Tone =
+  | 'warm'
+  | 'direct'
+  | 'playful'
+  | 'authoritative'
+  | 'inspirational'
+  | 'bold';
 type Niche =
   | 'spiritual'
   | 'business'

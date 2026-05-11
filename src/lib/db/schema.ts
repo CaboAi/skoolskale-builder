@@ -15,7 +15,17 @@ import { sql } from 'drizzle-orm';
 
 // ---------- Enums (PRD §6.3) ----------
 
-export const toneEnum = pgEnum('tone', ['loving', 'direct', 'playful']);
+// 'warm' was renamed from 'loving' in migration 0005; the three additions
+// landed in the same migration. Keep this list in sync with both Zod's
+// ToneEnum (src/types/schemas.ts) and the prod enum (`pnpm verify:enum`).
+export const toneEnum = pgEnum('tone', [
+  'warm',
+  'direct',
+  'playful',
+  'authoritative',
+  'inspirational',
+  'bold',
+]);
 
 export const nicheEnum = pgEnum('niche', [
   'spiritual',

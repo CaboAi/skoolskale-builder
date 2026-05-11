@@ -15,7 +15,50 @@ import {
 
 type Props = { form: IntakeFormReturn };
 
-const TONES = ['loving', 'direct', 'playful'] as const;
+type ToneOption = {
+  value: CreatorIntake['tone'];
+  label: string;
+  description: string;
+};
+
+const TONES: readonly ToneOption[] = [
+  {
+    value: 'warm',
+    label: 'Warm',
+    description:
+      'Nurturing, soft-edged, inclusive, comforting. Wellness, spiritual, women-led communities.',
+  },
+  {
+    value: 'direct',
+    label: 'Direct',
+    description:
+      'Concise, no-bullshit, gets to the point. Sales, productivity, business.',
+  },
+  {
+    value: 'playful',
+    label: 'Playful',
+    description:
+      'Energetic, witty, humor and lightness. Creative, hobby, lifestyle.',
+  },
+  {
+    value: 'authoritative',
+    label: 'Authoritative',
+    description:
+      'Expert, confident, commands the subject. Finance, B2B, professional development.',
+  },
+  {
+    value: 'inspirational',
+    label: 'Inspirational',
+    description:
+      'Uplifting, vision-driven, transformation language. Personal development, spirituality, life coaching.',
+  },
+  {
+    value: 'bold',
+    label: 'Bold',
+    description:
+      "High-energy, declarative, doesn't apologize. Fitness, entrepreneurship, athletic communities.",
+  },
+] as const;
 
 export function Step4Voice({ form }: Props) {
   const {
@@ -26,6 +69,7 @@ export function Step4Voice({ form }: Props) {
   } = form;
 
   const tone = watch('tone');
+  const selected = TONES.find((t) => t.value === tone);
 
   return (
     <section className="space-y-5">
@@ -47,12 +91,20 @@ export function Step4Voice({ form }: Props) {
           </SelectTrigger>
           <SelectContent>
             {TONES.map((t) => (
-              <SelectItem key={t} value={t}>
-                {t}
+              <SelectItem key={t.value} value={t.value}>
+                <div className="flex flex-col">
+                  <span className="font-medium">{t.label}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {t.description}
+                  </span>
+                </div>
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
+        {selected ? (
+          <p className="text-xs text-muted-foreground">{selected.description}</p>
+        ) : null}
         {errors.tone?.message ? (
           <p className="text-xs text-destructive">{errors.tone.message}</p>
         ) : null}

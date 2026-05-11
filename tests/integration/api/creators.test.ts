@@ -75,7 +75,7 @@ const VALID_CREATOR = {
   niche: 'spiritual',
   audience: 'Soul-led women 30-55',
   transformation: 'Reclaim your power',
-  tone: 'loving',
+  tone: 'warm',
   offer_breakdown: {
     courses: [{ name: 'Foundations' }],
     live_calls: 'weekly',
@@ -129,7 +129,7 @@ describe('POST /api/creators', () => {
       name: VALID_CREATOR.name,
       communityName: VALID_CREATOR.community_name,
       niche: 'spiritual',
-      tone: 'loving',
+      tone: 'warm',
       supportContact: VALID_CREATOR.support_contact,
       createdBy: fakeUser.id,
     });

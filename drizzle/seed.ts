@@ -26,7 +26,13 @@ type Module =
   | 'start_here_thumb'
   | 'join_now_banner';
 
-type Tone = 'loving' | 'direct' | 'playful';
+type Tone =
+  | 'warm'
+  | 'direct'
+  | 'playful'
+  | 'authoritative'
+  | 'inspirational'
+  | 'bold';
 
 type Niche =
   | 'spiritual'

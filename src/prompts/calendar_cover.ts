@@ -18,6 +18,23 @@ export const CalendarCoverContentSchema = z.object({
   selected_variant_index: z.number().int().min(0).optional(),
 });
 
+function moodForTone(tone: CreatorContext["tone"]): string {
+  switch (tone) {
+    case "warm":
+      return "Tone: warm — soft natural light, gentle gradients, inviting rhythm.";
+    case "direct":
+      return "Tone: direct — clean composition, restrained palette, structured grid.";
+    case "playful":
+      return "Tone: playful — bright accents, lively angles, energetic layout.";
+    case "authoritative":
+      return "Tone: authoritative — premium feel, balanced symmetry, clean lines, controlled palette.";
+    case "inspirational":
+      return "Tone: inspirational — luminous light, expansive composition, hopeful upward motion.";
+    case "bold":
+      return "Tone: bold — high-contrast palette, dynamic angles, saturated colors, decisive composition.";
+  }
+}
+
 function moodForNiche(niche: CreatorContext["niche"]): string {
   switch (niche) {
     case "spiritual":
@@ -46,6 +63,7 @@ export function buildCalendarCoverPrompt(input: {
     `Primary text overlay: "Calendar" — large, bold, modern sans-serif, centered or left-anchored.`,
     `Secondary text (smaller): "${creator.community_name}".`,
     moodForNiche(creator.niche),
+    moodForTone(creator.tone),
     `Niche cue: ${creator.niche}. Visual references should feel native to a ${creator.niche} community.`,
     `Hard constraints: no photographs of identifiable people; no gibberish or garbled text; both "Calendar" and "${creator.community_name}" must be spelled exactly as written; no watermarks; modern community-cover aesthetic.`,
   ].join("\n");

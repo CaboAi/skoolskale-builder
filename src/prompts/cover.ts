@@ -39,6 +39,28 @@ export const CoverPatchSchema = z.object({
 
 export type CoverStyle = "photographic" | "illustrated" | "minimalist";
 
+/**
+ * Tone → visual mood descriptor. Layered on top of the niche-driven mood
+ * to bias the cover toward how the creator wants to come across, not just
+ * what their niche typically looks like.
+ */
+function moodForTone(tone: CreatorContext["tone"]): string {
+  switch (tone) {
+    case "warm":
+      return "Tone: warm — soft natural light, gentle gradients, inviting composition, friendly eye contact.";
+    case "direct":
+      return "Tone: direct — clean composition, sharp focus, minimal decoration, restrained palette.";
+    case "playful":
+      return "Tone: playful — bright saturated accents, slightly dynamic angles, energetic body language.";
+    case "authoritative":
+      return "Tone: authoritative — clean lines, confident composition, premium feel, balanced symmetry, controlled palette.";
+    case "inspirational":
+      return "Tone: inspirational — luminous golden-hour light, expansive composition, hopeful upward gaze, open horizon.";
+    case "bold":
+      return "Tone: bold — high-contrast palette, dynamic angles, saturated colors, decisive composition, strong direct stare.";
+  }
+}
+
 type StyleDescriptor = {
   label: CoverStyle;
   description: string;
@@ -112,6 +134,7 @@ export function buildImagePrompt(input: {
   const { creator, transformationLine, styleOverride } = input;
   const style = STYLES[styleOverride ?? defaultStyleFor(creator.niche)];
   const mood = moodFor(creator.niche);
+  const toneMood = moodForTone(creator.tone);
 
   const taglineBlock = transformationLine
     ? `Supporting text (smaller, below or beside the title): "${transformationLine}"`
@@ -123,6 +146,7 @@ export function buildImagePrompt(input: {
     `Primary text overlay: "${creator.community_name}" — large, bold, modern sans-serif, extremely legible, placed in a clear zone of the image.`,
     `${creator.name} appears on one side of the composition (use the reference image for likeness), looking toward the camera with a warm, confident expression.`,
     mood,
+    toneMood,
     style.description,
     taglineBlock,
     `Vibrant colors, high contrast, professional commercial quality, modern community cover aesthetic.`,

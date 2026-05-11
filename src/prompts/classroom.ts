@@ -19,9 +19,12 @@ Hard rules:
 - No preamble, no explanation outside the tags.
 
 Voice calibration:
-- For "loving" tone: warm, grounded, specific. Avoid the spiritual-influencer banlist (sacred space, dear one, beloved, etc.).
-- For "direct" tone: no fluff. State what's there.
+- For "warm" tone: nurturing, grounded, supportive. Inclusive language ("you'll find here", "we explore together"). Avoid the spiritual-influencer banlist (sacred space, dear one, beloved, soul family, etc.) — comforting reads as more authentic than effusive.
+- For "direct" tone: no fluff. State what's there, who it's for, what they get.
 - For "playful" tone: light wordplay is fine; emojis still off.
+- For "authoritative" tone: expert, confident, declarative. Industry vocabulary used precisely. Frame the Classroom as the structured curriculum it is — "this is where", not "you'll discover".
+- For "inspirational" tone: vision-forward. Tie what's in the Classroom to the transformation. Use "imagine / step into / what becomes possible" sparingly; ground every beat with a concrete reference.
+- For "bold" tone: high-energy, declarative, no hedging. Short sentences, strong verbs ("master / build / unlock"). One exclamation max.
 
 Respond in this exact format:
 <classroom>
