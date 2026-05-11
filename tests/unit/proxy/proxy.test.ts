@@ -11,9 +11,13 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { NextRequest, NextResponse } from 'next/server';
 
-const envState: { DEMO_MODE: boolean } = { DEMO_MODE: false };
-const getUserMock = vi.fn();
-const mintDemoSessionMock = vi.fn();
+// All factory-captured state hoisted per-file. See CLAUDE.md
+// § "Mocking conventions".
+const { envState, getUserMock, mintDemoSessionMock } = vi.hoisted(() => ({
+  envState: { DEMO_MODE: false },
+  getUserMock: vi.fn(),
+  mintDemoSessionMock: vi.fn(),
+}));
 
 vi.mock('@/lib/env', () => ({
   get env() {
