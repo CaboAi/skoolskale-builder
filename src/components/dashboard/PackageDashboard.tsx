@@ -50,10 +50,10 @@ type PackageWithDetails = {
 
 const STATUS_STYLES: Record<LaunchPackage["status"], string> = {
   draft: "bg-muted text-muted-foreground",
-  generating: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
-  review: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
-  ready: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
-  deployed: "bg-emerald-600 text-white",
+  generating: "bg-info/15 text-info",
+  review: "bg-warning/15 text-warning",
+  ready: "bg-success/15 text-success",
+  deployed: "bg-success text-success-foreground",
   archived: "bg-muted text-muted-foreground",
 };
 

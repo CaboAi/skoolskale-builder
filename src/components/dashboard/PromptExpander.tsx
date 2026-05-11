@@ -124,7 +124,7 @@ export function PromptExpander({
                 rows={Math.min(20, Math.max(8, value.split("\n").length + 1))}
                 className={cn(
                   "font-mono text-xs leading-relaxed",
-                  isEdited && "border-amber-500/60",
+                  isEdited && "border-warning/60",
                 )}
                 placeholder="Edit the prompt…"
                 spellCheck={false}
