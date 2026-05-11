@@ -92,6 +92,7 @@ export function createModuleFunction(config: FactoryConfig) {
           userId: data.userId,
           prompt: config.prompt,
           regenerateNote: data.regenerateNote,
+          editedPrompt: data.editedPrompt,
         }),
       );
 

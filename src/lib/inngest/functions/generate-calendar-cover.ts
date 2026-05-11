@@ -71,6 +71,12 @@ export const generateCalendarCover = inngest.createFunction(
     );
 
     const prep = await step.run("prepare", async () => {
+      if (data.editedPrompt) {
+        console.log(
+          `${tag} editedPrompt path (length=${data.editedPrompt.length}); skipping builder`,
+        );
+        return { prompt: data.editedPrompt };
+      }
       const creator = await loadCreatorForPackage({
         packageId: data.packageId,
         userId: data.userId,

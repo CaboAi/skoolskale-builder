@@ -30,6 +30,7 @@ import {
   type ModuleKey,
 } from "@/lib/modules/registry";
 import { EditDialog, RegenerateDialog } from "./action-dialogs";
+import { DashboardContextProvider } from "./dashboard-context";
 
 export type PackageDashboardProps = {
   package: LaunchPackage;
@@ -262,6 +263,47 @@ export function PackageDashboard(initial: PackageDashboardProps) {
     },
   });
 
+  // Phase 2 prompt-editor path. Posts the same /regenerate route but with
+  // `editedPrompt` instead of `note`; the Inngest function bypasses the
+  // builder when this is set. Same skeleton/poll behavior as the regular
+  // regenerate mutation — both flip the module into the regenerating map
+  // so the card swaps to a skeleton until a new asset id arrives.
+  const regenerateEditedMutation = useMutation({
+    mutationFn: async ({
+      module,
+      editedPrompt,
+    }: {
+      module: string;
+      editedPrompt: string;
+    }) => {
+      const res = await fetch(
+        `/api/packages/${pkg.id}/modules/${module}/regenerate`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ editedPrompt }),
+        },
+      );
+      if (!res.ok) {
+        const err = await res
+          .json()
+          .catch(() => ({ error: "Regenerate failed" }));
+        throw new Error(err.error ?? "Regenerate failed");
+      }
+      return module;
+    },
+    onSuccess: (module) => {
+      const currentId = byModule.get(module)?.id ?? null;
+      setRegenerating((prev) => ({ ...prev, [module]: currentId }));
+      toast.info(`Regenerating ${MODULE_LABELS[module]} with edited prompt…`);
+    },
+    onError: (err, { module }) => {
+      toast.error(
+        `Could not regenerate ${MODULE_LABELS[module]}: ${err.message}`,
+      );
+    },
+  });
+
   const editMutation = useMutation({
     mutationFn: async ({
       module,
@@ -456,9 +498,22 @@ export function PackageDashboard(initial: PackageDashboardProps) {
       {pkg.status === "draft" && assets.length === 0 ? (
         <DraftEmptyState packageId={pkg.id} />
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {DASHBOARD_MODULE_KEYS.map(renderModuleCard)}
-        </div>
+        <DashboardContextProvider
+          value={{
+            packageId: pkg.id,
+            onRegenerateEditedPrompt: (module, editedPrompt) =>
+              regenerateEditedMutation.mutate({ module, editedPrompt }),
+            pendingEditedRegenerateModule:
+              regenerateEditedMutation.isPending &&
+              regenerateEditedMutation.variables
+                ? regenerateEditedMutation.variables.module
+                : null,
+          }}
+        >
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {DASHBOARD_MODULE_KEYS.map(renderModuleCard)}
+          </div>
+        </DashboardContextProvider>
       )}
 
       {approvedCount === totalModules && (

@@ -75,6 +75,16 @@ export const generateIcon = inngest.createFunction(
     );
 
     const prep = await step.run("prepare", async () => {
+      // Edited-prompt path: use the same edited string for all 3 variants.
+      // Gemini sampling diversity still produces 3 distinct icons; the VA
+      // gives up per-style differentiation in exchange for full prompt
+      // control. Documented in the UI on the icon card.
+      if (data.editedPrompt) {
+        console.log(
+          `${tag} editedPrompt path (length=${data.editedPrompt.length}); using same prompt for all ${ICON_STYLES.length} variants`,
+        );
+        return { prompts: ICON_STYLES.map(() => data.editedPrompt!) };
+      }
       const creator = await loadCreatorForPackage({
         packageId: data.packageId,
         userId: data.userId,

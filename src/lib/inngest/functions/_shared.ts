@@ -35,6 +35,13 @@ export type ModuleEventData = {
   packageId: string;
   userId: string;
   regenerateNote?: string;
+  /**
+   * Phase 2 prompt editor: when set, the function uses this string
+   * verbatim as the prompt and skips the builder + pattern-library
+   * load. regenerateNote is ignored in this path — if the VA wanted
+   * a note suffix they can include it in the edited prompt directly.
+   */
+  editedPrompt?: string;
 };
 
 export type ModuleResult = {
@@ -101,30 +108,44 @@ export async function runModule<T>(params: {
   userId: string;
   prompt: Prompt;
   regenerateNote?: string;
+  editedPrompt?: string;
 }): Promise<{ parsed: T; assetId: string }> {
   const tag = `[gen/${params.module}]`;
   try {
-    console.log(`${tag} loadCreatorForPackage`);
-    const creator = await loadCreatorForPackage({
-      packageId: params.packageId,
-      userId: params.userId,
-    });
+    let userMessage: string;
+    if (params.editedPrompt) {
+      // Edited-prompt path: skip creator/pattern lookup entirely. The VA
+      // owns the prompt; we just pass it through the same generate() +
+      // parse + persist pipeline.
+      console.log(
+        `${tag} editedPrompt path (length=${params.editedPrompt.length}); skipping builder`,
+      );
+      userMessage = params.editedPrompt;
+    } else {
+      console.log(`${tag} loadCreatorForPackage`);
+      const creator = await loadCreatorForPackage({
+        packageId: params.packageId,
+        userId: params.userId,
+      });
 
-    console.log(`${tag} fetchPatternExamples niche=${creator.niche} tone=${creator.tone}`);
-    const patterns = await fetchPatternExamples({
-      module: params.module,
-      niche: creator.niche,
-      tone: creator.tone,
-    });
-    console.log(`${tag} patterns.length=${patterns.length}`);
+      console.log(
+        `${tag} fetchPatternExamples niche=${creator.niche} tone=${creator.tone}`,
+      );
+      const patterns = await fetchPatternExamples({
+        module: params.module,
+        niche: creator.niche,
+        tone: creator.tone,
+      });
+      console.log(`${tag} patterns.length=${patterns.length}`);
 
-    const input: GeneratorInput = {
-      creator: toCreatorContext(creator),
-      patternLibrary: patterns,
-      regenerateNote: params.regenerateNote,
-    };
+      const input: GeneratorInput = {
+        creator: toCreatorContext(creator),
+        patternLibrary: patterns,
+        regenerateNote: params.regenerateNote,
+      };
 
-    const userMessage = params.prompt.buildUserMessage(input);
+      userMessage = params.prompt.buildUserMessage(input);
+    }
     console.log(`${tag} calling Claude (userMessage.length=${userMessage.length})`);
     const { text, inputTokens, outputTokens, durationMs } = await generate({
       systemPrompt: params.prompt.systemPrompt,
