@@ -20,12 +20,34 @@ import { NextRequest } from "next/server";
 const PKG_ID = "00000000-0000-4000-8000-0000000000aa";
 const USER_ID = "00000000-0000-0000-0000-000000000001";
 
+// Spy arg types are explicit so mock.calls[N][M] resolves to the arg
+// (rather than `undefined` from zero-arg inference).
 const { logAuditMock, requireUserMock, inngestSendMock, dbSelectLimitMock } =
   vi.hoisted(() => ({
-    logAuditMock: vi.fn(async () => undefined),
-    requireUserMock: vi.fn(async () => ({ id: USER_ID, email: "t@e.com" })),
-    inngestSendMock: vi.fn(async () => ({ ids: ["evt-1"] })),
-    dbSelectLimitMock: vi.fn(async () => [{ id: PKG_ID }]),
+    logAuditMock: vi.fn<
+      (
+        userId: string,
+        action: string,
+        entityType: string,
+        entityId: string,
+        payload: unknown,
+      ) => Promise<void>
+    >(async () => undefined),
+    requireUserMock: vi.fn<() => Promise<{ id: string; email: string }>>(
+      async () => ({
+        id: "00000000-0000-0000-0000-000000000001",
+        email: "t@e.com",
+      }),
+    ),
+    inngestSendMock: vi.fn<
+      (event: {
+        name: string;
+        data: Record<string, unknown>;
+      }) => Promise<{ ids: string[] }>
+    >(async () => ({ ids: ["evt-1"] })),
+    dbSelectLimitMock: vi.fn<() => Promise<{ id: string }[]>>(async () => [
+      { id: "00000000-0000-4000-8000-0000000000aa" },
+    ]),
   }));
 
 vi.mock("@/lib/auth", () => ({ requireUser: requireUserMock }));
