@@ -107,6 +107,10 @@ export const creators = pgTable(
     supportContact: text('support_contact'),
     brandPrefs: text('brand_prefs'),
     creatorPhotoUrl: text('creator_photo_url'),
+    // Storage path within the `creator-photos` bucket (e.g. "userId/file.png").
+    // Replaces creatorPhotoUrl once the signed-URLs migration is complete; both
+    // coexist during the migration window. See memory/signed-urls-migration.md.
+    creatorPhotoPath: text('creator_photo_path'),
     // Add-on intake (PR #4) — nullable so the Step 1 POST flow doesn't have
     // to backfill. Step 5 PATCHes these in. Stored as jsonb / text[] mirrors
     // of the Zod schemas in src/types/schemas.ts.

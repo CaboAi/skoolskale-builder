@@ -50,6 +50,13 @@
       "when": 1778710800000,
       "tag": "0006_workspace_wide_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1778624499882,
+      "tag": "0007_creator_photo_path",
+      "breakpoints": true
     }
   ]
 }
