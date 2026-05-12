@@ -1,5 +1,5 @@
 import "server-only";
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   creators,
@@ -51,4 +51,26 @@ export async function getPackageWithDetails(
     .where(eq(generatedAssets.packageId, pkg.id));
 
   return { package: pkg, creator, assets };
+}
+
+export type PackageListItem = {
+  id: string;
+  communityName: string;
+};
+
+/**
+ * Workspace-wide list of every launch package, ordered by createdAt DESC
+ * (most-recent first). One row per package; the community name comes from
+ * the joined creators row. Used by the home-page library view.
+ */
+export async function getAllPackagesForListing(): Promise<PackageListItem[]> {
+  const rows = await db
+    .select({
+      id: launchPackages.id,
+      communityName: creators.communityName,
+    })
+    .from(launchPackages)
+    .innerJoin(creators, eq(launchPackages.creatorId, creators.id))
+    .orderBy(desc(launchPackages.createdAt));
+  return rows;
 }
