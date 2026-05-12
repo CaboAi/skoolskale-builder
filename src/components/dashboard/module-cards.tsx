@@ -54,7 +54,9 @@ function ApprovalCheck({ approved }: { approved: boolean }) {
     <CheckCircle2
       className={cn(
         "h-5 w-5 shrink-0",
-        approved ? "fill-emerald-500 text-white" : "text-muted-foreground/30",
+        approved
+          ? "fill-success text-success-foreground"
+          : "text-muted-foreground/30",
       )}
       aria-label={approved ? "Approved" : "Not approved"}
     />

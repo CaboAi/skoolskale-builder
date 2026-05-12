@@ -19,7 +19,7 @@ export default async function PackagePage({ params }: Props) {
   if (!details) notFound();
 
   return (
-    <main className="min-h-dvh bg-muted/30 p-4 md:p-8">
+    <main className="flex-1 bg-muted/30 p-4 md:p-8">
       <div className="mx-auto max-w-6xl">
         <PackageDashboard
           package={details.package}

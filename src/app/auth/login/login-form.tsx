@@ -65,7 +65,7 @@ export function LoginForm() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           disabled={status.kind === 'sending'}
-          placeholder="you@skoolskale.com"
+          placeholder="you@preskool.app"
         />
       </div>
 
