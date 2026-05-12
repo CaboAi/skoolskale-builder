@@ -304,16 +304,17 @@ describe('PATCH /api/creators/[id]', () => {
     );
 
     expect(res.status).toBe(200);
-    expect(dbState.lastUpdateSet).toMatchObject({
+    const updateSet = dbState.lastUpdateSet as Record<string, unknown>;
+    expect(updateSet).toMatchObject({
       name: 'Jane',
       communityName: 'Alchemy',
       supportContact: 'jane@example.com',
     });
     // Empty-string fields must not have been written through.
-    expect(dbState.lastUpdateSet.audience).toBeUndefined();
-    expect(dbState.lastUpdateSet.transformation).toBeUndefined();
-    expect(dbState.lastUpdateSet.brandPrefs).toBeUndefined();
-    expect(dbState.lastUpdateSet.refundPolicy).toBeUndefined();
+    expect(updateSet.audience).toBeUndefined();
+    expect(updateSet.transformation).toBeUndefined();
+    expect(updateSet.brandPrefs).toBeUndefined();
+    expect(updateSet.refundPolicy).toBeUndefined();
   });
 
   test('rejects patch body that is all empty strings', async () => {
