@@ -129,11 +129,42 @@ export type CreatorIntake = z.infer<typeof CreatorIntakeSchema>;
 
 /**
  * Patch schema — all fields optional for draft autosave.
- * Rejects empty payloads so PATCH always has at least one change.
+ *
+ * Two layers:
+ *   1. z.preprocess strips empty-string fields before validation. The
+ *      wizard autosaves the entire form state every 30s via getValues();
+ *      Steps 1-4 leave fields like `audience` / `transformation` as
+ *      empty strings (RHF defaults) until later steps are reached.
+ *      Without stripping, those would hit CreatorIntakeSchema's
+ *      .min(1) constraints inside .partial() and the PATCH 400s with
+ *      "Invalid request body" — observed in the smoke session.
+ *   2. .partial() makes every key optional at the shape level.
+ *   3. .refine ensures the post-strip payload still has at least one
+ *      field so we don't update audit log + updatedAt for a no-op.
+ *
+ * Final-submit goes through CreatorIntakeSchema (strict, no preprocess)
+ * via the wizard's client-side trigger() and via downstream package
+ * generation — draft leniency here doesn't leak into a published
+ * launch package.
  */
-export const CreatorPatchSchema = CreatorIntakeSchema.partial().refine(
-  (v) => Object.keys(v).length > 0,
-  { message: 'At least one field must be provided.' },
+const stripEmptyStringFields = (input: unknown): unknown => {
+  if (typeof input !== 'object' || input === null || Array.isArray(input)) {
+    return input;
+  }
+  const cleaned: Record<string, unknown> = {};
+  for (const [key, val] of Object.entries(input as Record<string, unknown>)) {
+    if (val === '' || val === undefined) continue;
+    cleaned[key] = val;
+  }
+  return cleaned;
+};
+
+export const CreatorPatchSchema = z.preprocess(
+  stripEmptyStringFields,
+  CreatorIntakeSchema.partial().refine(
+    (v) => Object.keys(v).length > 0,
+    { message: 'At least one field must be provided.' },
+  ),
 );
 
 export type CreatorPatch = z.infer<typeof CreatorPatchSchema>;

@@ -270,4 +270,65 @@ describe('PATCH /api/creators/[id]', () => {
     expect(res.status).toBe(400);
     expect((await res.json()).code).toBe('validation_failed');
   });
+
+  // The wizard autosaves getValues() every 30s, which on Steps 1-4
+  // includes empty-string defaults for fields the user hasn't filled
+  // yet (audience, transformation, brand_prefs, ...). Pre-fix those
+  // tripped CreatorIntakeSchema's .min(1) constraints inside
+  // .partial() and the PATCH 400'd with "Invalid request body". The
+  // schema now preprocesses out empty strings before validation, so
+  // the request succeeds as long as at least one non-empty field
+  // survives the strip.
+  test('strips empty-string fields before validation (wizard autosave)', async () => {
+    const uuid = '550e8400-e29b-41d4-a716-446655440000';
+    dbState.selectRows = [{ id: uuid, created_by: fakeUser.id }];
+    dbState.updateReturning = [{ id: uuid, name: 'Jane' }];
+
+    // What the autosave snapshot looks like just after Step 1 finished:
+    // name + community_name + niche + support_contact are real,
+    // everything else is the RHF empty-string default.
+    const autosavePayload = {
+      name: 'Jane',
+      community_name: 'Alchemy',
+      niche: 'spiritual',
+      audience: '',
+      transformation: '',
+      support_contact: 'jane@example.com',
+      refund_policy: '',
+      brand_prefs: '',
+    };
+
+    const res = await PATCH(
+      jsonRequest(`http://test/api/creators/${uuid}`, 'PATCH', autosavePayload),
+      { params: Promise.resolve({ id: uuid }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect(dbState.lastUpdateSet).toMatchObject({
+      name: 'Jane',
+      communityName: 'Alchemy',
+      supportContact: 'jane@example.com',
+    });
+    // Empty-string fields must not have been written through.
+    expect(dbState.lastUpdateSet.audience).toBeUndefined();
+    expect(dbState.lastUpdateSet.transformation).toBeUndefined();
+    expect(dbState.lastUpdateSet.brandPrefs).toBeUndefined();
+    expect(dbState.lastUpdateSet.refundPolicy).toBeUndefined();
+  });
+
+  test('rejects patch body that is all empty strings', async () => {
+    const uuid = '550e8400-e29b-41d4-a716-446655440000';
+
+    const res = await PATCH(
+      jsonRequest(`http://test/api/creators/${uuid}`, 'PATCH', {
+        name: '',
+        audience: '',
+      }),
+      { params: Promise.resolve({ id: uuid }) },
+    );
+
+    // After stripping, the cleaned object is {} — refine() rejects.
+    expect(res.status).toBe(400);
+    expect((await res.json()).code).toBe('validation_failed');
+  });
 });
