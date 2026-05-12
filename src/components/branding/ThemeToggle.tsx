@@ -43,7 +43,19 @@ export function ThemeToggle() {
       onClick={() => setTheme(isDark ? "light" : "dark")}
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
     >
-      {isDark ? <Sun /> : <Moon />}
+      {/*
+       * Both icons absolute inside a relative 16x16 span. The span
+       * is the positioning context for the icons; without it, the
+       * Moon's `absolute` resolves to the nearest positioned
+       * ancestor (the sticky <header>) and renders centered in the
+       * whole header bar — visible as the toggle "jumping" from
+       * top-right (Sun in flex flow) to center-top (Moon escaping
+       * to the header) when flipping modes.
+       */}
+      <span className="relative inline-block h-4 w-4">
+        <Sun className="absolute inset-0 h-4 w-4 rotate-0 scale-100 transition-all duration-200 ease-out dark:-rotate-90 dark:scale-0" />
+        <Moon className="absolute inset-0 h-4 w-4 rotate-90 scale-0 transition-all duration-200 ease-out dark:rotate-0 dark:scale-100" />
+      </span>
     </Button>
   );
 }

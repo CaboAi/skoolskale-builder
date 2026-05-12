@@ -75,7 +75,7 @@ export function PromptExpander({
       <button
         type="button"
         onClick={handleToggle}
-        className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+        className="flex items-center gap-1.5 rounded-md text-xs font-medium text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
         aria-expanded={open}
       >
         {open ? (

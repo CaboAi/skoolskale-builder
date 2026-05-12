@@ -34,6 +34,15 @@ import { PromptExpander } from "./PromptExpander";
 
 export { MODULE_LABELS };
 
+/**
+ * Shared hover treatment for every interactive module card on the
+ * dashboard. Border ring shifts toward primary, slight elevation lifts
+ * via shadow-md, 200ms ease-out. Skeletons skip this — there's nothing
+ * to hover-respond to while waiting.
+ */
+const MODULE_CARD_CLASS =
+  "transition-all duration-200 ease-out hover:ring-primary/40 hover:shadow-md";
+
 /* -------------------------------------------------------------------------- */
 /* Action callbacks — placeholders for 5.3                                    */
 /* -------------------------------------------------------------------------- */
@@ -50,12 +59,17 @@ export type ModuleActionHandler = (
 /* -------------------------------------------------------------------------- */
 
 function ApprovalCheck({ approved }: { approved: boolean }) {
+  // Keyed so the icon remounts when approval flips — that's what triggers
+  // the spring zoom-in animation. The cubic-bezier overshoots past 1.0
+  // before settling, which makes "Approved" feel rewarding rather than
+  // a quiet state-flip.
   return (
     <CheckCircle2
+      key={approved ? "approved" : "pending"}
       className={cn(
-        "h-5 w-5 shrink-0",
+        "h-5 w-5 shrink-0 transition-colors",
         approved
-          ? "fill-success text-success-foreground"
+          ? "fill-success text-success-foreground animate-in zoom-in-50 fade-in duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
           : "text-muted-foreground/30",
       )}
       aria-label={approved ? "Approved" : "Not approved"}
@@ -148,7 +162,47 @@ function ModuleFooter({
 
 /* -------------------------------------------------------------------------- */
 /* Skeletons                                                                  */
+/*                                                                            */
+/* Title stays as real text (MODULE_LABELS) so the user knows which module    */
+/* is in flight without reading a placeholder bar. Body matches the actual    */
+/* card shape per variant. Footer mirrors the real Edit / Regenerate /        */
+/* Approve trio so the layout doesn't shift when content lands. A friendly    */
+/* one-line status sits below the body skeleton — uses --muted-foreground so  */
+/* it retokens with the palette.                                              */
 /* -------------------------------------------------------------------------- */
+
+type SkeletonVariant = "copy" | "image-variants" | "image-single";
+
+function statusFor(module: string, variant: SkeletonVariant): string {
+  const label = MODULE_LABELS[module] ?? module;
+  if (variant === "image-variants") return `Generating ${label} variants…`;
+  if (variant === "image-single") return `Generating ${label}…`;
+  return `Drafting your ${label}…`;
+}
+
+function SkeletonStatusText({
+  module,
+  variant,
+}: {
+  module: string;
+  variant: SkeletonVariant;
+}) {
+  return (
+    <p className="text-xs text-muted-foreground">
+      {statusFor(module, variant)}
+    </p>
+  );
+}
+
+function SkeletonFooter() {
+  return (
+    <CardFooter className="flex flex-row gap-2 border-t pt-4">
+      <Skeleton className="h-7 w-16" />
+      <Skeleton className="h-7 w-24" />
+      <Skeleton className="ml-auto h-7 w-20" />
+    </CardFooter>
+  );
+}
 
 export function CopyModuleSkeleton({
   module,
@@ -162,13 +216,17 @@ export function CopyModuleSkeleton({
       <CardHeader>
         <CardTitle className="text-base">{MODULE_LABELS[module]}</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-2">
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-11/12" />
-        <Skeleton className="h-4 w-9/12" />
-        <Skeleton className="h-4 w-10/12" />
-        <Skeleton className="h-4 w-8/12" />
+      <CardContent className="space-y-3">
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-11/12" />
+          <Skeleton className="h-4 w-9/12" />
+          <Skeleton className="h-4 w-10/12" />
+          <Skeleton className="h-4 w-8/12" />
+        </div>
+        <SkeletonStatusText module={module} variant="copy" />
       </CardContent>
+      <SkeletonFooter />
     </Card>
   );
 }
@@ -189,13 +247,15 @@ export function ImageVariantsSkeleton({
       <CardHeader>
         <CardTitle className="text-base">{MODULE_LABELS[module]}</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-3">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Skeleton className="aspect-[16/9] w-full" />
           <Skeleton className="aspect-[16/9] w-full" />
           <Skeleton className="aspect-[16/9] w-full" />
         </div>
+        <SkeletonStatusText module={module} variant="image-variants" />
       </CardContent>
+      <SkeletonFooter />
     </Card>
   );
 }
@@ -216,9 +276,11 @@ export function ImageSingleSkeleton({
       <CardHeader>
         <CardTitle className="text-base">{MODULE_LABELS[module]}</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-3">
         <Skeleton className="aspect-[16/9] w-full" />
+        <SkeletonStatusText module={module} variant="image-single" />
       </CardContent>
+      <SkeletonFooter />
     </Card>
   );
 }
@@ -246,7 +308,7 @@ export function TextModuleCard({
   if (moduleName === "transformation") {
     const c = asset.content as TransformationContent;
     return (
-      <Card>
+      <Card className={MODULE_CARD_CLASS}>
         <ModuleHeader module={moduleName} approved={asset.approved} />
         <CardContent>
           <ol className="divide-y rounded-md border">
@@ -272,7 +334,7 @@ export function TextModuleCard({
   if (moduleName === "classroom" || moduleName === "calendar") {
     const c = asset.content as TitleDescriptionContent;
     return (
-      <Card>
+      <Card className={MODULE_CARD_CLASS}>
         <ModuleHeader module={moduleName} approved={asset.approved} />
         <CardContent className="space-y-3">
           <p className="text-base font-semibold leading-tight">{c.title}</p>
@@ -293,7 +355,7 @@ export function TextModuleCard({
   const c = asset.content as WelcomeDmContent;
   const wordCount = c.content.split(/\s+/).filter(Boolean).length;
   return (
-    <Card>
+    <Card className={MODULE_CARD_CLASS}>
       <ModuleHeader module={moduleName} approved={asset.approved} />
       <CardContent className="space-y-3">
         <pre className="whitespace-pre-wrap rounded-md bg-muted p-3 font-mono text-xs leading-relaxed">
@@ -334,7 +396,7 @@ export function AboutUsCard({
 }) {
   const c = asset.content as AboutUsContent;
   return (
-    <Card>
+    <Card className={MODULE_CARD_CLASS}>
       <ModuleHeader module="about_us" approved={asset.approved} />
       <CardContent className="space-y-4">
         <p className="text-base leading-snug">{c.hero}</p>
@@ -398,7 +460,7 @@ export function StartHereCard({
 }) {
   const c = asset.content as StartHereContent;
   return (
-    <Card>
+    <Card className={MODULE_CARD_CLASS}>
       <ModuleHeader module="start_here" approved={asset.approved} />
       <CardContent>
         <Accordion multiple className="w-full">
@@ -502,7 +564,7 @@ export function ImageVariantsCard({
   const moduleName = asset.module;
   const moduleLabel = MODULE_LABELS[moduleName] ?? moduleName;
   return (
-    <Card className="md:col-span-2">
+    <Card className={cn(MODULE_CARD_CLASS, "md:col-span-2")}>
       <ModuleHeader module={moduleName} approved={asset.approved} />
       <CardContent>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -516,7 +578,7 @@ export function ImageVariantsCard({
                 onClick={() => onSelectVariant?.(moduleName, v.index)}
                 disabled={variantSelectInFlight || !onSelectVariant}
                 className={cn(
-                  "relative overflow-hidden rounded-md border-2 transition",
+                  "relative overflow-hidden rounded-md border-2 outline-none transition focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
                   isSelected
                     ? "border-primary"
                     : "border-muted hover:border-muted-foreground/40",
@@ -575,7 +637,7 @@ export function ImageModuleCard({
   const moduleLabel = MODULE_LABELS[moduleName] ?? moduleName;
   const variant = c.variants[0];
   return (
-    <Card className="md:col-span-2">
+    <Card className={cn(MODULE_CARD_CLASS, "md:col-span-2")}>
       <ModuleHeader module={moduleName} approved={asset.approved} />
       <CardContent>
         {variant ? (
@@ -620,7 +682,7 @@ export function LeaderboardCard({
 }) {
   const c = asset.content as LeaderboardContent;
   return (
-    <Card>
+    <Card className={MODULE_CARD_CLASS}>
       <ModuleHeader module="leaderboard" approved={asset.approved} />
       <CardContent>
         <ol className="divide-y rounded-md border">
@@ -663,7 +725,7 @@ export function CategoriesCard({
 }) {
   const c = asset.content as CategoriesContent;
   return (
-    <Card>
+    <Card className={MODULE_CARD_CLASS}>
       <ModuleHeader module="categories" approved={asset.approved} />
       <CardContent className="space-y-3">
         {c.categories.map((cat, i) => (
@@ -700,7 +762,7 @@ export function DiscoverySeoCard({
 }) {
   const c = asset.content as DiscoverySeoContent;
   return (
-    <Card>
+    <Card className={MODULE_CARD_CLASS}>
       <ModuleHeader module="discovery_seo" approved={asset.approved} />
       <CardContent>
         <div className="flex flex-wrap gap-1.5">

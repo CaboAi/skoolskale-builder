@@ -97,7 +97,7 @@ export function AboutUsEditForm({
       </header>
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
-        <TabsList>
+        <TabsList variant="line">
           <TabsTrigger value="hero">Hero</TabsTrigger>
           <TabsTrigger value="buckets">Value Buckets</TabsTrigger>
           <TabsTrigger value="pricing">Pricing</TabsTrigger>
