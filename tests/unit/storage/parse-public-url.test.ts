@@ -1,9 +1,4 @@
-import { describe, expect, test, vi } from "vitest";
-
-// `server-only` imports throw outside a server runtime; stub it so tests can
-// load the module under jsdom OR node.
-vi.mock("server-only", () => ({}));
-
+import { describe, expect, test } from "vitest";
 import { parsePublicStorageUrl } from "@/lib/storage/parse-public-url";
 
 describe("parsePublicStorageUrl", () => {
