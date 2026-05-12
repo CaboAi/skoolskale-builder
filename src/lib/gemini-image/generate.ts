@@ -30,13 +30,16 @@ export type GenerateCoverImagesResult = {
 type ReferenceImage = { data: string; mimeType: string };
 
 /**
- * Hard ceiling on a single Gemini image generation. Nano Banana 2 typically
- * returns in 15-40s; if we're past 90s the call has almost certainly hung
- * server-side. We'd rather fail fast and let Inngest retry the step than
- * hold the Vercel function open until it 504s — a 504 wastes the whole
- * function invocation; an aborted fetch lets Inngest pick up immediately.
+ * Hard ceiling on a single Gemini image generation. Nano Banana 2 (preview)
+ * is variable: median ~30-60s, p99 reaches 90-120s under load with reference
+ * images. A 60s ceiling aborted legit-but-slow calls and caused Inngest to
+ * retry the whole function — making good runs look broken. 120s gives the
+ * SDK a real shot before we cut the cord, while staying well under Vercel's
+ * 300s maxDuration so finalize/upload have headroom. The SDK abortSignal
+ * (below) actually cancels the underlying fetch when this fires, so we
+ * don't pay for a dangling socket.
  */
-const GEMINI_CALL_TIMEOUT_MS = 60_000;
+const GEMINI_CALL_TIMEOUT_MS = 120_000;
 const REFERENCE_FETCH_TIMEOUT_MS = 10_000;
 
 async function fetchReferenceImage(url: string): Promise<ReferenceImage> {
@@ -54,10 +57,12 @@ async function fetchReferenceImage(url: string): Promise<ReferenceImage> {
 }
 
 /**
- * Race a generateContent call against a timeout. The Google GenAI SDK
- * doesn't surface AbortSignal cleanly, so we use Promise.race — the SDK
- * call keeps running in the background, but we throw on the caller side
- * so Inngest can retry without waiting on the underlying socket.
+ * Race a generateContent call against a timeout. The caller passes an
+ * AbortSignal into the SDK (see `generateCoverImages`) so the underlying
+ * fetch is actually cancelled when this fires. This Promise.race remains
+ * as the source of the human-readable "exceeded Nms" error — the SDK's
+ * own abort error has a less specific message and is harder to match in
+ * monitoring/log filters.
  */
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -129,8 +134,12 @@ export async function generateCoverImages(
   const start = Date.now();
   const images: Buffer[] = [];
   for (let i = 0; i < params.numVariants; i++) {
+    // Two layers of timeout: AbortSignal.timeout cancels the actual HTTP
+    // request inside the SDK, withTimeout rejects the awaiting promise
+    // with our recognizable error message so log filters still match.
+    const abortSignal = AbortSignal.timeout(GEMINI_CALL_TIMEOUT_MS);
     const response = await withTimeout(
-      ai.models.generateContent({ model, contents }),
+      ai.models.generateContent({ model, contents, config: { abortSignal } }),
       GEMINI_CALL_TIMEOUT_MS,
       `generateContent variant ${i + 1}/${params.numVariants}`,
     );
