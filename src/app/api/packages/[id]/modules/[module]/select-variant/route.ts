@@ -81,16 +81,11 @@ export async function PUT(req: NextRequest, { params }: RouteCtx) {
     );
   }
 
-  // Owner check.
+  // Existence check — workspace-wide.
   const [pkg] = await db
     .select({ id: launchPackages.id })
     .from(launchPackages)
-    .where(
-      and(
-        eq(launchPackages.id, idR.data),
-        eq(launchPackages.createdBy, user.id),
-      ),
-    )
+    .where(eq(launchPackages.id, idR.data))
     .limit(1);
   if (!pkg) {
     return NextResponse.json<ApiError>(

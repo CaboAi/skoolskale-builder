@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { eq, desc } from 'drizzle-orm';
+import { desc } from 'drizzle-orm';
 import { requireUser } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { creators } from '@/lib/db/schema';
@@ -12,7 +12,8 @@ import { logAudit } from '@/lib/audit';
  * intake fields. NOT NULL columns the wizard hasn't filled yet get empty
  * defaults; later steps PATCH the real values in.
  *
- * GET /api/creators — list the current user's creators (newest first).
+ * GET /api/creators — list every creator in the workspace, newest first.
+ * Workspace-wide so VAs can pick up handoffs.
  */
 
 export async function POST(req: NextRequest) {
@@ -60,12 +61,11 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET() {
-  const user = await requireUser();
+  await requireUser();
 
   const rows = await db
     .select()
     .from(creators)
-    .where(eq(creators.createdBy, user.id))
     .orderBy(desc(creators.createdAt));
 
   return NextResponse.json({ creators: rows });

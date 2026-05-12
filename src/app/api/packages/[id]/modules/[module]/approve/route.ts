@@ -46,16 +46,11 @@ export async function POST(_req: NextRequest, { params }: RouteCtx) {
     );
   }
 
-  // Own-row check (RLS bypassed by service role).
+  // Existence check — workspace-wide; any VA can approve any package's modules.
   const [pkg] = await db
     .select({ id: launchPackages.id })
     .from(launchPackages)
-    .where(
-      and(
-        eq(launchPackages.id, idR.data),
-        eq(launchPackages.createdBy, user.id),
-      ),
-    )
+    .where(eq(launchPackages.id, idR.data))
     .limit(1);
   if (!pkg) {
     return NextResponse.json<ApiError>(

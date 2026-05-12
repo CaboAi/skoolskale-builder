@@ -18,13 +18,13 @@ const REQUIRED_FOR_EXPORT = MODULE_KEYS.filter(
 type Props = { params: Promise<{ id: string }> };
 
 export default async function PackageExportPage({ params }: Props) {
-  const user = await requireUser();
+  await requireUser();
   const { id } = await params;
 
   const idResult = UuidParam.safeParse(id);
   if (!idResult.success) notFound();
 
-  const details = await getPackageWithDetails(idResult.data, user.id);
+  const details = await getPackageWithDetails(idResult.data);
   if (!details) notFound();
 
   // Guard: every required module must have an approved asset.

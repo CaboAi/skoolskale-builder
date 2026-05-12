@@ -43,6 +43,13 @@
       "when": 1778459384388,
       "tag": "0005_tone_refresh",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1778710800000,
+      "tag": "0006_workspace_wide_rls",
+      "breakpoints": true
     }
   ]
 }

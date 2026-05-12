@@ -20,7 +20,7 @@ import "server-only";
  *   - Call the model. That's the Inngest function's job.
  *   - Persist anything. Read-only against creator + pattern_library.
  */
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { creators, launchPackages } from "@/lib/db/schema";
 import { fetchPatternExamples } from "@/lib/generators/pattern-library";
@@ -71,6 +71,8 @@ const TEXT_BUILDERS: Record<string, TextBuilder> = {
  */
 export async function buildPromptFor(args: {
   packageId: string;
+  /** Retained for caller-side context (logging). No longer used to scope
+   *  the query — packages are workspace-wide. */
   userId: string;
   module: ModuleKey;
   regenerateNote?: string;
@@ -78,12 +80,7 @@ export async function buildPromptFor(args: {
   const [pkg] = await db
     .select()
     .from(launchPackages)
-    .where(
-      and(
-        eq(launchPackages.id, args.packageId),
-        eq(launchPackages.createdBy, args.userId),
-      ),
-    )
+    .where(eq(launchPackages.id, args.packageId))
     .limit(1);
   if (!pkg) throw new Error(`launch_package ${args.packageId} not found`);
 
