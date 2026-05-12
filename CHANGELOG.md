@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Delete-package action on the home library list. Each row gets a trash icon that opens a confirmation dialog; on confirm the row is optimistically removed and `DELETE /api/packages/[id]` purges storage objects under the package id in both image buckets (`cover-variants` + `image-variants`) and deletes the `launch_packages` row (cascading `generated_assets` and `generation_jobs`). Workspace-wide per the existing access model; the action is recorded in `audit_log`.
+- "Packages" nav link in `AppHeader`, rendered between the wordmark and the theme toggle for authenticated users only. Routes to the home library (`/`).
 - Wizard step 5 ("Launch package add-ons") capturing classroom title/description, calendar title/description, 9 leaderboard level names, 3 categories (name + description), and up to 11 Discovery search keywords.
 - New module schemas in `src/types/schemas.ts`: `ClassroomContentSchema`, `CalendarContentSchema`, `LeaderboardContentSchema` (9-tuple), `CategoriesContentSchema` (3-tuple), `DiscoverySeoContentSchema` (1-11 keywords).
 - Shared form components: `RepeaterField` (single + grouped variants) and `KeywordChipField` (Enter/comma to add, max enforcement, dedupe).
