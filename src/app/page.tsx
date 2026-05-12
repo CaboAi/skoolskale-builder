@@ -2,13 +2,8 @@ import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { EmptyState } from '@/components/branding/EmptyState';
+import { EmptyPackagesIllustration } from '@/components/branding/EmptyPackagesIllustration';
 
 export default async function Home() {
   const user = await requireUser();
@@ -31,17 +26,13 @@ export default async function Home() {
             New community
           </Link>
         </header>
-        <Card>
-          <CardHeader>
-            <CardTitle>Get started</CardTitle>
-            <CardDescription>
-              Create a launch package by filling in the creator intake form.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            Packages you&rsquo;ve started will show up here in a future sprint.
-          </CardContent>
-        </Card>
+        <EmptyState
+          illustration={<EmptyPackagesIllustration />}
+          heading="No launch packages yet"
+          body="Build your first community by filling in the creator intake. preSkool generates all 13 modules so your VA can paste them straight into Skool."
+          ctaLabel="Build your first package"
+          ctaHref="/creators/new"
+        />
       </div>
     </main>
   );
