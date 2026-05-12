@@ -530,7 +530,7 @@ export function ImageVariantsCard({
                 onClick={() => onSelectVariant?.(moduleName, v.index)}
                 disabled={variantSelectInFlight || !onSelectVariant}
                 className={cn(
-                  "relative overflow-hidden rounded-md border-2 transition",
+                  "relative overflow-hidden rounded-md border-2 outline-none transition focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
                   isSelected
                     ? "border-primary"
                     : "border-muted hover:border-muted-foreground/40",
