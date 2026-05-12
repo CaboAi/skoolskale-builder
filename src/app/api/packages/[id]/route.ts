@@ -8,9 +8,8 @@ import type { ApiError } from "@/lib/validation";
  * GET /api/packages/[id] — return package + creator + generated_assets.
  *
  * Used by the dashboard page (server component) for the initial load and by
- * the client for polling after regenerate. RLS enforces ownership; we also
- * scope the query explicitly via createdBy in getPackageWithDetails as
- * defense-in-depth.
+ * the client for polling after regenerate. Workspace-wide: any authenticated
+ * VA can read any package so handoffs work.
  */
 
 const UuidParam = z.string().uuid();
@@ -18,7 +17,7 @@ const UuidParam = z.string().uuid();
 type RouteCtx = { params: Promise<{ id: string }> };
 
 export async function GET(_req: NextRequest, { params }: RouteCtx) {
-  const user = await requireUser();
+  await requireUser();
   const { id } = await params;
 
   const idResult = UuidParam.safeParse(id);
@@ -29,7 +28,7 @@ export async function GET(_req: NextRequest, { params }: RouteCtx) {
     );
   }
 
-  const details = await getPackageWithDetails(idResult.data, user.id);
+  const details = await getPackageWithDetails(idResult.data);
   if (!details) {
     return NextResponse.json<ApiError>(
       { error: "Package not found.", code: "not_found" },

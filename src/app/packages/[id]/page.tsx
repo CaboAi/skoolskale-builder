@@ -9,13 +9,13 @@ const UuidParam = z.string().uuid();
 type Props = { params: Promise<{ id: string }> };
 
 export default async function PackagePage({ params }: Props) {
-  const user = await requireUser();
+  await requireUser();
   const { id } = await params;
 
   const idResult = UuidParam.safeParse(id);
   if (!idResult.success) notFound();
 
-  const details = await getPackageWithDetails(idResult.data, user.id);
+  const details = await getPackageWithDetails(idResult.data);
   if (!details) notFound();
 
   return (

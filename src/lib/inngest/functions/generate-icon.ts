@@ -103,7 +103,9 @@ export const generateIcon = inngest.createFunction(
       return { prompts };
     });
 
-    const VARIANT_INLINE_RETRIES = 2;
+    // Single attempt per variant inside step.run; see generate-cover.ts for
+    // the reasoning. Past 1 attempt, Inngest's step-level retry takes over.
+    const VARIANT_INLINE_RETRIES = 1;
 
     const variantSteps = ICON_STYLES.map((_, i) => {
       const idx = i + 1;
@@ -160,9 +162,30 @@ export const generateIcon = inngest.createFunction(
       });
     });
 
-    const variants = (await Promise.all(variantSteps)).sort(
-      (a, b) => a.index - b.index,
+    // Partial-success: persist whatever variants succeeded; only throw if all
+    // failed. See generate-cover.ts for full reasoning.
+    const settled = await Promise.allSettled(variantSteps);
+    const variants = settled
+      .filter(
+        (r): r is PromiseFulfilledResult<IconVariant> =>
+          r.status === "fulfilled",
+      )
+      .map((r) => r.value)
+      .sort((a, b) => a.index - b.index);
+    const failures = settled.filter(
+      (r): r is PromiseRejectedResult => r.status === "rejected",
     );
+    if (variants.length === 0) {
+      const firstErr = failures[0]?.reason;
+      throw firstErr instanceof Error
+        ? firstErr
+        : new Error(`all ${ICON_STYLES.length} icon variants failed`);
+    }
+    if (failures.length > 0) {
+      console.warn(
+        `${tag} partial success: ${variants.length}/${ICON_STYLES.length} variants persisted; failed=${failures.length}`,
+      );
+    }
 
     const assetId = await step.run("finalize", async () => {
       const totalDurationMs = variants.reduce(

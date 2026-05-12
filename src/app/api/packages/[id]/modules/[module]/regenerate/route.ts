@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -70,16 +70,11 @@ export async function POST(req: NextRequest, { params }: RouteCtx) {
     throw err;
   }
 
-  // Own-row check — superuser DB connection bypasses RLS, so enforce here.
+  // Existence check — workspace-wide; any VA can regenerate any module.
   const [pkg] = await db
     .select({ id: launchPackages.id })
     .from(launchPackages)
-    .where(
-      and(
-        eq(launchPackages.id, idR.data),
-        eq(launchPackages.createdBy, user.id),
-      ),
-    )
+    .where(eq(launchPackages.id, idR.data))
     .limit(1);
   if (!pkg) {
     return NextResponse.json<ApiError>(

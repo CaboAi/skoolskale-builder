@@ -172,4 +172,42 @@ describe("generateCoverImages", () => {
       }),
     ).rejects.toThrow(/numVariants must be >= 1/);
   });
+
+  test("passes an AbortSignal in config to the SDK", async () => {
+    generateContentMock.mockResolvedValueOnce(mockImageResponse("img-1"));
+    const { generateCoverImages } = await import("@/lib/gemini-image/generate");
+
+    await generateCoverImages({
+      prompt: "cover",
+      numVariants: 1,
+      packageId: "pkg-1",
+    });
+
+    const call = generateContentMock.mock.calls[0][0];
+    expect(call.config?.abortSignal).toBeInstanceOf(AbortSignal);
+  });
+
+  test("rejects with timeout error when SDK hangs past the ceiling", async () => {
+    vi.useFakeTimers();
+    // Hanging promise: never resolves, never rejects on its own. The wrapper's
+    // setTimeout-based withTimeout is what must fire.
+    generateContentMock.mockImplementation(
+      () => new Promise(() => {}) as Promise<never>,
+    );
+    const { generateCoverImages } = await import("@/lib/gemini-image/generate");
+
+    const promise = generateCoverImages({
+      prompt: "cover",
+      numVariants: 1,
+      packageId: "pkg-1",
+    });
+    // Attach the rejection handler before advancing time so the rejection
+    // isn't reported as unhandled when fake timers fire synchronously.
+    const assertion = expect(promise).rejects.toThrow(
+      /generateContent variant 1\/1 exceeded 120000ms — retrying/,
+    );
+    await vi.advanceTimersByTimeAsync(120_000);
+    await assertion;
+    vi.useRealTimers();
+  });
 });

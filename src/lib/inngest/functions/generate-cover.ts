@@ -119,12 +119,12 @@ export const generateCover = inngest.createFunction(
       };
     });
 
-    // Max attempts per variant when Gemini hangs or returns a transient
-    // error. We retry inline (inside the same step.run) instead of relying
-    // on Inngest's function-level retry, because Inngest applies an
-    // exponential backoff that can add 1-2 min of dead time. Inline retry
-    // reuses the warm Vercel function and starts immediately.
-    const VARIANT_INLINE_RETRIES = 2;
+    // Single attempt per variant inside step.run. Past 1 attempt, let Inngest's
+    // step-level retry handle the next try — it gets a clean function instance
+    // and applies backoff, which is what we want once we've already waited
+    // 120s for Gemini. The previous value (2) doubled per-variant burn time
+    // before Inngest could intervene.
+    const VARIANT_INLINE_RETRIES = 1;
 
     // Each variant gets its own step.run so a successful URL is persisted
     // across function-level retries. Promise.all runs all three concurrently.
@@ -192,9 +192,31 @@ export const generateCover = inngest.createFunction(
       });
     });
 
-    const variants = (await Promise.all(variantSteps)).sort(
-      (a, b) => a.index - b.index,
+    // Partial-success: if at least one variant succeeded, ship what we have
+    // and surface the failed indexes — the VA can regenerate them from the UI.
+    // Only throw (and trigger function-level retry) if every variant failed.
+    const settled = await Promise.allSettled(variantSteps);
+    const variants = settled
+      .filter(
+        (r): r is PromiseFulfilledResult<CoverVariant> =>
+          r.status === "fulfilled",
+      )
+      .map((r) => r.value)
+      .sort((a, b) => a.index - b.index);
+    const failures = settled.filter(
+      (r): r is PromiseRejectedResult => r.status === "rejected",
     );
+    if (variants.length === 0) {
+      const firstErr = failures[0]?.reason;
+      throw firstErr instanceof Error
+        ? firstErr
+        : new Error(`all ${NUM_VARIANTS} cover variants failed`);
+    }
+    if (failures.length > 0) {
+      console.warn(
+        `${tag} partial success: ${variants.length}/${NUM_VARIANTS} variants persisted; failed=${failures.length}`,
+      );
+    }
 
     const assetId = await step.run("finalize", async () => {
       const totalDurationMs = variants.reduce(

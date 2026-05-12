@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
   creators,
@@ -78,17 +78,17 @@ export async function createJobRow(params: {
 
 export async function loadCreatorForPackage(params: {
   packageId: string;
+  /**
+   * Retained for caller-side audit logging context, but not used to scope
+   * the query — packages are workspace-wide so any VA's generation can
+   * touch any package (e.g. handoff regeneration).
+   */
   userId: string;
 }) {
   const [pkg] = await db
     .select()
     .from(launchPackages)
-    .where(
-      and(
-        eq(launchPackages.id, params.packageId),
-        eq(launchPackages.createdBy, params.userId),
-      ),
-    )
+    .where(eq(launchPackages.id, params.packageId))
     .limit(1);
   if (!pkg) throw new Error(`launch_package ${params.packageId} not found`);
 

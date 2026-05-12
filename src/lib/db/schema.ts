@@ -127,26 +127,31 @@ export const creators = pgTable(
   (t) => [
     index('creators_created_by_idx').on(t.createdBy),
     index('creators_niche_idx').on(t.niche),
-    pgPolicy('creators_select_own_or_admin', {
+    // Workspace-wide reads + writes — any authenticated VA can act on any
+    // package family record. INSERT still requires `created_by = auth.uid()`
+    // so the audit trail stays accurate. The Drizzle `db` connects via the
+    // service-role DATABASE_URL and bypasses these policies anyway; these
+    // are the boundary for any future Supabase JS client callers.
+    pgPolicy('creators_select_authed', {
       for: 'select',
       to: 'authenticated',
-      using: ownerOrAdmin('created_by'),
+      using: sql.raw('true'),
     }),
-    pgPolicy('creators_insert_own_or_admin', {
+    pgPolicy('creators_insert_self_or_admin', {
       for: 'insert',
       to: 'authenticated',
       withCheck: ownerOrAdmin('created_by'),
     }),
-    pgPolicy('creators_update_own_or_admin', {
+    pgPolicy('creators_update_authed', {
       for: 'update',
       to: 'authenticated',
-      using: ownerOrAdmin('created_by'),
-      withCheck: ownerOrAdmin('created_by'),
+      using: sql.raw('true'),
+      withCheck: sql.raw('true'),
     }),
-    pgPolicy('creators_delete_own_or_admin', {
+    pgPolicy('creators_delete_authed', {
       for: 'delete',
       to: 'authenticated',
-      using: ownerOrAdmin('created_by'),
+      using: sql.raw('true'),
     }),
   ],
 ).enableRLS();
@@ -177,26 +182,27 @@ export const launchPackages = pgTable(
     index('launch_packages_creator_id_idx').on(t.creatorId),
     index('launch_packages_created_by_idx').on(t.createdBy),
     index('launch_packages_status_idx').on(t.status),
-    pgPolicy('launch_packages_select_own_or_admin', {
+    // See creators block above for the rationale on workspace-wide policies.
+    pgPolicy('launch_packages_select_authed', {
       for: 'select',
       to: 'authenticated',
-      using: ownerOrAdmin('created_by'),
+      using: sql.raw('true'),
     }),
-    pgPolicy('launch_packages_insert_own_or_admin', {
+    pgPolicy('launch_packages_insert_self_or_admin', {
       for: 'insert',
       to: 'authenticated',
       withCheck: ownerOrAdmin('created_by'),
     }),
-    pgPolicy('launch_packages_update_own_or_admin', {
+    pgPolicy('launch_packages_update_authed', {
       for: 'update',
       to: 'authenticated',
-      using: ownerOrAdmin('created_by'),
-      withCheck: ownerOrAdmin('created_by'),
+      using: sql.raw('true'),
+      withCheck: sql.raw('true'),
     }),
-    pgPolicy('launch_packages_delete_own_or_admin', {
+    pgPolicy('launch_packages_delete_authed', {
       for: 'delete',
       to: 'authenticated',
-      using: ownerOrAdmin('created_by'),
+      using: sql.raw('true'),
     }),
   ],
 ).enableRLS();
@@ -231,26 +237,26 @@ export const generatedAssets = pgTable(
     index('generated_assets_package_id_idx').on(t.packageId),
     index('generated_assets_module_idx').on(t.module),
     index('generated_assets_created_by_idx').on(t.createdBy),
-    pgPolicy('generated_assets_select_own_or_admin', {
+    pgPolicy('generated_assets_select_authed', {
       for: 'select',
       to: 'authenticated',
-      using: ownerOrAdmin('created_by'),
+      using: sql.raw('true'),
     }),
-    pgPolicy('generated_assets_insert_own_or_admin', {
+    pgPolicy('generated_assets_insert_self_or_admin', {
       for: 'insert',
       to: 'authenticated',
       withCheck: ownerOrAdmin('created_by'),
     }),
-    pgPolicy('generated_assets_update_own_or_admin', {
+    pgPolicy('generated_assets_update_authed', {
       for: 'update',
       to: 'authenticated',
-      using: ownerOrAdmin('created_by'),
-      withCheck: ownerOrAdmin('created_by'),
+      using: sql.raw('true'),
+      withCheck: sql.raw('true'),
     }),
-    pgPolicy('generated_assets_delete_own_or_admin', {
+    pgPolicy('generated_assets_delete_authed', {
       for: 'delete',
       to: 'authenticated',
-      using: ownerOrAdmin('created_by'),
+      using: sql.raw('true'),
     }),
   ],
 ).enableRLS();
@@ -283,26 +289,26 @@ export const generationJobs = pgTable(
     index('generation_jobs_package_id_idx').on(t.packageId),
     index('generation_jobs_status_idx').on(t.status),
     index('generation_jobs_inngest_run_id_idx').on(t.inngestRunId),
-    pgPolicy('generation_jobs_select_own_or_admin', {
+    pgPolicy('generation_jobs_select_authed', {
       for: 'select',
       to: 'authenticated',
-      using: ownerOrAdmin('created_by'),
+      using: sql.raw('true'),
     }),
-    pgPolicy('generation_jobs_insert_own_or_admin', {
+    pgPolicy('generation_jobs_insert_self_or_admin', {
       for: 'insert',
       to: 'authenticated',
       withCheck: ownerOrAdmin('created_by'),
     }),
-    pgPolicy('generation_jobs_update_own_or_admin', {
+    pgPolicy('generation_jobs_update_authed', {
       for: 'update',
       to: 'authenticated',
-      using: ownerOrAdmin('created_by'),
-      withCheck: ownerOrAdmin('created_by'),
+      using: sql.raw('true'),
+      withCheck: sql.raw('true'),
     }),
-    pgPolicy('generation_jobs_delete_own_or_admin', {
+    pgPolicy('generation_jobs_delete_authed', {
       for: 'delete',
       to: 'authenticated',
-      using: ownerOrAdmin('created_by'),
+      using: sql.raw('true'),
     }),
   ],
 ).enableRLS();

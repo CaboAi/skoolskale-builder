@@ -89,7 +89,9 @@ export const generateCalendarCover = inngest.createFunction(
       return { prompt };
     });
 
-    const VARIANT_INLINE_RETRIES = 2;
+    // Single attempt; let Inngest's step-level retry handle the next try.
+    // See generate-cover.ts for the reasoning.
+    const VARIANT_INLINE_RETRIES = 1;
 
     const variant = await step.run("variant-1", async () => {
       const start = Date.now();
