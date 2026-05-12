@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Module registry pattern; all modules configured in src/lib/modules/registry.ts instead of hardcoded switch statements.
 
 ### Fixed
+- `src/lib/storage/parse-public-url.ts` no longer carries the `import "server-only"` directive. The function is pure string manipulation (no secrets, no DB, no env reads) so the directive served no purpose, and it caused `pnpm backfill:storage-paths` to throw immediately when `tsx` loaded the module outside the Next bundle. Stage 1 backfill is unblocked.
 - Export readiness check now ignores modules registered with `includedByDefault: false` (e.g., the v1.1 add-ons before their generators land in PR #5).
 
 ### Planned

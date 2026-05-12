@@ -1,5 +1,3 @@
-import "server-only";
-
 /**
  * Supabase public storage URLs follow the shape:
  *   https://<project-ref>.supabase.co/storage/v1/object/public/<bucket>/<path>
@@ -12,6 +10,11 @@ import "server-only";
  * persisted before the signed-urls migration. A row already on /sign/
  * means it was created post-migration or was hand-edited; either way it
  * isn't safe to extract a stable path from.
+ *
+ * Pure string manipulation — no secrets, no DB, no env reads — so this
+ * module is intentionally not marked `server-only`. The backfill script
+ * (scripts/backfill-storage-paths.ts) is loaded by tsx outside the Next
+ * bundle and would throw if the directive were present.
  */
 export function parsePublicStorageUrl(
   url: string,
