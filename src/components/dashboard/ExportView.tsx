@@ -858,7 +858,9 @@ export function ExportView({ package: pkg, creator, assets }: ExportViewProps) {
             ? "Deployed"
             : deployMutation.isPending
               ? "Deploying…"
-              : "Mark as deployed"}
+              : allChecked
+                ? "Deploy Package"
+                : "In Review"}
         </Button>
       </header>
 
@@ -886,6 +888,32 @@ export function ExportView({ package: pkg, creator, assets }: ExportViewProps) {
           })
         }
       />
+
+      <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-muted-foreground">
+          {isDeployed
+            ? "This package has been marked as deployed."
+            : allChecked
+              ? "All checklist items complete — ready to deploy."
+              : "Finish every checklist item above to enable deployment."}
+        </p>
+        <Button
+          onClick={() => deployMutation.mutate()}
+          disabled={!allChecked || isDeployed || deployMutation.isPending}
+          size="lg"
+        >
+          {deployMutation.isPending && (
+            <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+          )}
+          {isDeployed
+            ? "Deployed"
+            : deployMutation.isPending
+              ? "Deploying…"
+              : allChecked
+                ? "Deploy Package"
+                : "In Review"}
+        </Button>
+      </div>
     </div>
   );
 }
