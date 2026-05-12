@@ -162,7 +162,47 @@ function ModuleFooter({
 
 /* -------------------------------------------------------------------------- */
 /* Skeletons                                                                  */
+/*                                                                            */
+/* Title stays as real text (MODULE_LABELS) so the user knows which module    */
+/* is in flight without reading a placeholder bar. Body matches the actual    */
+/* card shape per variant. Footer mirrors the real Edit / Regenerate /        */
+/* Approve trio so the layout doesn't shift when content lands. A friendly    */
+/* one-line status sits below the body skeleton — uses --muted-foreground so  */
+/* it retokens with the palette.                                              */
 /* -------------------------------------------------------------------------- */
+
+type SkeletonVariant = "copy" | "image-variants" | "image-single";
+
+function statusFor(module: string, variant: SkeletonVariant): string {
+  const label = MODULE_LABELS[module] ?? module;
+  if (variant === "image-variants") return `Generating ${label} variants…`;
+  if (variant === "image-single") return `Generating ${label}…`;
+  return `Drafting your ${label}…`;
+}
+
+function SkeletonStatusText({
+  module,
+  variant,
+}: {
+  module: string;
+  variant: SkeletonVariant;
+}) {
+  return (
+    <p className="text-xs text-muted-foreground">
+      {statusFor(module, variant)}
+    </p>
+  );
+}
+
+function SkeletonFooter() {
+  return (
+    <CardFooter className="flex flex-row gap-2 border-t pt-4">
+      <Skeleton className="h-7 w-16" />
+      <Skeleton className="h-7 w-24" />
+      <Skeleton className="ml-auto h-7 w-20" />
+    </CardFooter>
+  );
+}
 
 export function CopyModuleSkeleton({
   module,
@@ -176,13 +216,17 @@ export function CopyModuleSkeleton({
       <CardHeader>
         <CardTitle className="text-base">{MODULE_LABELS[module]}</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-2">
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-11/12" />
-        <Skeleton className="h-4 w-9/12" />
-        <Skeleton className="h-4 w-10/12" />
-        <Skeleton className="h-4 w-8/12" />
+      <CardContent className="space-y-3">
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-11/12" />
+          <Skeleton className="h-4 w-9/12" />
+          <Skeleton className="h-4 w-10/12" />
+          <Skeleton className="h-4 w-8/12" />
+        </div>
+        <SkeletonStatusText module={module} variant="copy" />
       </CardContent>
+      <SkeletonFooter />
     </Card>
   );
 }
@@ -203,13 +247,15 @@ export function ImageVariantsSkeleton({
       <CardHeader>
         <CardTitle className="text-base">{MODULE_LABELS[module]}</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-3">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Skeleton className="aspect-[16/9] w-full" />
           <Skeleton className="aspect-[16/9] w-full" />
           <Skeleton className="aspect-[16/9] w-full" />
         </div>
+        <SkeletonStatusText module={module} variant="image-variants" />
       </CardContent>
+      <SkeletonFooter />
     </Card>
   );
 }
@@ -230,9 +276,11 @@ export function ImageSingleSkeleton({
       <CardHeader>
         <CardTitle className="text-base">{MODULE_LABELS[module]}</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-3">
         <Skeleton className="aspect-[16/9] w-full" />
+        <SkeletonStatusText module={module} variant="image-single" />
       </CardContent>
+      <SkeletonFooter />
     </Card>
   );
 }
