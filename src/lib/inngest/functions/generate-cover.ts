@@ -29,7 +29,12 @@ type CoverEventData = ModuleEventData & {
   styleOverride?: CoverStyle;
 };
 
-type CoverVariant = { url: string; index: number; durationMs: number };
+type CoverVariant = {
+  url: string;
+  storagePath: string;
+  index: number;
+  durationMs: number;
+};
 
 /**
  * Generate the cover image for a launch package.
@@ -172,7 +177,7 @@ export const generateCover = inngest.createFunction(
             console.log(
               `${tag} variant-${idx} done url=${pub.publicUrl} ms=${durationMs} attempts=${attempt}`,
             );
-            return { url: pub.publicUrl, index: i, durationMs };
+            return { url: pub.publicUrl, storagePath: path, index: i, durationMs };
           } catch (err) {
             lastErr = err;
             const msg = err instanceof Error ? err.message : String(err);
@@ -223,10 +228,13 @@ export const generateCover = inngest.createFunction(
         (sum, v) => sum + v.durationMs,
         0,
       );
-      const persistedVariants = variants.map(({ url, index }) => ({
-        url,
-        index,
-      }));
+      const persistedVariants = variants.map(
+        ({ url, storagePath, index }) => ({
+          url,
+          storagePath,
+          index,
+        }),
+      );
 
       const [asset] = await db
         .insert(generatedAssets)
