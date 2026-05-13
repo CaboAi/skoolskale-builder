@@ -10,6 +10,7 @@ const {
   buildClassroomCoverPromptMock,
   imageProviderGenerateMock,
   uploadMock,
+  insertValuesMock,
 } = vi.hoisted(() => ({
   buildClassroomCoverPromptMock: vi.fn<(...args: unknown[]) => string>(
     () => "BUILT BY THE BUILDER",
@@ -18,6 +19,9 @@ const {
     (input: { prompt: string }) => Promise<{ images: Buffer[]; costUsd: number }>
   >(async () => ({ images: [Buffer.from("img")], costUsd: 0.045 })),
   uploadMock: vi.fn(async () => ({ error: null })),
+  // Capture every db.insert(...).values(payload) so we can assert the
+  // persisted generated_assets row carries storagePath alongside url.
+  insertValuesMock: vi.fn(),
 }));
 
 vi.mock("@/lib/inngest/client", () => ({
@@ -54,9 +58,12 @@ vi.mock("@/lib/supabase/server", () => ({
 vi.mock("@/lib/db", () => ({
   db: {
     insert: () => ({
-      values: () => ({
-        returning: async () => [{ id: "asset-1" }],
-      }),
+      values: (payload: unknown) => {
+        insertValuesMock(payload);
+        return {
+          returning: async () => [{ id: "asset-1" }],
+        };
+      },
     }),
     update: () => ({ set: () => ({ where: async () => undefined }) }),
     select: () => ({
@@ -167,5 +174,33 @@ describe("generateClassroomCover editedPrompt branch", () => {
     const passed = imageProviderGenerateMock.mock.calls[0][0].prompt;
     expect(passed).toBe("EDITED PROMPT FROM THE VA");
     expect(passed).not.toContain("softer please");
+  });
+});
+
+describe("generateClassroomCover storagePath persistence", () => {
+  test("persists storagePath alongside url in generated_assets.content", async () => {
+    await runHandler({ packageId: "pkg-1", userId: "user-1" });
+
+    // Two inserts share module="classroom_cover": generation_jobs (create-job)
+    // and generated_assets (finalize). The asset row is the one carrying a
+    // `content` payload — predicate on that to stay order-independent.
+    const assetPayload = insertValuesMock.mock.calls
+      .map((c) => c[0] as Record<string, unknown>)
+      .find((p) => p.module === "classroom_cover" && "content" in p);
+
+    expect(assetPayload).toBeDefined();
+    expect(assetPayload).toMatchObject({
+      packageId: "pkg-1",
+      module: "classroom_cover",
+      content: {
+        variants: [
+          {
+            url: expect.any(String),
+            storagePath: "pkg-1/classroom_cover/variant-0.png",
+            index: 0,
+          },
+        ],
+      },
+    });
   });
 });

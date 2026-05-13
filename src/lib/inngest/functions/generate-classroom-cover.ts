@@ -130,7 +130,7 @@ export const generateClassroomCover = inngest.createFunction(
           console.log(
             `${tag} done url=${pub.publicUrl} ms=${durationMs} attempts=${attempt}`,
           );
-          return { url: pub.publicUrl, durationMs };
+          return { url: pub.publicUrl, storagePath: path, durationMs };
         } catch (err) {
           lastErr = err;
           const msg = err instanceof Error ? err.message : String(err);
@@ -149,7 +149,15 @@ export const generateClassroomCover = inngest.createFunction(
           packageId: data.packageId,
           module: "classroom_cover",
           version: 1,
-          content: { variants: [{ url: variant.url, index: 0 }] },
+          content: {
+            variants: [
+              {
+                url: variant.url,
+                storagePath: variant.storagePath,
+                index: 0,
+              },
+            ],
+          },
           approved: false,
           editHistory: [],
           createdBy: data.userId,

@@ -7,6 +7,7 @@ import { creators } from '@/lib/db/schema';
 import { CreatorPatchSchema } from '@/types/schemas';
 import { validateBody, ValidationError, type ApiError } from '@/lib/validation';
 import { logAudit } from '@/lib/audit';
+import { parsePublicStorageUrl } from '@/lib/storage/parse-public-url';
 
 /**
  * GET    /api/creators/[id] — fetch one creator.
@@ -95,7 +96,25 @@ export async function PATCH(req: NextRequest, { params }: RouteCtx) {
   if (body.refund_policy !== undefined) updates.refundPolicy = body.refund_policy;
   if (body.support_contact !== undefined) updates.supportContact = body.support_contact;
   if (body.brand_prefs !== undefined) updates.brandPrefs = body.brand_prefs;
-  if (body.creator_photo_url !== undefined) updates.creatorPhotoUrl = body.creator_photo_url;
+  if (body.creator_photo_url !== undefined) {
+    updates.creatorPhotoUrl = body.creator_photo_url;
+    // Keep creatorPhotoPath in sync with the URL (signed-URLs migration
+    // stage 2). Explicit null clears both; a non-null URL that fails the
+    // public-storage shape check leaves the path untouched so we don't
+    // wipe a valid backfilled path on a malformed update.
+    if (body.creator_photo_url === null) {
+      updates.creatorPhotoPath = null;
+    } else {
+      const parsed = parsePublicStorageUrl(body.creator_photo_url);
+      if (parsed) {
+        updates.creatorPhotoPath = parsed.path;
+      } else {
+        console.warn(
+          `creator_photo_url did not match public-storage shape; leaving path unchanged: ${body.creator_photo_url}`,
+        );
+      }
+    }
+  }
   if (body.classroom_intake !== undefined) updates.classroomIntake = body.classroom_intake;
   if (body.calendar_intake !== undefined) updates.calendarIntake = body.calendar_intake;
   if (body.leaderboard_levels !== undefined) updates.leaderboardLevels = body.leaderboard_levels;
