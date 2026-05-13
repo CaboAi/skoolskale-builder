@@ -103,7 +103,7 @@ export const generateCover = inngest.createFunction(
         console.log(
           `${tag} editedPrompt path (length=${data.editedPrompt.length}); skipping builder`,
         );
-        return { prompt: data.editedPrompt, referenceImageUrl: null };
+        return { prompt: data.editedPrompt, referenceImage: null };
       }
       console.log(`${tag} loadCreatorForPackage`);
       const creator = await loadCreatorForPackage({
@@ -118,10 +118,20 @@ export const generateCover = inngest.createFunction(
         regenerateNote: data.regenerateNote,
       });
       console.log(`${tag} prompt built (length=${prompt.length})`);
-      return {
-        prompt,
-        referenceImageUrl: creatorContext.creator_photo_url ?? null,
-      };
+      // Reference image: prefer storage-path form so we read bytes via
+      // service-role download() — bucket visibility no longer matters
+      // (Stage 4 of the signed-URLs migration). Fall back to the legacy
+      // public URL for any rows that haven't been backfilled yet.
+      const referenceImage = creatorContext.creator_photo_path
+        ? ({
+            kind: "storage" as const,
+            bucket: "creator-photos",
+            path: creatorContext.creator_photo_path,
+          })
+        : creatorContext.creator_photo_url
+          ? ({ kind: "url" as const, url: creatorContext.creator_photo_url })
+          : null;
+      return { prompt, referenceImage };
     });
 
     // Single attempt per variant inside step.run. Past 1 attempt, let Inngest's
@@ -146,7 +156,7 @@ export const generateCover = inngest.createFunction(
             );
             const { images } = await getImageProvider().generate({
               prompt: prep.prompt,
-              referenceImageUrl: prep.referenceImageUrl ?? undefined,
+              referenceImage: prep.referenceImage ?? undefined,
               numVariants: 1,
               width: 1456,
               height: 816,

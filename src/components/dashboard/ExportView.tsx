@@ -7,6 +7,8 @@ import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ArrowLeft, Copy, Download, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -286,44 +288,38 @@ function StartHereSection({ asset }: { asset: GeneratedAsset }) {
 /* Section: Cover                                                              */
 /* -------------------------------------------------------------------------- */
 
-async function downloadImage(url: string, filename: string) {
-  try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const blob = await res.blob();
-    const objectUrl = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = objectUrl;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(objectUrl);
-  } catch (err) {
-    toast.error(
-      `Download failed: ${err instanceof Error ? err.message : "unknown error"}`,
-    );
-  }
-}
-
+/**
+ * Renders a same-origin `<a>` styled as a button. The link points at the
+ * download-redirect route, which authenticates the user, re-signs the
+ * storage path with a 60s TTL, and 302s the browser to the signed URL
+ * with `?download=<filename>` — Supabase honors that with
+ * Content-Disposition: attachment, forcing a real file download instead
+ * of opening the image in a new tab.
+ *
+ * No client-side fetch / Blob plumbing required. Same-origin `<a download>`
+ * is also a no-op here (the eventual signed URL is cross-origin) but the
+ * server-supplied filename takes over via the response header.
+ */
 function DownloadButton({
-  url,
-  filename,
+  packageId,
+  module,
+  index,
   label = "Download",
 }: {
-  url: string;
-  filename: string;
+  packageId: string;
+  module: string;
+  index: number;
   label?: string;
 }) {
+  const href = `/api/packages/${packageId}/assets/${module}/${index}/download`;
   return (
-    <Button
-      variant="outline"
-      size="sm"
-      onClick={() => void downloadImage(url, filename)}
+    <a
+      href={href}
+      className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
     >
       <Download className="mr-1.5 h-4 w-4" />
       {label}
-    </Button>
+    </a>
   );
 }
 
@@ -352,8 +348,9 @@ function CoverSection({ asset }: { asset: GeneratedAsset }) {
             />
           </div>
           <DownloadButton
-            url={selected.url}
-            filename={`cover-variant-${selected.index + 1}.png`}
+            packageId={asset.packageId}
+            module={asset.module}
+            index={selected.index}
             label="Download cover"
           />
         </div>
@@ -373,8 +370,9 @@ function CoverSection({ asset }: { asset: GeneratedAsset }) {
                     />
                   </div>
                   <DownloadButton
-                    url={v.url}
-                    filename={`cover-variant-${v.index + 1}.png`}
+                    packageId={asset.packageId}
+                    module={asset.module}
+                    index={v.index}
                   />
                 </div>
               ))}
@@ -417,8 +415,9 @@ function IconSection({ asset }: { asset: GeneratedAsset }) {
             />
           </div>
           <DownloadButton
-            url={selected.url}
-            filename={`icon-variant-${selected.index + 1}.png`}
+            packageId={asset.packageId}
+            module={asset.module}
+            index={selected.index}
             label="Download icon"
           />
         </div>
@@ -438,8 +437,9 @@ function IconSection({ asset }: { asset: GeneratedAsset }) {
                     />
                   </div>
                   <DownloadButton
-                    url={v.url}
-                    filename={`icon-variant-${v.index + 1}.png`}
+                    packageId={asset.packageId}
+                    module={asset.module}
+                    index={v.index}
                   />
                 </div>
               ))}
@@ -478,8 +478,9 @@ function ClassroomCoverSection({ asset }: { asset: GeneratedAsset }) {
           />
         </div>
         <DownloadButton
-          url={variant.url}
-          filename="classroom-cover.png"
+          packageId={asset.packageId}
+          module={asset.module}
+          index={variant.index}
           label="Download classroom cover"
         />
         <p className="text-xs text-muted-foreground">
@@ -514,8 +515,9 @@ function CalendarCoverSection({ asset }: { asset: GeneratedAsset }) {
           />
         </div>
         <DownloadButton
-          url={variant.url}
-          filename="calendar-cover.png"
+          packageId={asset.packageId}
+          module={asset.module}
+          index={variant.index}
           label="Download calendar cover"
         />
         <p className="text-xs text-muted-foreground">

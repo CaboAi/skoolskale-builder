@@ -5,6 +5,7 @@ const { createSignedUrlMock } = vi.hoisted(() => ({
     (
       path: string,
       ttl: number,
+      options?: { download?: string },
     ) => Promise<{
       data: { signedUrl: string } | null;
       error: { message: string } | null;
@@ -104,6 +105,29 @@ describe("createSignedStorageUrl", () => {
       createSignedStorageUrl("cover-variants", "pkg/variant-0.png", 3600),
     ).rejects.toThrow(
       "signed URL generation returned no URL for cover-variants/pkg/variant-0.png",
+    );
+  });
+
+  test("forwards options.download to Supabase when provided", async () => {
+    createSignedUrlMock.mockResolvedValue({
+      data: {
+        signedUrl:
+          "https://proj.supabase.co/storage/v1/object/sign/cover-variants/pkg/variant-0.png?token=abc&download=hello-cover-1.png",
+      },
+      error: null,
+    });
+
+    await createSignedStorageUrl(
+      "cover-variants",
+      "pkg/variant-0.png",
+      DOWNLOAD_REDIRECT_TTL_SECONDS,
+      { download: "hello-cover-1.png" },
+    );
+
+    expect(createSignedUrlMock).toHaveBeenCalledWith(
+      "pkg/variant-0.png",
+      60,
+      { download: "hello-cover-1.png" },
     );
   });
 

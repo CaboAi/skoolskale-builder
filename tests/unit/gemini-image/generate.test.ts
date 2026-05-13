@@ -93,7 +93,10 @@ describe("generateCoverImages", () => {
     const { generateCoverImages } = await import("@/lib/gemini-image/generate");
     await generateCoverImages({
       prompt: "cover",
-      referenceImageUrl: "https://example.test/photo.jpg",
+      referenceImage: {
+        kind: "url",
+        url: "https://example.test/photo.jpg",
+      },
       numVariants: 1,
       packageId: "pkg-1",
     });
@@ -113,7 +116,7 @@ describe("generateCoverImages", () => {
     });
   });
 
-  test("omits inlineData when no referenceImageUrl is provided", async () => {
+  test("omits inlineData when no referenceImage is provided", async () => {
     generateContentMock.mockResolvedValueOnce(mockImageResponse("img-1"));
 
     const { generateCoverImages } = await import("@/lib/gemini-image/generate");
@@ -139,7 +142,10 @@ describe("generateCoverImages", () => {
     await expect(
       generateCoverImages({
         prompt: "cover",
-        referenceImageUrl: "https://example.test/missing.jpg",
+        referenceImage: {
+          kind: "url",
+          url: "https://example.test/missing.jpg",
+        },
         numVariants: 1,
         packageId: "pkg-1",
       }),

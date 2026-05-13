@@ -6,6 +6,10 @@ import { PackageDashboard } from "@/components/dashboard/PackageDashboard";
 
 const UuidParam = z.string().uuid();
 
+// Signed image URLs are time-sensitive — re-render fully on every request
+// rather than serving a cached HTML/RSC payload with stale tokens.
+export const dynamic = "force-dynamic";
+
 type Props = { params: Promise<{ id: string }> };
 
 export default async function PackagePage({ params }: Props) {

@@ -13,9 +13,19 @@ import "server-only";
  * dimensions (Ideogram, ChatGPT Image) can use them without a contract
  * change.
  */
+/**
+ * Reference image source. Prefer `{ kind: 'storage', bucket, path }` —
+ * the implementation reads bytes via the service-role client, which
+ * survives Stage 4's private-bucket flip without code changes. URL form
+ * remains for ad-hoc callers (CLIs, tests).
+ */
+export type ReferenceImageSource =
+  | { kind: "url"; url: string }
+  | { kind: "storage"; bucket: string; path: string };
+
 export type ImageGenerateArgs = {
   prompt: string;
-  referenceImageUrl?: string;
+  referenceImage?: ReferenceImageSource;
   numVariants: number;
   width: number;
   height: number;

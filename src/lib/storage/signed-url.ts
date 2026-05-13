@@ -25,6 +25,13 @@ export const DOWNLOAD_REDIRECT_TTL_SECONDS = 60;
  * visibility or RLS — callers are expected to have already enforced auth
  * (e.g. requireUser()) before invoking this helper.
  *
+ * When `options.download` is set, Supabase appends `?download=<filename>`
+ * to the signed URL and serves the response with
+ * `Content-Disposition: attachment; filename="<filename>"`. This forces a
+ * real download in the browser instead of opening the asset in a tab —
+ * essential when the storage host is cross-origin to the app, since the
+ * HTML `<a download>` attribute is ignored across origins.
+ *
  * Throws on Supabase error OR on a successful response that lacks a
  * signedUrl, so callers can assume the returned string is non-empty.
  */
@@ -32,11 +39,16 @@ export async function createSignedStorageUrl(
   bucket: string,
   path: string,
   ttlSeconds: number,
+  options?: { download?: string },
 ): Promise<string> {
   const supabase = createServiceClient();
-  const { data, error } = await supabase.storage
-    .from(bucket)
-    .createSignedUrl(path, ttlSeconds);
+  // Only forward `options` when set so calls without a download filename
+  // remain a 2-arg signature — keeps existing call sites and tests stable.
+  const { data, error } = options
+    ? await supabase.storage
+        .from(bucket)
+        .createSignedUrl(path, ttlSeconds, options)
+    : await supabase.storage.from(bucket).createSignedUrl(path, ttlSeconds);
   if (error) {
     throw new Error(
       `signed URL generation failed for ${bucket}/${path}: ${error.message}`,
