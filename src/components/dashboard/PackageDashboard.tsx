@@ -531,6 +531,7 @@ export function PackageDashboard(initial: PackageDashboardProps) {
       )}
 
       <RegenerateDialog
+        key={regenDialog.module ?? "closed"}
         open={regenDialog.module !== null}
         module={regenDialog.module}
         onOpenChange={(open) =>
