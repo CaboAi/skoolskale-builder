@@ -31,7 +31,16 @@ export type CreatorContext = Pick<
   | "support_contact"
   | "brand_prefs"
   | "creator_photo_url"
->;
+> & {
+  /**
+   * Storage path (bucket-relative) for the creator photo. Set by the
+   * signed-URLs migration so generators can read the bytes via
+   * `storage.download()` instead of fetching the public URL. Coexists with
+   * `creator_photo_url` during the migration window; the latter is dropped
+   * after Stage 4 verifies signed-URL traffic in prod.
+   */
+  creator_photo_path?: string;
+};
 
 /**
  * One pattern library example ready to be injected as a few-shot sample.
@@ -105,5 +114,6 @@ export function toCreatorContext(row: Creator): CreatorContext {
     support_contact: row.supportContact ?? "",
     brand_prefs: row.brandPrefs ?? "",
     creator_photo_url: row.creatorPhotoUrl ?? undefined,
+    creator_photo_path: row.creatorPhotoPath ?? undefined,
   };
 }

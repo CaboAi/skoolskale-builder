@@ -25,6 +25,10 @@ const UuidParam = z.string().uuid();
 
 type RouteCtx = { params: Promise<{ id: string }> };
 
+// Signed image URLs are time-sensitive — never cache the response or any
+// RSC payload that embeds them.
+export const dynamic = "force-dynamic";
+
 export async function GET(_req: NextRequest, { params }: RouteCtx) {
   await requireUser();
   const { id } = await params;

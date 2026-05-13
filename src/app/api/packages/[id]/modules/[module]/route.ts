@@ -11,7 +11,12 @@ import {
 import { logAudit } from "@/lib/audit";
 import { MODULE_REGISTRY, MODULE_KEYS } from "@/lib/modules/registry";
 import { CoverPatchSchema } from "@/prompts/cover";
+import { resolveAssetUrls } from "@/lib/storage/resolve-variants";
 import type { ApiError } from "@/lib/validation";
+
+// PATCH response may include image-variant URLs — those need fresh signed
+// URLs every call. Disable any route-level caching.
+export const dynamic = "force-dynamic";
 
 /**
  * PATCH /api/packages/[id]/modules/[module]
@@ -177,5 +182,11 @@ export async function PATCH(req: NextRequest, { params }: RouteCtx) {
     { module: modR.data, newVersion: updated.version },
   );
 
-  return NextResponse.json<GeneratedAsset>(updated);
+  // Sign variant URLs for the response. The row in the DB still carries the
+  // raw `storagePath` — only the JSON body we return has freshly signed
+  // `url` fields. The optimistic-update path in PackageDashboard merges this
+  // into the React Query cache, so the client gets working URLs immediately.
+  const [resolved] = await resolveAssetUrls([updated]);
+
+  return NextResponse.json<GeneratedAsset>(resolved);
 }

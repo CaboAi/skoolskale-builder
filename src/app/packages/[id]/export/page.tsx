@@ -7,6 +7,10 @@ import { MODULE_KEYS, MODULE_REGISTRY } from "@/lib/modules/registry";
 
 const UuidParam = z.string().uuid();
 
+// Export page embeds signed image URLs in every variant `<Image>` and every
+// Download button href — re-render on every request to avoid stale tokens.
+export const dynamic = "force-dynamic";
+
 // Modules the user must have approved before /export becomes accessible.
 // Filtered to includedByDefault so registered-but-not-yet-generating modules
 // (e.g. PR #4 add-ons before PR #5 wires their generators) don't block

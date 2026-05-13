@@ -43,6 +43,13 @@ vi.mock("@/lib/audit", () => ({
 // into other parallel-worker test files).
 vi.mock("@/lib/db", () => ({ db: {} }));
 
+// Short-circuit the signed-URL resolver. The real module imports
+// @/lib/supabase/server which forces env validation at load time; the 400
+// validation paths exercised below never reach the resolver anyway.
+vi.mock("@/lib/storage/resolve-variants", () => ({
+  resolveAssetUrls: async <T>(assets: T) => assets,
+}));
+
 function jsonRequest(url: string, method: string, body?: unknown) {
   return new NextRequest(url, {
     method,

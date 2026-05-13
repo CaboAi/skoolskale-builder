@@ -11,6 +11,10 @@ import {
 import { logAudit } from "@/lib/audit";
 import type { ApiError } from "@/lib/validation";
 import { MODULE_KEYS, MODULE_REGISTRY } from "@/lib/modules/registry";
+import { resolveAssetUrls } from "@/lib/storage/resolve-variants";
+
+// Response embeds image-variant URLs that must be freshly signed every call.
+export const dynamic = "force-dynamic";
 
 /**
  * PUT /api/packages/[id]/modules/[module]/select-variant
@@ -140,5 +144,9 @@ export async function PUT(req: NextRequest, { params }: RouteCtx) {
     { index: bodyR.data.index },
   );
 
-  return NextResponse.json<GeneratedAsset>(updated);
+  // Sign variant URLs for the response. Only the JSON body carries fresh
+  // signed `url` fields — the DB row keeps `storagePath` intact.
+  const [resolved] = await resolveAssetUrls([updated]);
+
+  return NextResponse.json<GeneratedAsset>(resolved);
 }

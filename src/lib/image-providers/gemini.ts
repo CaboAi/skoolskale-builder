@@ -18,7 +18,7 @@ export const geminiProvider: ImageProvider = {
   async generate(args) {
     const result = await generateCoverImages({
       prompt: args.prompt,
-      referenceImageUrl: args.referenceImageUrl,
+      referenceImage: args.referenceImage,
       numVariants: args.numVariants,
       packageId: args.packageId,
       jobId: args.jobId,

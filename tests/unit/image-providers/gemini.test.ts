@@ -35,7 +35,7 @@ describe("geminiProvider.generate", () => {
 
     await geminiProvider.generate({
       prompt: "an icon",
-      referenceImageUrl: "https://example.test/ref.png",
+      referenceImage: { kind: "url", url: "https://example.test/ref.png" },
       numVariants: 2,
       width: 512,
       height: 512,
@@ -46,7 +46,7 @@ describe("geminiProvider.generate", () => {
 
     expect(generateCoverImagesMock).toHaveBeenCalledWith({
       prompt: "an icon",
-      referenceImageUrl: "https://example.test/ref.png",
+      referenceImage: { kind: "url", url: "https://example.test/ref.png" },
       numVariants: 2,
       packageId: "pkg-7",
       jobId: "job-3",

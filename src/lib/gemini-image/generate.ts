@@ -1,6 +1,7 @@
 import "server-only";
 import { GoogleGenAI } from "@google/genai";
 import { env } from "@/lib/env";
+import { createServiceClient } from "@/lib/supabase/server";
 import { estimateImageCostUsd, logGeminiImageUsage } from "./usage";
 
 /**
@@ -9,9 +10,22 @@ import { estimateImageCostUsd, logGeminiImageUsage } from "./usage";
  */
 export const DEFAULT_MODEL = "gemini-3.1-flash-image-preview";
 
+export type ReferenceImageSource =
+  | { kind: "url"; url: string }
+  | { kind: "storage"; bucket: string; path: string };
+
 export type GenerateCoverImagesParams = {
   prompt: string;
-  referenceImageUrl?: string;
+  /**
+   * Reference image for Gemini. Prefer `{ kind: 'storage' }` — it uses
+   * `supabase.storage.download()` under service-role, which:
+   *   - works regardless of bucket public/private state (survives Stage 4),
+   *   - avoids any signed-URL TTL race mid-Gemini call,
+   *   - skips one network hop.
+   * The `{ kind: 'url' }` variant remains for ad-hoc callers (CLIs, tests)
+   * that already have a URL and don't want to plumb bucket/path.
+   */
+  referenceImage?: ReferenceImageSource;
   numVariants: number;
   packageId: string;
   /**
@@ -54,6 +68,40 @@ async function fetchReferenceImage(url: string): Promise<ReferenceImage> {
   const mimeType = res.headers.get("content-type") ?? "image/jpeg";
   const bytes = Buffer.from(await res.arrayBuffer());
   return { data: bytes.toString("base64"), mimeType };
+}
+
+/**
+ * Load a reference image directly from Supabase Storage as base64 bytes.
+ * Uses the service-role client so this works regardless of bucket
+ * visibility — Stage 4 of the signed-URLs migration will flip buckets to
+ * private; this path stays unchanged.
+ */
+async function loadReferenceImageFromStorage(
+  bucket: string,
+  path: string,
+): Promise<ReferenceImage> {
+  const supabase = createServiceClient();
+  const { data: blob, error } = await supabase.storage
+    .from(bucket)
+    .download(path);
+  if (error || !blob) {
+    throw new Error(
+      `[gemini-image] reference download failed for ${bucket}/${path}: ${
+        error?.message ?? "no blob"
+      }`,
+    );
+  }
+  const bytes = Buffer.from(await blob.arrayBuffer());
+  return { data: bytes.toString("base64"), mimeType: blob.type || "image/jpeg" };
+}
+
+async function resolveReferenceImage(
+  source: ReferenceImageSource,
+): Promise<ReferenceImage> {
+  if (source.kind === "storage") {
+    return loadReferenceImageFromStorage(source.bucket, source.path);
+  }
+  return fetchReferenceImage(source.url);
 }
 
 /**
@@ -119,8 +167,8 @@ export async function generateCoverImages(
   const model = params.model ?? DEFAULT_MODEL;
   const ai = new GoogleGenAI({ apiKey: env.GOOGLE_AI_API_KEY });
 
-  const reference = params.referenceImageUrl
-    ? await fetchReferenceImage(params.referenceImageUrl)
+  const reference = params.referenceImage
+    ? await resolveReferenceImage(params.referenceImage)
     : undefined;
 
   const parts: Array<
