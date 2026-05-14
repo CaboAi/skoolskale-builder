@@ -29,7 +29,7 @@ const STEP_FIELDS: FieldPath<CreatorIntake>[][] = [
   ["pricing", "trial_terms", "refund_policy"],
   ["tone", "brand_prefs"],
   [
-    "classroom_intake",
+    "classroom_titles",
     "calendar_intake",
     "leaderboard_levels",
     "categories",
@@ -56,6 +56,10 @@ const DEFAULTS: CreatorIntake = {
   support_contact: "",
   brand_prefs: "",
   creator_photo_url: undefined,
+  // Seed one empty row so the VA sees the repeater immediately. The
+  // schema's per-item `.string().min(1)` blocks an empty-string submission
+  // with a clear error.
+  classroom_titles: [""],
 };
 
 export function IntakeWizard() {

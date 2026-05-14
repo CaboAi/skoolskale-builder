@@ -35,11 +35,29 @@ export const ToneEnum = z.enum([
 /* doesn't try to fan out to non-existent generators.                         */
 /* -------------------------------------------------------------------------- */
 
-export const ClassroomContentSchema = z.object({
+/**
+ * Classroom output is a list of `{title, description}` entries, one per
+ * VA-supplied title. The title is echoed back by the generator (rather than
+ * re-paired in code) so we can verify titles round-tripped unchanged and so
+ * an edit-form mutation never desynchronises titles from descriptions.
+ */
+export const ClassroomItemSchema = z.object({
   title: z.string().min(1).max(50),
   description: z.string().min(1).max(500),
 });
+export type ClassroomItem = z.infer<typeof ClassroomItemSchema>;
+
+export const ClassroomContentSchema = z.object({
+  items: z.array(ClassroomItemSchema).min(1).max(10),
+});
 export type ClassroomContent = z.infer<typeof ClassroomContentSchema>;
+
+/** Intake: VA supplies 1-10 classroom titles; descriptions are AI-generated. */
+export const ClassroomTitlesSchema = z
+  .array(z.string().min(1).max(50))
+  .min(1)
+  .max(10);
+export type ClassroomTitles = z.infer<typeof ClassroomTitlesSchema>;
 
 export const CalendarContentSchema = z.object({
   title: z.string().min(1).max(30),
@@ -122,7 +140,10 @@ export const CreatorIntakeSchema = z.object({
   creator_photo_url: z.string().url().optional(),
   // Add-on intake fields (PR #4 step 5). All optional during draft so existing
   // POST-then-PATCH flow stays compatible; final-submit validation enforces.
-  classroom_intake: ClassroomContentSchema.optional(),
+  // Always required at final-submit time: the classroom generator can't fan
+  // out without at least one VA-supplied title. CreatorPatchSchema's
+  // `.partial()` still lets autosave through during earlier wizard steps.
+  classroom_titles: ClassroomTitlesSchema,
   calendar_intake: CalendarContentSchema.optional(),
   leaderboard_levels: LeaderboardContentSchema.shape.levels.optional(),
   categories: CategoriesContentSchema.shape.categories.optional(),

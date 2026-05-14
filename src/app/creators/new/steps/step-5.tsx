@@ -5,8 +5,12 @@ import type { CreatorIntake } from "@/types/schemas";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import { RepeaterField } from "@/components/wizard/RepeaterField";
 import { KeywordChipField } from "@/components/wizard/KeywordChipField";
+
+const CLASSROOM_TITLES_MAX = 10;
+const CLASSROOM_TITLE_CHAR_MAX = 50;
 
 type Props = { form: IntakeFormReturn };
 
@@ -46,6 +50,14 @@ export function Step5AddOns({ form }: Props) {
     watch("leaderboard_levels") ?? LEADERBOARD_DEFAULTS;
   const categories = watch("categories") ?? CATEGORY_DEFAULTS;
   const keywords = watch("discovery_keywords") ?? [];
+  const classroomTitles = watch("classroom_titles") ?? [""];
+
+  function setClassroomTitles(next: string[]) {
+    setValue("classroom_titles", next, {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
+  }
 
   function setLeaderboard(next: string[]) {
     setValue(
@@ -97,44 +109,30 @@ export function Step5AddOns({ form }: Props) {
         these from the dashboard later.
       </p>
 
-      {/* Classroom */}
+      {/* Classroom titles */}
       <div className="space-y-3 rounded-md border p-4">
-        <h3 className="text-sm font-semibold">Classroom</h3>
-        <div className="space-y-1.5">
-          <Label htmlFor="classroom_intake.title">
-            Title{" "}
-            <span className="text-xs text-muted-foreground">(max 50)</span>
-          </Label>
-          <Input
-            id="classroom_intake.title"
-            maxLength={50}
-            {...register("classroom_intake.title")}
-            placeholder="e.g. The Welcome Course"
-          />
-          {errors.classroom_intake?.title?.message ? (
-            <p className="text-xs text-destructive">
-              {errors.classroom_intake.title.message}
-            </p>
-          ) : null}
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="classroom_intake.description">
-            Description{" "}
-            <span className="text-xs text-muted-foreground">(max 500)</span>
-          </Label>
-          <Textarea
-            id="classroom_intake.description"
-            rows={3}
-            maxLength={500}
-            {...register("classroom_intake.description")}
-            placeholder="What members will get from the classroom…"
-          />
-          {errors.classroom_intake?.description?.message ? (
-            <p className="text-xs text-destructive">
-              {errors.classroom_intake.description.message}
-            </p>
-          ) : null}
-        </div>
+        <h3 className="text-sm font-semibold">Classroom titles</h3>
+        <p className="text-xs text-muted-foreground">
+          The titles of the classrooms / courses in this community. The
+          generator will write a 2-3 sentence description for each.
+        </p>
+        <ClassroomTitlesRepeater
+          values={classroomTitles}
+          onChange={setClassroomTitles}
+          errors={
+            Array.isArray(errors.classroom_titles as unknown[])
+              ? (errors.classroom_titles as unknown as {
+                  message?: string;
+                }[]).map((e) => e?.message)
+              : undefined
+          }
+          rootError={
+            !Array.isArray(errors.classroom_titles as unknown[])
+              ? (errors.classroom_titles as { message?: string } | undefined)
+                  ?.message
+              : undefined
+          }
+        />
       </div>
 
       {/* Calendar */}
@@ -220,5 +218,69 @@ export function Step5AddOns({ form }: Props) {
         />
       </div>
     </section>
+  );
+}
+
+function ClassroomTitlesRepeater({
+  values,
+  onChange,
+  errors,
+  rootError,
+}: {
+  values: string[];
+  onChange: (next: string[]) => void;
+  errors?: (string | undefined)[];
+  rootError?: string;
+}) {
+  const atMax = values.length >= CLASSROOM_TITLES_MAX;
+  return (
+    <fieldset className="space-y-3">
+      <legend className="sr-only">Classroom titles</legend>
+      {values.map((value, i) => {
+        const id = `classroom-title-${i}`;
+        const err = errors?.[i];
+        return (
+          <div key={i} className="space-y-1.5">
+            <Label htmlFor={id} className="text-xs text-muted-foreground">
+              Classroom {i + 1}
+            </Label>
+            <div className="flex gap-2">
+              <Input
+                id={id}
+                value={value}
+                maxLength={CLASSROOM_TITLE_CHAR_MAX}
+                onChange={(e) => {
+                  const next = [...values];
+                  next[i] = e.target.value;
+                  onChange(next);
+                }}
+                placeholder="e.g. The Welcome Course"
+                aria-invalid={err ? true : undefined}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onChange(values.filter((_, idx) => idx !== i))}
+                disabled={values.length <= 1}
+              >
+                Remove
+              </Button>
+            </div>
+            {err ? <p className="text-xs text-destructive">{err}</p> : null}
+          </div>
+        );
+      })}
+      {rootError ? (
+        <p className="text-xs text-destructive">{rootError}</p>
+      ) : null}
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => onChange([...values, ""])}
+        disabled={atMax}
+      >
+        Add classroom title ({values.length}/{CLASSROOM_TITLES_MAX})
+      </Button>
+    </fieldset>
   );
 }

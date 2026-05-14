@@ -115,7 +115,7 @@ export async function PATCH(req: NextRequest, { params }: RouteCtx) {
       }
     }
   }
-  if (body.classroom_intake !== undefined) updates.classroomIntake = body.classroom_intake;
+  if (body.classroom_titles !== undefined) updates.classroomIntake = body.classroom_titles;
   if (body.calendar_intake !== undefined) updates.calendarIntake = body.calendar_intake;
   if (body.leaderboard_levels !== undefined) updates.leaderboardLevels = body.leaderboard_levels;
   if (body.categories !== undefined) updates.categories = body.categories;

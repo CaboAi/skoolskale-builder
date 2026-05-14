@@ -20,14 +20,14 @@ import type { GeneratedAsset } from "@/lib/db/schema";
 
 function asset(
   module: "classroom" | "calendar",
-  content: { title: string; description: string },
+  content: object,
 ): GeneratedAsset {
   return {
     id: "00000000-0000-0000-0000-000000000000",
     packageId: "00000000-0000-0000-0000-000000000000",
     module: module as GeneratedAsset["module"],
     version: 1,
-    content: content as object,
+    content,
     approved: true,
     approvedBy: null,
     approvedAt: null,
@@ -61,39 +61,47 @@ beforeEach(() => {
   writeText.mockClear();
 });
 
-describe("ClassroomSection — independent title + description copy", () => {
+describe("ClassroomSection — per-item title + description copy", () => {
   const sample = {
-    title: "The Welcome Course",
-    description: "Where to start.",
+    items: [
+      { title: "The Welcome Course", description: "Where to start." },
+      { title: "Foundations", description: "Build the base." },
+    ],
   };
 
-  test("renders two copy buttons (no Copy both)", () => {
+  test("renders one Copy title + one Copy description per item", () => {
     render(<ClassroomSection asset={asset("classroom", sample)} />);
-    expect(screen.getByRole("button", { name: /copy title/i })).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /copy description/i }),
-    ).toBeInTheDocument();
+      screen.getAllByRole("button", { name: /copy title/i }),
+    ).toHaveLength(2);
+    expect(
+      screen.getAllByRole("button", { name: /copy description/i }),
+    ).toHaveLength(2);
     expect(
       screen.queryByRole("button", { name: /copy both/i }),
     ).not.toBeInTheDocument();
   });
 
-  test("Copy title writes only the title to the clipboard", async () => {
+  test("clicking the first Copy title writes the first item's title", async () => {
     const user = userEvent.setup();
     installClipboardSpy();
     render(<ClassroomSection asset={asset("classroom", sample)} />);
-    await user.click(screen.getByRole("button", { name: /copy title/i }));
+    const titleBtns = screen.getAllByRole("button", { name: /copy title/i });
+    await user.click(titleBtns[0]);
     expect(writeText).toHaveBeenCalledTimes(1);
     expect(writeText).toHaveBeenCalledWith("The Welcome Course");
   });
 
-  test("Copy description writes only the description to the clipboard", async () => {
+  test("clicking the second Copy description writes the second item's description", async () => {
     const user = userEvent.setup();
     installClipboardSpy();
     render(<ClassroomSection asset={asset("classroom", sample)} />);
-    await user.click(screen.getByRole("button", { name: /copy description/i }));
+    const descBtns = screen.getAllByRole("button", {
+      name: /copy description/i,
+    });
+    await user.click(descBtns[1]);
     expect(writeText).toHaveBeenCalledTimes(1);
-    expect(writeText).toHaveBeenCalledWith("Where to start.");
+    expect(writeText).toHaveBeenCalledWith("Build the base.");
   });
 });
 

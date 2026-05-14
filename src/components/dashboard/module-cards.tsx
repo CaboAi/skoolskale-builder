@@ -294,6 +294,9 @@ export function ImageSingleSkeleton({
 type WelcomeDmContent = { content: string };
 type TransformationContent = { candidates: string[] };
 type TitleDescriptionContent = { title: string; description: string };
+type ClassroomContentDisplay = {
+  items: { title: string; description: string }[];
+};
 
 export function TextModuleCard({
   asset,
@@ -331,7 +334,33 @@ export function TextModuleCard({
       </Card>
     );
   }
-  if (moduleName === "classroom" || moduleName === "calendar") {
+  if (moduleName === "classroom") {
+    const c = asset.content as ClassroomContentDisplay;
+    return (
+      <Card className={MODULE_CARD_CLASS}>
+        <ModuleHeader module={moduleName} approved={asset.approved} />
+        <CardContent className="space-y-3">
+          {c.items.map((item, i) => (
+            <div key={i} className="space-y-1 rounded-md border p-3">
+              <p className="text-sm font-semibold leading-tight">
+                {item.title}
+              </p>
+              <p className="whitespace-pre-wrap text-xs text-muted-foreground">
+                {item.description}
+              </p>
+            </div>
+          ))}
+        </CardContent>
+        <ModuleFooter
+          module={moduleName}
+          onAction={onAction}
+          approved={asset.approved}
+          pendingAction={pendingAction}
+        />
+      </Card>
+    );
+  }
+  if (moduleName === "calendar") {
     const c = asset.content as TitleDescriptionContent;
     return (
       <Card className={MODULE_CARD_CLASS}>
