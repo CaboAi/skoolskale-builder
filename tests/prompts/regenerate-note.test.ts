@@ -56,6 +56,19 @@ function makeCreator(): CreatorContext {
     brand_prefs: "",
     creator_photo_url: undefined,
     classroom_titles: ["Foundations"],
+    calendar_intake: {
+      events: [
+        {
+          title: "Weekly Q&A",
+          schedule: {
+            type: "weekly",
+            dayOfWeek: "mon",
+            time: "09:00",
+            timezone: "America/New_York",
+          },
+        },
+      ],
+    },
   };
 }
 

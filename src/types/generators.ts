@@ -40,6 +40,13 @@ export type CreatorContext = Pick<
    */
   classroom_titles?: CreatorIntake["classroom_titles"];
   /**
+   * VA-supplied calendar events (title + schedule per event). Optional here
+   * because draft creators may not have filled in step 5 yet; the calendar
+   * prompt builder throws if absent so a misconfigured creator can't reach
+   * Claude with an empty events list.
+   */
+  calendar_intake?: CreatorIntake["calendar_intake"];
+  /**
    * Storage path (bucket-relative) for the creator photo. Set by the
    * signed-URLs migration so generators can read the bytes via
    * `storage.download()` instead of fetching the public URL. Coexists with
@@ -124,5 +131,7 @@ export function toCreatorContext(row: Creator): CreatorContext {
     creator_photo_path: row.creatorPhotoPath ?? undefined,
     classroom_titles:
       (row.classroomIntake as CreatorContext["classroom_titles"]) ?? undefined,
+    calendar_intake:
+      (row.calendarIntake as CreatorContext["calendar_intake"]) ?? undefined,
   };
 }

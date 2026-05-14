@@ -60,18 +60,41 @@ describe("TextModuleCard (classroom branch)", () => {
     expect(screen.getByText("Build the base.")).toBeInTheDocument();
   });
 
-  test("renders title and description for calendar shape", () => {
+  test("renders each event's title, description, and formatted schedule", () => {
     render(
       <TextModuleCard
         asset={asset("calendar", {
-          title: "Live Calls",
-          description: "Thursdays 11am PT.",
+          events: [
+            {
+              title: "Weekly Q&A",
+              description: "Live questions, real answers.",
+              schedule: {
+                type: "weekly",
+                dayOfWeek: "thu",
+                time: "11:00",
+                timezone: "America/Los_Angeles",
+              },
+            },
+            {
+              title: "Launch Workshop",
+              description: "Walkthrough.",
+              schedule: {
+                type: "one_off",
+                date: "2026-08-08",
+                time: "09:00",
+                timezone: "America/New_York",
+              },
+            },
+          ],
         })}
         onAction={() => {}}
       />,
     );
-    expect(screen.getByText("Live Calls")).toBeInTheDocument();
-    expect(screen.getByText("Thursdays 11am PT.")).toBeInTheDocument();
+    expect(screen.getByText("Weekly Q&A")).toBeInTheDocument();
+    expect(screen.getByText("Live questions, real answers.")).toBeInTheDocument();
+    expect(screen.getByText(/Every Thursday at 11:00 AM/)).toBeInTheDocument();
+    expect(screen.getByText("Launch Workshop")).toBeInTheDocument();
+    expect(screen.getByText(/August 8, 2026 at 9:00 AM/)).toBeInTheDocument();
   });
 
   test("Approve button fires onAction(classroom, approve)", async () => {

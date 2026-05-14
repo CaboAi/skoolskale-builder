@@ -63,26 +63,88 @@ describe("ClassroomContentSchema", () => {
 });
 
 describe("CalendarContentSchema", () => {
-  test("accepts a minimal valid payload", () => {
-    const r = CalendarContentSchema.safeParse({
-      title: "Live Calls",
-      description: "Weekly Q&A.",
-    });
+  const weekly = {
+    title: "Office Hours",
+    description: "Live Q&A and screen-share.",
+    schedule: {
+      type: "weekly" as const,
+      dayOfWeek: "mon" as const,
+      time: "09:00",
+      timezone: "America/New_York",
+    },
+  };
+  const oneOff = {
+    title: "Launch Workshop",
+    description: "Walkthrough.",
+    schedule: {
+      type: "one_off" as const,
+      date: "2026-08-08",
+      time: "11:00",
+      timezone: "America/Los_Angeles",
+    },
+  };
+
+  test("accepts an events array with a single weekly event", () => {
+    const r = CalendarContentSchema.safeParse({ events: [weekly] });
     expect(r.success).toBe(true);
   });
 
-  test("rejects title over 30 chars", () => {
+  test("accepts an events array mixing weekly and one_off", () => {
+    const r = CalendarContentSchema.safeParse({ events: [weekly, oneOff] });
+    expect(r.success).toBe(true);
+  });
+
+  test("rejects 0 events", () => {
+    const r = CalendarContentSchema.safeParse({ events: [] });
+    expect(r.success).toBe(false);
+  });
+
+  test("rejects more than 10 events", () => {
     const r = CalendarContentSchema.safeParse({
-      title: "a".repeat(31),
-      description: "x",
+      events: Array.from({ length: 11 }, () => weekly),
     });
     expect(r.success).toBe(false);
   });
 
-  test("rejects description over 300 chars", () => {
+  test("rejects event description over 300 chars", () => {
     const r = CalendarContentSchema.safeParse({
-      title: "ok",
-      description: "a".repeat(301),
+      events: [{ ...weekly, description: "a".repeat(301) }],
+    });
+    expect(r.success).toBe(false);
+  });
+
+  test("rejects HH:mm with invalid hour", () => {
+    const r = CalendarContentSchema.safeParse({
+      events: [
+        { ...weekly, schedule: { ...weekly.schedule, time: "25:00" } },
+      ],
+    });
+    expect(r.success).toBe(false);
+  });
+
+  test("rejects one_off date that isn't YYYY-MM-DD", () => {
+    const r = CalendarContentSchema.safeParse({
+      events: [
+        { ...oneOff, schedule: { ...oneOff.schedule, date: "8/8/2026" } },
+      ],
+    });
+    expect(r.success).toBe(false);
+  });
+
+  test("rejects mixing weekly fields onto a one_off discriminant", () => {
+    const r = CalendarContentSchema.safeParse({
+      events: [
+        {
+          ...weekly,
+          schedule: {
+            type: "one_off",
+            // missing date, has dayOfWeek which is invalid for one_off
+            dayOfWeek: "mon",
+            time: "09:00",
+            timezone: "UTC",
+          },
+        },
+      ],
     });
     expect(r.success).toBe(false);
   });

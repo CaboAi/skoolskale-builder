@@ -14,7 +14,7 @@ import {
 type PromptModule = {
   systemPrompt: string;
   buildUserMessage: (input: GeneratorInput) => string;
-  parseOutput: (raw: string) => unknown;
+  parseOutput: (raw: string, input?: GeneratorInput) => unknown;
   /** Optional per-module output cap, threaded through to generate(). */
   maxTokens?: number;
 };

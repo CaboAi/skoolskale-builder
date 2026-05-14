@@ -26,7 +26,12 @@ import { generate } from '@/lib/claude/generate';
 type Prompt = {
   systemPrompt: string;
   buildUserMessage: (input: GeneratorInput) => string;
-  parseOutput: (raw: string) => unknown;
+  /**
+   * Parsers receive the optional GeneratorInput so they can stitch parsed
+   * fields together with intake-side data (e.g., calendar pairs each parsed
+   * description with the schedule the VA supplied in the wizard).
+   */
+  parseOutput: (raw: string, input?: GeneratorInput) => unknown;
   /** Optional per-module output cap. Unset → generate() uses its default. */
   maxTokens?: number;
 };
@@ -113,6 +118,7 @@ export async function runModule<T>(params: {
   const tag = `[gen/${params.module}]`;
   try {
     let userMessage: string;
+    let input: GeneratorInput | undefined;
     if (params.editedPrompt) {
       // Edited-prompt path: skip creator/pattern lookup entirely. The VA
       // owns the prompt; we just pass it through the same generate() +
@@ -138,7 +144,7 @@ export async function runModule<T>(params: {
       });
       console.log(`${tag} patterns.length=${patterns.length}`);
 
-      const input: GeneratorInput = {
+      input = {
         creator: toCreatorContext(creator),
         patternLibrary: patterns,
         regenerateNote: params.regenerateNote,
@@ -155,7 +161,7 @@ export async function runModule<T>(params: {
     });
     console.log(`${tag} Claude done in=${inputTokens} out=${outputTokens} ms=${durationMs}`);
 
-    const parsed = params.prompt.parseOutput(text) as T;
+    const parsed = params.prompt.parseOutput(text, input) as T;
     console.log(`${tag} parsed OK; inserting asset`);
 
     const [asset] = await db

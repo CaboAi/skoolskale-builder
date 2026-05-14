@@ -18,10 +18,23 @@ import type { GeneratedAsset } from "@/lib/db/schema";
 import { MODULE_LABELS } from "./module-cards";
 import { RepeaterField } from "@/components/wizard/RepeaterField";
 import { KeywordChipField } from "@/components/wizard/KeywordChipField";
+import {
+  EventsRepeater,
+  makeDefaultEvent,
+} from "@/components/wizard/EventsRepeater";
 import { AboutUsEditForm } from "./edit-forms/AboutUsEditForm";
 import { StartHereEditForm } from "./edit-forms/StartHereEditForm";
 import type { AboutUsOutput } from "@/prompts/about-us";
 import type { StartHereOutput } from "@/prompts/start-here";
+import type {
+  CalendarEvent,
+  CalendarEventIntake,
+} from "@/types/schemas";
+import {
+  CALENDAR_EVENT_DESCRIPTION_MAX,
+  CALENDAR_EVENT_TITLE_MAX,
+  CALENDAR_MAX_EVENTS,
+} from "@/types/schemas";
 
 /* -------------------------------------------------------------------------- */
 /* Regenerate                                                                  */
@@ -105,8 +118,13 @@ type CategoriesContent = {
   categories: string[];
 };
 type DiscoverySeoContent = { keywords: string[] };
+type CalendarEditContent = { events: CalendarEvent[] };
 
-const CALENDAR_LIMITS = { titleMax: 30, descriptionMax: 300 } as const;
+const CALENDAR_EVENT_LIMITS = {
+  titleMax: CALENDAR_EVENT_TITLE_MAX,
+  descriptionMax: CALENDAR_EVENT_DESCRIPTION_MAX,
+  maxItems: CALENDAR_MAX_EVENTS,
+} as const;
 const CLASSROOM_LIMITS = {
   titleMax: 50,
   descriptionMax: 500,
@@ -423,7 +441,7 @@ function JsonEditForm({
   );
 }
 
-/* ---------- Calendar — title + description (single block) ---------- */
+/* ---------- Calendar — events with schedule + per-event description ---------- */
 
 function CalendarEditForm({
   asset,
@@ -436,45 +454,68 @@ function CalendarEditForm({
   onCancel: () => void;
   saving: boolean;
 }) {
-  const initial = asset.content as TitleDescriptionContent;
-  const [title, setTitle] = useState(initial.title);
-  const [description, setDescription] = useState(initial.description);
+  const initial = (asset.content as CalendarEditContent).events.slice(
+    0,
+    CALENDAR_EVENT_LIMITS.maxItems,
+  );
+  const [events, setEvents] = useState<CalendarEvent[]>(
+    initial.length > 0
+      ? initial
+      : [{ ...makeDefaultEvent(), description: "" }],
+  );
+
+  function updateDescription(i: number, description: string) {
+    setEvents((prev) => {
+      const next = [...prev];
+      next[i] = { ...next[i], description };
+      return next;
+    });
+  }
+
+  // Intake (title + schedule) is editable via the EventsRepeater; the parsed
+  // description is editable in a dedicated textarea below each row. The two
+  // shapes line up by index — EventsRepeater operates on CalendarEventIntake
+  // and we re-attach the existing description on save.
+  function setEventIntakes(nextIntakes: CalendarEventIntake[]) {
+    setEvents((prev) => {
+      return nextIntakes.map((intake, i) => ({
+        ...intake,
+        description: prev[i]?.description ?? "",
+      }));
+    });
+  }
+
   return (
     <EditFormShell
-      description={`${MODULE_LABELS.calendar} title and description.`}
+      description={`Up to ${CALENDAR_EVENT_LIMITS.maxItems} events. Edit title, schedule, and the per-event description.`}
       saving={saving}
-      onSave={() => onSave({ title, description })}
+      onSave={() => onSave({ events })}
       onCancel={onCancel}
     >
-      <div className="space-y-1">
-        <Label htmlFor="cal-title">
-          Title{" "}
-          <span className="text-xs text-muted-foreground">
-            (max {CALENDAR_LIMITS.titleMax})
-          </span>
-        </Label>
-        <Input
-          id="cal-title"
-          value={title}
-          maxLength={CALENDAR_LIMITS.titleMax}
-          onChange={(e) => setTitle(e.target.value)}
-        />
-      </div>
-      <div className="space-y-1">
-        <Label htmlFor="cal-description">
-          Description{" "}
-          <span className="text-xs text-muted-foreground">
-            (max {CALENDAR_LIMITS.descriptionMax})
-          </span>
-        </Label>
-        <Textarea
-          id="cal-description"
-          rows={5}
-          value={description}
-          maxLength={CALENDAR_LIMITS.descriptionMax}
-          onChange={(e) => setDescription(e.target.value)}
-        />
-      </div>
+      <EventsRepeater
+        values={events.map((e) => ({ title: e.title, schedule: e.schedule }))}
+        onChange={setEventIntakes}
+      />
+      {events.map((event, i) => {
+        const descId = `cal-edit-desc-${i}`;
+        return (
+          <div key={i} className="space-y-1 rounded-md border p-3">
+            <Label htmlFor={descId}>
+              Event {i + 1} description{" "}
+              <span className="text-xs text-muted-foreground">
+                (max {CALENDAR_EVENT_LIMITS.descriptionMax})
+              </span>
+            </Label>
+            <Textarea
+              id={descId}
+              rows={3}
+              value={event.description}
+              maxLength={CALENDAR_EVENT_LIMITS.descriptionMax}
+              onChange={(e) => updateDescription(i, e.target.value)}
+            />
+          </div>
+        );
+      })}
     </EditFormShell>
   );
 }
