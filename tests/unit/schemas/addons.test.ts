@@ -181,13 +181,9 @@ describe("LeaderboardContentSchema", () => {
 });
 
 describe("CategoriesContentSchema", () => {
-  const THREE = [
-    { name: "Intro", description: "say hi" },
-    { name: "Wins", description: "share progress" },
-    { name: "Advice", description: "tips" },
-  ];
+  const THREE = ["Intro", "Wins", "Advice"];
 
-  test("accepts exactly 3 categories with name + description", () => {
+  test("accepts exactly 3 non-empty category names", () => {
     const r = CategoriesContentSchema.safeParse({ categories: THREE });
     expect(r.success).toBe(true);
   });
@@ -199,21 +195,29 @@ describe("CategoriesContentSchema", () => {
     expect(r.success).toBe(false);
   });
 
-  test("rejects empty name", () => {
+  test("rejects more than 3 categories", () => {
     const r = CategoriesContentSchema.safeParse({
-      categories: [
-        { name: "", description: "x" },
-        ...THREE.slice(1),
-      ],
+      categories: [...THREE, "Off topic"],
     });
     expect(r.success).toBe(false);
   });
 
-  test("rejects empty description", () => {
+  test("rejects empty name", () => {
+    const r = CategoriesContentSchema.safeParse({
+      categories: ["", ...THREE.slice(1)],
+    });
+    expect(r.success).toBe(false);
+  });
+
+  test("rejects payloads where any entry carries a description field", () => {
+    // The schema is strict on the tuple value type — objects fail the
+    // string element validator, guaranteeing the description field is
+    // dropped from the surface.
     const r = CategoriesContentSchema.safeParse({
       categories: [
-        { name: "Intro", description: "" },
-        ...THREE.slice(1),
+        { name: "Intro", description: "say hi" },
+        "Wins",
+        "Advice",
       ],
     });
     expect(r.success).toBe(false);

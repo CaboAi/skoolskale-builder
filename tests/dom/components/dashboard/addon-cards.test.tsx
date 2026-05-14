@@ -155,23 +155,20 @@ describe("LeaderboardCard", () => {
 });
 
 describe("CategoriesCard", () => {
-  const CATEGORIES = [
-    { name: "Plant your flag", description: "Say hi." },
-    { name: "Wins", description: "Celebrate progress." },
-    { name: "Ask the host", description: "Tips from the creator." },
-  ];
+  const CATEGORIES = ["Plant your flag", "Wins", "Ask the host"];
 
-  test("renders all 3 categories with name and description", () => {
+  test("renders all 3 category names with order indicators", () => {
     render(
       <CategoriesCard
         asset={asset("categories", { categories: CATEGORIES })}
         onAction={() => {}}
       />,
     );
-    for (const cat of CATEGORIES) {
-      expect(screen.getByText(cat.name)).toBeInTheDocument();
-      expect(screen.getByText(cat.description)).toBeInTheDocument();
+    for (const name of CATEGORIES) {
+      expect(screen.getByText(name)).toBeInTheDocument();
     }
+    expect(screen.getByText("1.")).toBeInTheDocument();
+    expect(screen.getByText("3.")).toBeInTheDocument();
   });
 });
 

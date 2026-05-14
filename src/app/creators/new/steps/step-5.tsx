@@ -31,14 +31,10 @@ const LEADERBOARD_DEFAULTS: [
   "Founder",
 ];
 
-const CATEGORY_DEFAULTS: [
-  { name: string; description: string },
-  { name: string; description: string },
-  { name: string; description: string },
-] = [
-  { name: "Introduce Yourself", description: "Say hi and tell us a bit about you." },
-  { name: "Share your wins", description: "Celebrate progress, big or small." },
-  { name: "Advice from the creator", description: "Tips and answers from the host." },
+const CATEGORY_DEFAULTS: [string, string, string] = [
+  "Introduce Yourself",
+  "Share your wins",
+  "Advice from the creator",
 ];
 
 export function Step5AddOns({ form }: Props) {
@@ -78,7 +74,7 @@ export function Step5AddOns({ form }: Props) {
       { shouldValidate: true, shouldDirty: true },
     );
   }
-  function setCategories(next: { name: string; description: string }[]) {
+  function setCategories(next: string[]) {
     setValue("categories", next as CreatorIntake["categories"], {
       shouldValidate: true,
       shouldDirty: true,
@@ -99,18 +95,10 @@ export function Step5AddOns({ form }: Props) {
       : undefined;
 
   const categoryErrors =
-    Array.isArray(errors.categories as unknown as unknown[])
+    Array.isArray((errors.categories as { message?: string }[]) ?? null)
       ? (errors.categories as unknown as {
-          name?: { message?: string };
-          description?: { message?: string };
-        }[]).map((row) =>
-          row
-            ? {
-                name: row.name?.message,
-                description: row.description?.message,
-              }
-            : undefined,
-        )
+          message?: string;
+        }[]).map((e) => e?.message)
       : undefined;
 
   return (
@@ -192,16 +180,15 @@ export function Step5AddOns({ form }: Props) {
         />
       </div>
 
-      {/* Categories */}
+      {/* Categories — name only (Skool's category UI accepts no description) */}
       <div className="rounded-md border p-4">
         <RepeaterField
-          variant="grouped"
+          variant="single"
           legend="Categories (3)"
           rowLabel={(i) => `Category ${i + 1}`}
           values={categories}
           onChange={setCategories}
-          namePlaceholder="Category name"
-          descriptionPlaceholder="Short description"
+          rowPlaceholder={(i) => CATEGORY_DEFAULTS[i]}
           errors={categoryErrors}
         />
       </div>

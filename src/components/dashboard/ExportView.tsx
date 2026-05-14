@@ -678,7 +678,7 @@ function LeaderboardSection({ asset }: { asset: GeneratedAsset }) {
 /* -------------------------------------------------------------------------- */
 
 type CategoriesContent = {
-  categories: { name: string; description: string }[];
+  categories: string[];
 };
 
 function CategoriesSection({ asset }: { asset: GeneratedAsset }) {
@@ -689,7 +689,7 @@ function CategoriesSection({ asset }: { asset: GeneratedAsset }) {
         <CardTitle>Categories</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        {c.categories.map((cat, i) => (
+        {c.categories.map((name, i) => (
           <div
             key={i}
             className="flex items-start gap-3 rounded-md border p-3"
@@ -697,15 +697,12 @@ function CategoriesSection({ asset }: { asset: GeneratedAsset }) {
             <span className="mt-0.5 font-mono text-xs text-muted-foreground">
               {i + 1}.
             </span>
-            <div className="flex-1 space-y-0.5">
-              <p className="font-semibold">{cat.name}</p>
-              <p className="text-xs text-muted-foreground">{cat.description}</p>
-            </div>
-            <CopyButton text={`${cat.name}\n${cat.description}`} />
+            <p className="flex-1 font-semibold">{name}</p>
+            <CopyButton text={name} />
           </div>
         ))}
         <p className="text-xs text-muted-foreground">
-          Paste these into Skool &gt; Community &gt; Categories.
+          Paste each name into Skool &gt; Community &gt; Categories.
         </p>
       </CardContent>
     </Card>

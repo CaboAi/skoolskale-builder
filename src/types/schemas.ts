@@ -145,12 +145,19 @@ export const LeaderboardContentSchema = z.object({
 });
 export type LeaderboardContent = z.infer<typeof LeaderboardContentSchema>;
 
-/** Skool defaults to 3 categories; this PR keeps the count fixed at 3. */
+/**
+ * Skool defaults to 3 categories; the count stays fixed at 3.
+ *
+ * Categories are name-only — Skool's category UI doesn't accept a description
+ * field, so generating one was wasted tokens and dead weight in the dashboard
+ * + export view. Same shape as `LeaderboardContentSchema.levels` (tuple of N
+ * non-empty strings).
+ */
 export const CategoriesContentSchema = z.object({
   categories: z.tuple([
-    z.object({ name: z.string().min(1), description: z.string().min(1) }),
-    z.object({ name: z.string().min(1), description: z.string().min(1) }),
-    z.object({ name: z.string().min(1), description: z.string().min(1) }),
+    z.string().min(1),
+    z.string().min(1),
+    z.string().min(1),
   ]),
 });
 export type CategoriesContent = z.infer<typeof CategoriesContentSchema>;
