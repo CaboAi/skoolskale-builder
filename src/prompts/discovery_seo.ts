@@ -50,7 +50,6 @@ ${ex.content}
       `courses: ${offer.courses.map((c) => c.name).join(', ')}`,
     );
   }
-  if (offer.live_calls) offerHints.push(`live calls: ${offer.live_calls}`);
   if (offer.events?.length) offerHints.push(`events: ${offer.events.join(', ')}`);
 
   return `<examples>

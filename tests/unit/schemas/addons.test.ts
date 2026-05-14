@@ -14,34 +14,49 @@ import {
  */
 
 describe("ClassroomContentSchema", () => {
-  test("accepts a minimal valid payload", () => {
+  const oneItem = { title: "Welcome Course", description: "Start here." };
+
+  test("accepts 1 valid item", () => {
+    const r = ClassroomContentSchema.safeParse({ items: [oneItem] });
+    expect(r.success).toBe(true);
+  });
+
+  test("accepts exactly 10 items", () => {
     const r = ClassroomContentSchema.safeParse({
-      title: "Welcome Course",
-      description: "What you'll learn inside.",
+      items: Array.from({ length: 10 }, () => oneItem),
     });
     expect(r.success).toBe(true);
   });
 
-  test("rejects empty title", () => {
+  test("rejects 0 items", () => {
+    const r = ClassroomContentSchema.safeParse({ items: [] });
+    expect(r.success).toBe(false);
+  });
+
+  test("rejects more than 10 items", () => {
     const r = ClassroomContentSchema.safeParse({
-      title: "",
-      description: "x",
+      items: Array.from({ length: 11 }, () => oneItem),
     });
     expect(r.success).toBe(false);
   });
 
-  test("rejects title over 50 chars", () => {
+  test("rejects empty title in any item", () => {
     const r = ClassroomContentSchema.safeParse({
-      title: "a".repeat(51),
-      description: "x",
+      items: [{ title: "", description: "x" }],
     });
     expect(r.success).toBe(false);
   });
 
-  test("rejects description over 500 chars", () => {
+  test("rejects title over 50 chars in any item", () => {
     const r = ClassroomContentSchema.safeParse({
-      title: "ok",
-      description: "a".repeat(501),
+      items: [{ title: "a".repeat(51), description: "x" }],
+    });
+    expect(r.success).toBe(false);
+  });
+
+  test("rejects description over 500 chars in any item", () => {
+    const r = ClassroomContentSchema.safeParse({
+      items: [{ title: "ok", description: "a".repeat(501) }],
     });
     expect(r.success).toBe(false);
   });

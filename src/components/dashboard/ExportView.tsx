@@ -533,39 +533,41 @@ function CalendarCoverSection({ asset }: { asset: GeneratedAsset }) {
 /* -------------------------------------------------------------------------- */
 
 /* -------------------------------------------------------------------------- */
-/* Section: Classroom (title + description)                                   */
+/* Section: Classroom (list of title + description items)                     */
 /* -------------------------------------------------------------------------- */
 
 type TitleDescriptionContent = { title: string; description: string };
+type ClassroomExportContent = { items: TitleDescriptionContent[] };
 
 export function ClassroomSection({ asset }: { asset: GeneratedAsset }) {
-  const c = asset.content as TitleDescriptionContent;
+  const c = asset.content as ClassroomExportContent;
   return (
     <Card>
       <CardHeader>
         <CardTitle>Classroom</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-2">
-        <div className="space-y-1 rounded-md border p-3">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">
-              Title
-            </p>
-            <CopyButton text={c.title} label="Copy title" />
+      <CardContent className="space-y-3">
+        {c.items.map((item, i) => (
+          <div key={i} className="space-y-2 rounded-md border p-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                Classroom {i + 1}
+              </p>
+              <CopyButton text={item.title} label="Copy title" />
+            </div>
+            <p className="font-semibold">{item.title}</p>
+            <div className="flex items-center justify-between gap-2 pt-1">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                Description
+              </p>
+              <CopyButton text={item.description} label="Copy description" />
+            </div>
+            <p className="whitespace-pre-wrap text-sm">{item.description}</p>
           </div>
-          <p className="font-semibold">{c.title}</p>
-        </div>
-        <div className="space-y-1 rounded-md border p-3">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">
-              Description
-            </p>
-            <CopyButton text={c.description} label="Copy description" />
-          </div>
-          <p className="whitespace-pre-wrap text-sm">{c.description}</p>
-        </div>
+        ))}
         <p className="text-xs text-muted-foreground">
-          Paste these into Skool &gt; Classroom &gt; Settings (separate fields).
+          Paste each title + description into Skool &gt; Classroom &gt; the
+          matching course.
         </p>
       </CardContent>
     </Card>

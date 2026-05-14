@@ -33,6 +33,13 @@ export type CreatorContext = Pick<
   | "creator_photo_url"
 > & {
   /**
+   * Optional here because legacy DB rows may have null classroom_intake.
+   * Required by CreatorIntakeSchema at wizard submit time. The classroom
+   * prompt builder throws if absent so a misconfigured creator can't reach
+   * Claude with an empty title list.
+   */
+  classroom_titles?: CreatorIntake["classroom_titles"];
+  /**
    * Storage path (bucket-relative) for the creator photo. Set by the
    * signed-URLs migration so generators can read the bytes via
    * `storage.download()` instead of fetching the public URL. Coexists with
@@ -115,5 +122,7 @@ export function toCreatorContext(row: Creator): CreatorContext {
     brand_prefs: row.brandPrefs ?? "",
     creator_photo_url: row.creatorPhotoUrl ?? undefined,
     creator_photo_path: row.creatorPhotoPath ?? undefined,
+    classroom_titles:
+      (row.classroomIntake as CreatorContext["classroom_titles"]) ?? undefined,
   };
 }

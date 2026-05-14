@@ -24,10 +24,11 @@ const DEFAULTS: CreatorIntake = {
   tone: "warm",
   offer_breakdown: { courses: [], perks: [], events: [], guest_sessions: false },
   pricing: { tiers: [] },
-  trial_terms: { has_trial: false },
+  trial_terms: { has_trial: false, duration_days: 7 },
   refund_policy: "",
   support_contact: "x",
   brand_prefs: "",
+  classroom_titles: [""],
 };
 
 function Harness() {
@@ -47,25 +48,38 @@ describe("Step5AddOns", () => {
     expect(
       screen.getByRole("heading", { name: /Launch package add-ons/i }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /Classroom/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Classroom titles/i }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Calendar/i })).toBeInTheDocument();
     expect(screen.getByText(/Leaderboard levels \(9\)/i)).toBeInTheDocument();
     expect(screen.getByText(/Categories \(3\)/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Discovery search keywords/i)).toBeInTheDocument();
   });
 
-  test("classroom title and description inputs accept text and respect max length", async () => {
+  test("classroom titles repeater starts with one row capped at 50 chars", async () => {
     const user = userEvent.setup();
     render(<Harness />);
-    const title = screen.getByLabelText(/^Title.*max 50/i);
-    const desc = screen.getByLabelText(/^Description.*max 500/i);
-    await user.type(title, "The Welcome Course");
-    await user.type(desc, "What you'll learn inside.");
-    expect(title).toHaveValue("The Welcome Course");
-    expect(desc).toHaveValue("What you'll learn inside.");
-    // maxLength caps are HTML attributes — assert they were applied.
-    expect(title).toHaveAttribute("maxLength", "50");
-    expect(desc).toHaveAttribute("maxLength", "500");
+    const first = screen.getByLabelText(/Classroom 1/i);
+    await user.type(first, "The Welcome Course");
+    expect(first).toHaveValue("The Welcome Course");
+    expect(first).toHaveAttribute("maxLength", "50");
+  });
+
+  test("Add classroom title button appends a new row up to 10", async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    const addButton = screen.getByRole("button", {
+      name: /Add classroom title/i,
+    });
+    await user.click(addButton);
+    expect(screen.getByLabelText(/Classroom 2/i)).toBeInTheDocument();
+    // Click 8 more times to reach the cap (1 default + 1 + 8 = 10).
+    for (let i = 0; i < 8; i++) {
+      await user.click(addButton);
+    }
+    expect(screen.getByLabelText(/Classroom 10/i)).toBeInTheDocument();
+    expect(addButton).toBeDisabled();
   });
 
   test("calendar title and description fields apply tighter caps (30/300)", () => {

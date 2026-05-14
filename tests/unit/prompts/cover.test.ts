@@ -17,7 +17,7 @@ function makeCreator(overrides: Partial<CreatorContext> = {}): CreatorContext {
       guest_sessions: false,
     },
     pricing: { monthly: 47, annual: 470, tiers: [] },
-    trial_terms: { has_trial: false },
+    trial_terms: { has_trial: false, duration_days: 7 },
     refund_policy: "",
     support_contact: "support@test",
     brand_prefs: "",

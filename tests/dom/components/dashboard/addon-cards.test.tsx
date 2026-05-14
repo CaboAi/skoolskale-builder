@@ -42,18 +42,22 @@ function asset<T>(module: string, content: T): GeneratedAsset {
 }
 
 describe("TextModuleCard (classroom branch)", () => {
-  test("renders title and description for classroom shape", () => {
+  test("renders every item's title and description for classroom shape", () => {
     render(
       <TextModuleCard
         asset={asset("classroom", {
-          title: "The Welcome Course",
-          description: "Where to start.",
+          items: [
+            { title: "The Welcome Course", description: "Where to start." },
+            { title: "Foundations", description: "Build the base." },
+          ],
         })}
         onAction={() => {}}
       />,
     );
     expect(screen.getByText("The Welcome Course")).toBeInTheDocument();
     expect(screen.getByText("Where to start.")).toBeInTheDocument();
+    expect(screen.getByText("Foundations")).toBeInTheDocument();
+    expect(screen.getByText("Build the base.")).toBeInTheDocument();
   });
 
   test("renders title and description for calendar shape", () => {
@@ -76,8 +80,7 @@ describe("TextModuleCard (classroom branch)", () => {
     render(
       <TextModuleCard
         asset={asset("classroom", {
-          title: "x",
-          description: "y",
+          items: [{ title: "x", description: "y" }],
         })}
         onAction={onAction}
       />,

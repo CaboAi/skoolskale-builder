@@ -45,17 +45,17 @@ function makeCreator(): CreatorContext {
     tone: "warm",
     offer_breakdown: {
       courses: [{ name: "Foundations" }],
-      live_calls: "weekly",
       perks: [],
       events: [],
       guest_sessions: false,
     },
     pricing: { monthly: 47, annual: 470, tiers: [] },
-    trial_terms: { has_trial: false },
+    trial_terms: { has_trial: false, duration_days: 7 as const },
     refund_policy: "14-day refund",
     support_contact: "support@example.test",
     brand_prefs: "",
     creator_photo_url: undefined,
+    classroom_titles: ["Foundations"],
   };
 }
 

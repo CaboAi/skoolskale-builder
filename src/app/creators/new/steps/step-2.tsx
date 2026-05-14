@@ -93,16 +93,6 @@ export function Step2Offer({ form }: Props) {
         </Button>
       </div>
 
-      {/* Live calls */}
-      <div className="space-y-1.5">
-        <Label htmlFor="live_calls">Live calls (cadence / format)</Label>
-        <Input
-          id="live_calls"
-          {...register('offer_breakdown.live_calls')}
-          placeholder="Weekly group calls, 60 min"
-        />
-      </div>
-
       {/* Perks */}
       <StringListField
         label="Perks"
@@ -117,6 +107,7 @@ export function Step2Offer({ form }: Props) {
         placeholder="Quarterly retreat, monthly workshop, ..."
         values={offer.events}
         onChange={setEvents}
+        maxItems={10}
       />
 
       {/* Guest sessions */}
@@ -137,12 +128,15 @@ function StringListField({
   placeholder,
   values,
   onChange,
+  maxItems,
 }: {
   label: string;
   placeholder?: string;
   values: string[];
   onChange: (next: string[]) => void;
+  maxItems?: number;
 }) {
+  const atMax = maxItems !== undefined && values.length >= maxItems;
   return (
     <div className="space-y-2">
       <Label>{label}</Label>
@@ -166,8 +160,14 @@ function StringListField({
           </Button>
         </div>
       ))}
-      <Button type="button" variant="outline" onClick={() => onChange([...values, ''])}>
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => onChange([...values, ''])}
+        disabled={atMax}
+      >
         Add {label.toLowerCase().replace(/s$/, '')}
+        {maxItems !== undefined ? ` (${values.length}/${maxItems})` : ''}
       </Button>
     </div>
   );

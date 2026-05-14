@@ -15,7 +15,7 @@ Hard rules:
 - Title: 1-${TITLE_MAX} characters. No emojis. No surrounding quotes.
 - Description: 1-${DESCRIPTION_MAX} characters. Plain prose, 1-3 short sentences.
 - Match the tone provided.
-- Reference real cadence/format if the creator's offer mentions live calls, events, or recurring sessions. If none mentioned, focus on what members can expect when events DO happen.
+- Reference real cadence/format if the creator's offer mentions events or recurring sessions. If none mentioned, focus on what members can expect when events DO happen.
 - No preamble, no explanation outside the tags.
 
 Voice calibration:
@@ -42,7 +42,6 @@ ${ex.content}
     .join('\n\n');
 
   const offer = input.creator.offer_breakdown;
-  const liveCalls = offer.live_calls ?? '<!-- not specified -->';
   const events = offer.events?.length ? offer.events.join(', ') : '<!-- none -->';
 
   return `<examples>
@@ -55,7 +54,6 @@ Community name: ${input.creator.community_name}
 Niche: ${input.creator.niche}
 Audience: ${input.creator.audience}
 Tone: ${input.creator.tone}
-Live calls cadence: ${liveCalls}
 Events: ${events}
 </creator_context>
 

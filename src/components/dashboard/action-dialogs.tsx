@@ -99,15 +99,18 @@ export function RegenerateDialog({
 type WelcomeDmContent = { content: string };
 type TransformationContent = { candidates: string[] };
 type TitleDescriptionContent = { title: string; description: string };
+type ClassroomEditContent = { items: TitleDescriptionContent[] };
 type LeaderboardContent = { levels: string[] };
 type CategoriesContent = {
   categories: { name: string; description: string }[];
 };
 type DiscoverySeoContent = { keywords: string[] };
 
-const TITLE_DESCRIPTION_LIMITS = {
-  classroom: { titleMax: 50, descriptionMax: 500 },
-  calendar: { titleMax: 30, descriptionMax: 300 },
+const CALENDAR_LIMITS = { titleMax: 30, descriptionMax: 300 } as const;
+const CLASSROOM_LIMITS = {
+  titleMax: 50,
+  descriptionMax: 500,
+  maxItems: 10,
 } as const;
 
 function EditFormShell({
@@ -215,8 +218,7 @@ function EditDialogBody({
   }
   if (module === "classroom") {
     return (
-      <TitleDescriptionEditForm
-        kind="classroom"
+      <ClassroomEditForm
         asset={asset}
         onSave={onSave}
         onCancel={onCancel}
@@ -226,8 +228,7 @@ function EditDialogBody({
   }
   if (module === "calendar") {
     return (
-      <TitleDescriptionEditForm
-        kind="calendar"
+      <CalendarEditForm
         asset={asset}
         onSave={onSave}
         onCancel={onCancel}
@@ -422,16 +423,14 @@ function JsonEditForm({
   );
 }
 
-/* ---------- Classroom / Calendar — title + description ---------- */
+/* ---------- Calendar — title + description (single block) ---------- */
 
-function TitleDescriptionEditForm({
-  kind,
+function CalendarEditForm({
   asset,
   onSave,
   onCancel,
   saving,
 }: {
-  kind: "classroom" | "calendar";
   asset: GeneratedAsset;
   onSave: (content: unknown) => void;
   onCancel: () => void;
@@ -440,43 +439,149 @@ function TitleDescriptionEditForm({
   const initial = asset.content as TitleDescriptionContent;
   const [title, setTitle] = useState(initial.title);
   const [description, setDescription] = useState(initial.description);
-  const limits = TITLE_DESCRIPTION_LIMITS[kind];
   return (
     <EditFormShell
-      description={`${MODULE_LABELS[kind]} title and description.`}
+      description={`${MODULE_LABELS.calendar} title and description.`}
       saving={saving}
       onSave={() => onSave({ title, description })}
       onCancel={onCancel}
     >
       <div className="space-y-1">
-        <Label htmlFor="td-title">
+        <Label htmlFor="cal-title">
           Title{" "}
           <span className="text-xs text-muted-foreground">
-            (max {limits.titleMax})
+            (max {CALENDAR_LIMITS.titleMax})
           </span>
         </Label>
         <Input
-          id="td-title"
+          id="cal-title"
           value={title}
-          maxLength={limits.titleMax}
+          maxLength={CALENDAR_LIMITS.titleMax}
           onChange={(e) => setTitle(e.target.value)}
         />
       </div>
       <div className="space-y-1">
-        <Label htmlFor="td-description">
+        <Label htmlFor="cal-description">
           Description{" "}
           <span className="text-xs text-muted-foreground">
-            (max {limits.descriptionMax})
+            (max {CALENDAR_LIMITS.descriptionMax})
           </span>
         </Label>
         <Textarea
-          id="td-description"
+          id="cal-description"
           rows={5}
           value={description}
-          maxLength={limits.descriptionMax}
+          maxLength={CALENDAR_LIMITS.descriptionMax}
           onChange={(e) => setDescription(e.target.value)}
         />
       </div>
+    </EditFormShell>
+  );
+}
+
+/* ---------- Classroom — repeating { title, description } items ---------- */
+
+function ClassroomEditForm({
+  asset,
+  onSave,
+  onCancel,
+  saving,
+}: {
+  asset: GeneratedAsset;
+  onSave: (content: unknown) => void;
+  onCancel: () => void;
+  saving: boolean;
+}) {
+  const initial = (asset.content as ClassroomEditContent).items.slice(
+    0,
+    CLASSROOM_LIMITS.maxItems,
+  );
+  const [items, setItems] = useState<TitleDescriptionContent[]>(initial);
+
+  function updateItem(i: number, patch: Partial<TitleDescriptionContent>) {
+    setItems((prev) => {
+      const next = [...prev];
+      next[i] = { ...next[i], ...patch };
+      return next;
+    });
+  }
+
+  function removeItem(i: number) {
+    setItems((prev) => prev.filter((_, idx) => idx !== i));
+  }
+
+  const atMax = items.length >= CLASSROOM_LIMITS.maxItems;
+
+  return (
+    <EditFormShell
+      description={`One title + 2-3 sentence description per classroom (max ${CLASSROOM_LIMITS.maxItems}).`}
+      saving={saving}
+      onSave={() => onSave({ items })}
+      onCancel={onCancel}
+    >
+      {items.map((item, i) => {
+        const titleId = `classroom-edit-title-${i}`;
+        const descId = `classroom-edit-description-${i}`;
+        return (
+          <div key={i} className="space-y-2 rounded-md border p-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium text-muted-foreground">
+                Classroom {i + 1}
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => removeItem(i)}
+                disabled={items.length <= 1}
+              >
+                Remove
+              </Button>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor={titleId}>
+                Title{" "}
+                <span className="text-xs text-muted-foreground">
+                  (max {CLASSROOM_LIMITS.titleMax})
+                </span>
+              </Label>
+              <Input
+                id={titleId}
+                value={item.title}
+                maxLength={CLASSROOM_LIMITS.titleMax}
+                onChange={(e) => updateItem(i, { title: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor={descId}>
+                Description{" "}
+                <span className="text-xs text-muted-foreground">
+                  (max {CLASSROOM_LIMITS.descriptionMax})
+                </span>
+              </Label>
+              <Textarea
+                id={descId}
+                rows={3}
+                value={item.description}
+                maxLength={CLASSROOM_LIMITS.descriptionMax}
+                onChange={(e) =>
+                  updateItem(i, { description: e.target.value })
+                }
+              />
+            </div>
+          </div>
+        );
+      })}
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() =>
+          setItems((prev) => [...prev, { title: "", description: "" }])
+        }
+        disabled={atMax}
+      >
+        Add classroom ({items.length}/{CLASSROOM_LIMITS.maxItems})
+      </Button>
     </EditFormShell>
   );
 }
