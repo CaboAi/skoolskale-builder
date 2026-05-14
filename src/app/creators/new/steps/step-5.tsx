@@ -1,13 +1,16 @@
 "use client";
 
 import type { IntakeFormReturn } from "../wizard";
-import type { CreatorIntake } from "@/types/schemas";
+import type { CalendarEventIntake, CreatorIntake } from "@/types/schemas";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { RepeaterField } from "@/components/wizard/RepeaterField";
 import { KeywordChipField } from "@/components/wizard/KeywordChipField";
+import {
+  EventsRepeater,
+  makeDefaultEvent,
+} from "@/components/wizard/EventsRepeater";
 
 const CLASSROOM_TITLES_MAX = 10;
 const CLASSROOM_TITLE_CHAR_MAX = 50;
@@ -40,7 +43,6 @@ const CATEGORY_DEFAULTS: [
 
 export function Step5AddOns({ form }: Props) {
   const {
-    register,
     formState: { errors },
     watch,
     setValue,
@@ -51,6 +53,16 @@ export function Step5AddOns({ form }: Props) {
   const categories = watch("categories") ?? CATEGORY_DEFAULTS;
   const keywords = watch("discovery_keywords") ?? [];
   const classroomTitles = watch("classroom_titles") ?? [""];
+  const events: CalendarEventIntake[] =
+    watch("calendar_intake.events") ?? [makeDefaultEvent()];
+
+  function setEvents(next: CalendarEventIntake[]) {
+    setValue(
+      "calendar_intake",
+      { events: next },
+      { shouldValidate: true, shouldDirty: true },
+    );
+  }
 
   function setClassroomTitles(next: string[]) {
     setValue("classroom_titles", next, {
@@ -135,44 +147,36 @@ export function Step5AddOns({ form }: Props) {
         />
       </div>
 
-      {/* Calendar */}
+      {/* Calendar — events with weekly or one-off schedule */}
       <div className="space-y-3 rounded-md border p-4">
         <h3 className="text-sm font-semibold">Calendar</h3>
-        <div className="space-y-1.5">
-          <Label htmlFor="calendar_intake.title">
-            Title{" "}
-            <span className="text-xs text-muted-foreground">(max 30)</span>
-          </Label>
-          <Input
-            id="calendar_intake.title"
-            maxLength={30}
-            {...register("calendar_intake.title")}
-            placeholder="e.g. Live Calls"
-          />
-          {errors.calendar_intake?.title?.message ? (
-            <p className="text-xs text-destructive">
-              {errors.calendar_intake.title.message}
-            </p>
-          ) : null}
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="calendar_intake.description">
-            Description{" "}
-            <span className="text-xs text-muted-foreground">(max 300)</span>
-          </Label>
-          <Textarea
-            id="calendar_intake.description"
-            rows={3}
-            maxLength={300}
-            {...register("calendar_intake.description")}
-            placeholder="What events live on the calendar…"
-          />
-          {errors.calendar_intake?.description?.message ? (
-            <p className="text-xs text-destructive">
-              {errors.calendar_intake.description.message}
-            </p>
-          ) : null}
-        </div>
+        <p className="text-xs text-muted-foreground">
+          One row per live event. Pick recurring weekly or a single dated
+          occurrence. The generator writes a short description per event.
+        </p>
+        <EventsRepeater
+          values={events}
+          onChange={setEvents}
+          errors={
+            Array.isArray(
+              (errors.calendar_intake?.events as unknown as unknown[]) ?? null,
+            )
+              ? (
+                  errors.calendar_intake?.events as unknown as {
+                    title?: { message?: string };
+                    schedule?: { message?: string };
+                  }[]
+                ).map((row) =>
+                  row
+                    ? {
+                        title: row.title?.message,
+                        schedule: row.schedule?.message,
+                      }
+                    : undefined,
+                )
+              : undefined
+          }
+        />
       </div>
 
       {/* Leaderboard levels */}

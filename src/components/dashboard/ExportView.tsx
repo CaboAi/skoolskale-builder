@@ -20,6 +20,8 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import type { Creator, GeneratedAsset, LaunchPackage } from "@/lib/db/schema";
+import type { CalendarEvent } from "@/types/schemas";
+import { formatSchedule } from "@/lib/calendar/format-schedule";
 import { MODULE_KEYS, type ModuleKey } from "@/lib/modules/registry";
 
 /* -------------------------------------------------------------------------- */
@@ -575,37 +577,60 @@ export function ClassroomSection({ asset }: { asset: GeneratedAsset }) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Section: Calendar (title + description)                                    */
+/* Section: Calendar (events with weekly / one-off schedule)                  */
 /* -------------------------------------------------------------------------- */
 
+type CalendarEventsContent = { events: CalendarEvent[] };
+
 export function CalendarSection({ asset }: { asset: GeneratedAsset }) {
-  const c = asset.content as TitleDescriptionContent;
+  const c = asset.content as CalendarEventsContent;
   return (
     <Card>
       <CardHeader>
         <CardTitle>Calendar</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-2">
-        <div className="space-y-1 rounded-md border p-3">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">
-              Title
-            </p>
-            <CopyButton text={c.title} label="Copy title" />
-          </div>
-          <p className="font-semibold">{c.title}</p>
-        </div>
-        <div className="space-y-1 rounded-md border p-3">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">
-              Description
-            </p>
-            <CopyButton text={c.description} label="Copy description" />
-          </div>
-          <p className="whitespace-pre-wrap text-sm">{c.description}</p>
-        </div>
+      <CardContent className="space-y-3">
+        {c.events.map((event, i) => {
+          const scheduleText = formatSchedule(event.schedule);
+          return (
+            <div key={i} className="space-y-2 rounded-md border p-3">
+              <div className="space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Title
+                  </p>
+                  <CopyButton text={event.title} label="Copy title" />
+                </div>
+                <p className="font-semibold">{event.title}</p>
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Schedule
+                  </p>
+                  <CopyButton text={scheduleText} label="Copy schedule" />
+                </div>
+                <p className="text-sm">{scheduleText}</p>
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Description
+                  </p>
+                  <CopyButton
+                    text={event.description}
+                    label="Copy description"
+                  />
+                </div>
+                <p className="whitespace-pre-wrap text-sm">
+                  {event.description}
+                </p>
+              </div>
+            </div>
+          );
+        })}
         <p className="text-xs text-muted-foreground">
-          Paste these into Skool &gt; Calendar &gt; Settings (separate fields).
+          Paste each event into Skool &gt; Calendar &gt; New Event.
         </p>
       </CardContent>
     </Card>
@@ -727,7 +752,8 @@ const CHECKLIST_ITEMS = [
   'Created "Start Here" course with 4 lessons',
   "Configured welcome message automation",
   "Set pricing per the proposal",
-  "Named Classroom + Calendar areas",
+  "Named Classroom area",
+  "Created Calendar events",
   "Uploaded Classroom + Calendar cover images",
   "Renamed leaderboard levels",
   "Created the 3 community categories",

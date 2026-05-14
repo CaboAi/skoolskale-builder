@@ -60,6 +60,21 @@ const DEFAULTS: CreatorIntake = {
   // schema's per-item `.string().min(1)` blocks an empty-string submission
   // with a clear error.
   classroom_titles: [""],
+  // Seed one default event row (recurring Monday 9am ET) so the EventsRepeater
+  // renders on first paint; the title is empty, schema enforces min(1).
+  calendar_intake: {
+    events: [
+      {
+        title: "",
+        schedule: {
+          type: "weekly" as const,
+          dayOfWeek: "mon" as const,
+          time: "09:00",
+          timezone: "America/New_York",
+        },
+      },
+    ],
+  },
 };
 
 export function IntakeWizard() {

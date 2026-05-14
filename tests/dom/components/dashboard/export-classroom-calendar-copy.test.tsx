@@ -105,37 +105,76 @@ describe("ClassroomSection — per-item title + description copy", () => {
   });
 });
 
-describe("CalendarSection — independent title + description copy", () => {
+describe("CalendarSection — per-event title + schedule + description copy", () => {
   const sample = {
-    title: "Weekly Cadence",
-    description: "Live calls every Thursday.",
+    events: [
+      {
+        title: "Weekly Q&A",
+        description: "Live calls every Thursday.",
+        schedule: {
+          type: "weekly" as const,
+          dayOfWeek: "thu" as const,
+          time: "11:00",
+          timezone: "America/Los_Angeles",
+        },
+      },
+      {
+        title: "Launch Workshop",
+        description: "Walkthrough.",
+        schedule: {
+          type: "one_off" as const,
+          date: "2026-08-08",
+          time: "09:00",
+          timezone: "America/New_York",
+        },
+      },
+    ],
   };
 
-  test("renders two copy buttons (no Copy both)", () => {
+  test("renders Copy title, Copy schedule, and Copy description per event", () => {
     render(<CalendarSection asset={asset("calendar", sample)} />);
-    expect(screen.getByRole("button", { name: /copy title/i })).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /copy description/i }),
-    ).toBeInTheDocument();
+      screen.getAllByRole("button", { name: /copy title/i }),
+    ).toHaveLength(2);
     expect(
-      screen.queryByRole("button", { name: /copy both/i }),
-    ).not.toBeInTheDocument();
+      screen.getAllByRole("button", { name: /copy schedule/i }),
+    ).toHaveLength(2);
+    expect(
+      screen.getAllByRole("button", { name: /copy description/i }),
+    ).toHaveLength(2);
   });
 
-  test("Copy title writes only the title to the clipboard", async () => {
+  test("clicking the first Copy title writes that event's title", async () => {
     const user = userEvent.setup();
     installClipboardSpy();
     render(<CalendarSection asset={asset("calendar", sample)} />);
-    await user.click(screen.getByRole("button", { name: /copy title/i }));
+    await user.click(
+      screen.getAllByRole("button", { name: /copy title/i })[0],
+    );
     expect(writeText).toHaveBeenCalledTimes(1);
-    expect(writeText).toHaveBeenCalledWith("Weekly Cadence");
+    expect(writeText).toHaveBeenCalledWith("Weekly Q&A");
   });
 
-  test("Copy description writes only the description to the clipboard", async () => {
+  test("clicking the second Copy schedule writes the formatted one_off string", async () => {
     const user = userEvent.setup();
     installClipboardSpy();
     render(<CalendarSection asset={asset("calendar", sample)} />);
-    await user.click(screen.getByRole("button", { name: /copy description/i }));
+    await user.click(
+      screen.getAllByRole("button", { name: /copy schedule/i })[1],
+    );
+    expect(writeText).toHaveBeenCalledTimes(1);
+    expect(writeText).toHaveBeenCalledWith(
+      expect.stringMatching(/^August 8, 2026 at 9:00 AM/),
+    );
+  });
+
+  test("Copy description writes the event's description", async () => {
+    const user = userEvent.setup();
+    installClipboardSpy();
+    render(<CalendarSection asset={asset("calendar", sample)} />);
+    await user.click(
+      screen.getAllByRole("button", { name: /copy description/i })[0],
+    );
     expect(writeText).toHaveBeenCalledTimes(1);
     expect(writeText).toHaveBeenCalledWith("Live calls every Thursday.");
   });
