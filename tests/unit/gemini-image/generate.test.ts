@@ -8,6 +8,15 @@
  */
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
+// Bump per-test timeout for this file. Each test does a dynamic import of
+// `@/lib/gemini-image/generate` plus several awaited microtasks through
+// `withTimeout`. The work is sub-second in isolation, but under full-suite
+// parallel load the worker can be starved long enough that the first test
+// exceeds Vitest's 5s default — *not* because withTimeout's 120s ceiling
+// fires (it doesn't), but because microtask scheduling is contended.
+// 15s gives headroom without masking a genuine hang in the SUT.
+vi.setConfig({ testTimeout: 15_000 });
+
 // Hoisted per-file. See CLAUDE.md § "Mocking conventions".
 const { generateContentMock } = vi.hoisted(() => ({
   generateContentMock: vi.fn(),
