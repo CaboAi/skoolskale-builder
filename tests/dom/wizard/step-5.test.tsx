@@ -108,11 +108,15 @@ describe("Step5AddOns", () => {
     }
   });
 
-  test("categories renders 3 rows prefilled with the canonical defaults", () => {
+  test("categories renders 3 rows prefilled with the canonical defaults and no description fields", () => {
     render(<Harness />);
     expect(screen.getByDisplayValue("Introduce Yourself")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Share your wins")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Advice from the creator")).toBeInTheDocument();
+    // No description textareas next to the categories.
+    expect(
+      screen.queryByPlaceholderText(/Short description/i),
+    ).not.toBeInTheDocument();
   });
 
   test("editing a leaderboard row updates the displayed value", async () => {
@@ -124,13 +128,13 @@ describe("Step5AddOns", () => {
     expect(newcomer).toHaveValue("Seedling");
   });
 
-  test("editing a category description updates the displayed value", async () => {
+  test("editing a category row updates the displayed value", async () => {
     const user = userEvent.setup();
     render(<Harness />);
-    const desc = screen.getByDisplayValue("Say hi and tell us a bit about you.");
-    await user.clear(desc);
-    await user.type(desc, "Welcome — introduce yourself!");
-    expect(desc).toHaveValue("Welcome — introduce yourself!");
+    const intro = screen.getByDisplayValue("Introduce Yourself");
+    await user.clear(intro);
+    await user.type(intro, "Land here");
+    expect(intro).toHaveValue("Land here");
   });
 
   test("discovery keyword input accepts an Enter-committed chip", async () => {

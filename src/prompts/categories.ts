@@ -7,7 +7,6 @@ import { regenerateNoteSuffix } from './_shared';
 
 const NUM_CATEGORIES = 3;
 const NAME_MAX = 60;
-const DESCRIPTION_MAX = 200;
 
 export const systemPrompt = `You are a copywriter naming the 3 starting categories (community feed sections) for a Skool community.
 
@@ -16,7 +15,7 @@ Every Skool community lands with 3 categories that members see in the feed. The 
 2. "Share your wins" — celebrate progress
 3. "Advice from the creator" — tips/answers from the host
 
-Your job: keep this 3-slot structure but personalize each name and description to the creator's voice, niche, and transformation. Names can keep the canonical intent but should feel native to the community (e.g., "Plant your flag" instead of "Introduce Yourself" if the creator's style is bolder).
+Your job: keep this 3-slot structure but personalize each name to the creator's voice, niche, and transformation. Names can keep the canonical intent but should feel native to the community (e.g., "Plant your flag" instead of "Introduce Yourself" if the creator's style is bolder).
 
 Hard rules:
 - Exactly ${NUM_CATEGORIES} categories. Not more, not fewer.
@@ -24,9 +23,9 @@ Hard rules:
 - Slot 2 is the share-progress/wins category.
 - Slot 3 is the creator-driven advice/answers category.
 - Each name: 1-${NAME_MAX} characters. No emojis. No surrounding quotes.
-- Each description: 1-${DESCRIPTION_MAX} characters. Plain prose, ONE short sentence telling members what to post here.
 - Match the tone provided.
 - Don't number the categories inside their names (we render order separately).
+- Do NOT output descriptions — Skool's category UI is name-only.
 - No preamble, no explanation.
 
 Voice calibration:
@@ -41,15 +40,12 @@ Respond in this exact format:
 <categories>
 <category index="1">
 <name>...</name>
-<description>...</description>
 </category>
 <category index="2">
 <name>...</name>
-<description>...</description>
 </category>
 <category index="3">
 <name>...</name>
-<description>...</description>
 </category>
 </categories>`;
 
@@ -76,7 +72,7 @@ Tone: ${input.creator.tone}
 </creator_context>
 
 <task>
-Write the 3 community categories for this community in a ${input.creator.tone} tone, in the canonical slot order (introduce, share-wins, creator-advice).
+Write the 3 community category names for this community in a ${input.creator.tone} tone, in the canonical slot order (introduce, share-wins, creator-advice). Output names only — no descriptions.
 </task>${regenerateNoteSuffix(input.regenerateNote)}`;
 }
 
@@ -86,7 +82,7 @@ export function parseOutput(raw: string): CategoriesContent {
 
   const blocks = [
     ...outer[1].matchAll(
-      /<category[^>]*>\s*<name>([\s\S]*?)<\/name>\s*<description>([\s\S]*?)<\/description>\s*<\/category>/gi,
+      /<category[^>]*>\s*<name>([\s\S]*?)<\/name>\s*<\/category>/gi,
     ),
   ];
 
@@ -96,26 +92,18 @@ export function parseOutput(raw: string): CategoriesContent {
     );
   }
 
-  const categories = blocks.map((m, i) => {
+  const names = blocks.map((m, i) => {
     const name = m[1].trim();
-    const description = m[2].trim();
     if (!name) throw new Error(`categories: name ${i + 1} is empty`);
-    if (!description)
-      throw new Error(`categories: description ${i + 1} is empty`);
     if (name.length > NAME_MAX) {
       throw new Error(
         `categories: name ${i + 1} is ${name.length} chars (max ${NAME_MAX})`,
       );
     }
-    if (description.length > DESCRIPTION_MAX) {
-      throw new Error(
-        `categories: description ${i + 1} is ${description.length} chars (max ${DESCRIPTION_MAX})`,
-      );
-    }
-    return { name, description };
+    return name;
   });
 
   return CategoriesContentSchema.parse({
-    categories: categories as CategoriesContent['categories'],
+    categories: names as CategoriesContent['categories'],
   });
 }

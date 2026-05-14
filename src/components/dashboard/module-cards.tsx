@@ -740,7 +740,7 @@ export function LeaderboardCard({
 /* -------------------------------------------------------------------------- */
 
 type CategoriesContent = {
-  categories: { name: string; description: string }[];
+  categories: string[];
 };
 
 export function CategoriesCard({
@@ -756,13 +756,17 @@ export function CategoriesCard({
   return (
     <Card className={MODULE_CARD_CLASS}>
       <ModuleHeader module="categories" approved={asset.approved} />
-      <CardContent className="space-y-3">
-        {c.categories.map((cat, i) => (
-          <div key={i} className="space-y-0.5 rounded-md border p-3">
-            <p className="text-sm font-semibold">{cat.name}</p>
-            <p className="text-xs text-muted-foreground">{cat.description}</p>
-          </div>
-        ))}
+      <CardContent>
+        <ol className="divide-y rounded-md border">
+          {c.categories.map((name, i) => (
+            <li key={i} className="flex gap-3 px-3 py-2 text-sm">
+              <span className="font-mono text-xs text-muted-foreground">
+                {i + 1}.
+              </span>
+              <span>{name}</span>
+            </li>
+          ))}
+        </ol>
       </CardContent>
       <ModuleFooter
         module="categories"

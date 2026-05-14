@@ -102,7 +102,7 @@ type TitleDescriptionContent = { title: string; description: string };
 type ClassroomEditContent = { items: TitleDescriptionContent[] };
 type LeaderboardContent = { levels: string[] };
 type CategoriesContent = {
-  categories: { name: string; description: string }[];
+  categories: string[];
 };
 type DiscoverySeoContent = { keywords: string[] };
 
@@ -619,7 +619,7 @@ function LeaderboardEditForm({
   );
 }
 
-/* ---------- Categories — 3 named blocks ---------- */
+/* ---------- Categories — 3 names (name-only; Skool has no description field) ---------- */
 
 function CategoriesEditForm({
   asset,
@@ -633,24 +633,20 @@ function CategoriesEditForm({
   saving: boolean;
 }) {
   const initial = (asset.content as CategoriesContent).categories;
-  const [rows, setRows] = useState<
-    { name: string; description: string }[]
-  >(initial.slice(0, 3));
+  const [rows, setRows] = useState<string[]>(initial.slice(0, 3));
   return (
     <EditFormShell
-      description="Three category names with descriptions (introduce, share-wins, creator-advice slots)."
+      description="Three category names (introduce, share-wins, creator-advice slots)."
       saving={saving}
       onSave={() => onSave({ categories: rows })}
       onCancel={onCancel}
     >
       <RepeaterField
-        variant="grouped"
+        variant="single"
         legend="Categories"
         rowLabel={(i) => `Category ${i + 1}`}
         values={rows}
         onChange={setRows}
-        namePlaceholder="Category name"
-        descriptionPlaceholder="One-line description"
       />
     </EditFormShell>
   );
