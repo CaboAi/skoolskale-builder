@@ -45,7 +45,6 @@ function makeCreator(): CreatorContext {
     tone: "warm",
     offer_breakdown: {
       courses: [{ name: "Foundations" }],
-      live_calls: "weekly",
       perks: [],
       events: [],
       guest_sessions: false,

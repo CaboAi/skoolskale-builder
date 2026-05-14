@@ -46,7 +46,6 @@ const DEFAULTS: CreatorIntake = {
   tone: "warm",
   offer_breakdown: {
     courses: [],
-    live_calls: undefined,
     perks: [],
     events: [],
     guest_sessions: false,

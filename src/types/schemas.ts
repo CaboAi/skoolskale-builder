@@ -96,9 +96,8 @@ export const CreatorIntakeSchema = z.object({
         }),
       )
       .default([]),
-    live_calls: z.string().optional(),
     perks: z.array(z.string()).default([]),
-    events: z.array(z.string()).default([]),
+    events: z.array(z.string()).max(10).default([]),
     guest_sessions: z.boolean().default(false),
   }),
   pricing: z.object({

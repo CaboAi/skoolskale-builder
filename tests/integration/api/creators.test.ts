@@ -104,7 +104,6 @@ const VALID_CREATOR = {
   tone: 'warm',
   offer_breakdown: {
     courses: [{ name: 'Foundations' }],
-    live_calls: 'weekly',
     perks: ['private podcast'],
     events: [],
     guest_sessions: false,

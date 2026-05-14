@@ -32,7 +32,7 @@ const VALID_CREATOR_VALUES = (ownerUuid: string) => ({
   audience: 'Testers',
   transformation: 'Write tests',
   tone: 'direct' as const,
-  offer_breakdown: { courses: [], live_calls: null, perks: [], events: [], guest_sessions: false },
+  offer_breakdown: { courses: [], perks: [], events: [], guest_sessions: false },
   pricing: { tiers: [] },
   trial_terms: { has_trial: false },
   refund_policy: 'none',
