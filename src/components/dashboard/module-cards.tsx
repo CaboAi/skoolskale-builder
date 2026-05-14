@@ -21,6 +21,8 @@ import {
 } from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
 import type { GeneratedAsset } from "@/lib/db/schema";
+import type { CalendarEvent } from "@/types/schemas";
+import { formatSchedule } from "@/lib/calendar/format-schedule";
 import {
   MODULE_LABELS,
   type CardVariant,
@@ -293,10 +295,10 @@ export function ImageSingleSkeleton({
 
 type WelcomeDmContent = { content: string };
 type TransformationContent = { candidates: string[] };
-type TitleDescriptionContent = { title: string; description: string };
 type ClassroomContentDisplay = {
   items: { title: string; description: string }[];
 };
+type CalendarEventsContent = { events: CalendarEvent[] };
 
 export function TextModuleCard({
   asset,
@@ -361,15 +363,24 @@ export function TextModuleCard({
     );
   }
   if (moduleName === "calendar") {
-    const c = asset.content as TitleDescriptionContent;
+    const c = asset.content as CalendarEventsContent;
     return (
       <Card className={MODULE_CARD_CLASS}>
         <ModuleHeader module={moduleName} approved={asset.approved} />
         <CardContent className="space-y-3">
-          <p className="text-base font-semibold leading-tight">{c.title}</p>
-          <p className="whitespace-pre-wrap text-sm text-muted-foreground">
-            {c.description}
-          </p>
+          {c.events.map((event, i) => (
+            <div key={i} className="space-y-1 rounded-md border p-3">
+              <p className="text-sm font-semibold leading-tight">
+                {event.title}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {formatSchedule(event.schedule)}
+              </p>
+              <p className="whitespace-pre-wrap text-xs text-muted-foreground">
+                {event.description}
+              </p>
+            </div>
+          ))}
         </CardContent>
         <ModuleFooter
           module={moduleName}

@@ -59,11 +59,74 @@ export const ClassroomTitlesSchema = z
   .max(10);
 export type ClassroomTitles = z.infer<typeof ClassroomTitlesSchema>;
 
+/**
+ * Calendar (events) schemas.
+ *
+ * Skool's events are either recurring weekly OR a single dated occurrence. The
+ * VA picks a recurrence type per event in the wizard; the generator writes a
+ * short description per event. Storage keeps time as 24-hour HH:mm in an IANA
+ * timezone — the export view formats it for humans (e.g., "Every Monday at
+ * 9:00 AM PST").
+ */
+const TIME_24H_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+export const CALENDAR_EVENT_TITLE_MAX = 60;
+export const CALENDAR_EVENT_DESCRIPTION_MAX = 300;
+export const CALENDAR_MAX_EVENTS = 10;
+
+export const WeekdayEnum = z.enum([
+  'mon',
+  'tue',
+  'wed',
+  'thu',
+  'fri',
+  'sat',
+  'sun',
+]);
+export type Weekday = z.infer<typeof WeekdayEnum>;
+
+export const EventScheduleSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('weekly'),
+    dayOfWeek: WeekdayEnum,
+    time: z.string().regex(TIME_24H_RE, 'Time must be HH:mm (24-hour)'),
+    timezone: z.string().min(1),
+  }),
+  z.object({
+    type: z.literal('one_off'),
+    date: z.string().regex(ISO_DATE_RE, 'Date must be YYYY-MM-DD'),
+    time: z.string().regex(TIME_24H_RE, 'Time must be HH:mm (24-hour)'),
+    timezone: z.string().min(1),
+  }),
+]);
+export type EventSchedule = z.infer<typeof EventScheduleSchema>;
+
+export const CalendarEventSchema = z.object({
+  title: z.string().min(1).max(CALENDAR_EVENT_TITLE_MAX),
+  description: z.string().min(1).max(CALENDAR_EVENT_DESCRIPTION_MAX),
+  schedule: EventScheduleSchema,
+});
+export type CalendarEvent = z.infer<typeof CalendarEventSchema>;
+
 export const CalendarContentSchema = z.object({
-  title: z.string().min(1).max(30),
-  description: z.string().min(1).max(300),
+  events: z.array(CalendarEventSchema).min(1).max(CALENDAR_MAX_EVENTS),
 });
 export type CalendarContent = z.infer<typeof CalendarContentSchema>;
+
+/**
+ * Intake: VA supplies title + schedule per event; descriptions are
+ * AI-generated. Mirrors the classroom_titles → classroom items pattern.
+ */
+export const CalendarEventIntakeSchema = z.object({
+  title: z.string().min(1).max(CALENDAR_EVENT_TITLE_MAX),
+  schedule: EventScheduleSchema,
+});
+export type CalendarEventIntake = z.infer<typeof CalendarEventIntakeSchema>;
+
+export const CalendarIntakeSchema = z.object({
+  events: z.array(CalendarEventIntakeSchema).min(1).max(CALENDAR_MAX_EVENTS),
+});
+export type CalendarIntake = z.infer<typeof CalendarIntakeSchema>;
 
 /** Skool exposes 9 leaderboard levels; users name them all. Tuple, not array. */
 export const LeaderboardContentSchema = z.object({
@@ -144,7 +207,7 @@ export const CreatorIntakeSchema = z.object({
   // out without at least one VA-supplied title. CreatorPatchSchema's
   // `.partial()` still lets autosave through during earlier wizard steps.
   classroom_titles: ClassroomTitlesSchema,
-  calendar_intake: CalendarContentSchema.optional(),
+  calendar_intake: CalendarIntakeSchema.optional(),
   leaderboard_levels: LeaderboardContentSchema.shape.levels.optional(),
   categories: CategoriesContentSchema.shape.categories.optional(),
   discovery_keywords: DiscoverySeoContentSchema.shape.keywords.optional(),

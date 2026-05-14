@@ -29,6 +29,19 @@ const DEFAULTS: CreatorIntake = {
   support_contact: "x",
   brand_prefs: "",
   classroom_titles: [""],
+  calendar_intake: {
+    events: [
+      {
+        title: "",
+        schedule: {
+          type: "weekly",
+          dayOfWeek: "mon",
+          time: "09:00",
+          timezone: "America/New_York",
+        },
+      },
+    ],
+  },
 };
 
 function Harness() {
@@ -82,12 +95,25 @@ describe("Step5AddOns", () => {
     expect(addButton).toBeDisabled();
   });
 
-  test("calendar title and description fields apply tighter caps (30/300)", () => {
+  test("events repeater starts with one row capped at 60-char title", () => {
     render(<Harness />);
-    const title = screen.getByLabelText(/^Title.*max 30/i);
-    const desc = screen.getByLabelText(/^Description.*max 300/i);
-    expect(title).toHaveAttribute("maxLength", "30");
-    expect(desc).toHaveAttribute("maxLength", "300");
+    // Row 1's "Event 1" header is rendered above its inputs.
+    expect(screen.getByText(/^Event 1$/)).toBeInTheDocument();
+    // The title input is capped at CALENDAR_EVENT_TITLE_MAX = 60.
+    const titleInput = document.getElementById("events-0-title");
+    expect(titleInput).toBeInTheDocument();
+    expect(titleInput).toHaveAttribute("maxLength", "60");
+  });
+
+  test("Add event button appends rows until the 10-event cap is reached", async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    const addButton = screen.getByRole("button", { name: /Add event/i });
+    for (let i = 0; i < 9; i++) {
+      await user.click(addButton);
+    }
+    expect(screen.getByText(/^Event 10$/)).toBeInTheDocument();
+    expect(addButton).toBeDisabled();
   });
 
   test("leaderboard renders 9 rows prefilled with the canonical default names", () => {
