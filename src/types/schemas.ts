@@ -109,7 +109,12 @@ export const CreatorIntakeSchema = z.object({
   }),
   trial_terms: z.object({
     has_trial: z.boolean(),
-    duration_days: z.number().optional(),
+    // Pinned at 7 — the wizard no longer asks the VA for a duration. Kept
+    // in the schema (rather than removed) so generators that read
+    // `trial_terms.duration_days` continue to work unchanged. Use
+    // `.default(7)` so older draft records lacking the field hydrate
+    // cleanly on PATCH.
+    duration_days: z.literal(7).default(7),
   }),
   refund_policy: z.string(),
   support_contact: z.string().min(1),

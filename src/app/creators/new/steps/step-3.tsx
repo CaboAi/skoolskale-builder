@@ -95,28 +95,19 @@ export function Step3Pricing({ form }: Props) {
       </div>
 
       {/* Trial */}
-      <div className="space-y-3">
+      <div className="space-y-1">
         <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"
             {...register('trial_terms.has_trial')}
             className="size-4"
           />
-          Offers a trial
+          Offers a 7-day trial
         </label>
         {trial.has_trial ? (
-          <div className="space-y-1.5">
-            <Label htmlFor="trial_days">Trial duration (days)</Label>
-            <Input
-              id="trial_days"
-              type="number"
-              step="1"
-              {...register('trial_terms.duration_days', {
-                setValueAs: (v) =>
-                  v === '' || v == null ? undefined : Number(v),
-              })}
-            />
-          </div>
+          <p className="text-xs text-muted-foreground">
+            All trials are 7 days.
+          </p>
         ) : null}
       </div>
 

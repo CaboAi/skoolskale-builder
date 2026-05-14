@@ -24,7 +24,7 @@ const DEFAULTS: CreatorIntake = {
   tone: "warm",
   offer_breakdown: { courses: [], perks: [], events: [], guest_sessions: false },
   pricing: { tiers: [] },
-  trial_terms: { has_trial: false },
+  trial_terms: { has_trial: false, duration_days: 7 },
   refund_policy: "",
   support_contact: "x",
   brand_prefs: "",

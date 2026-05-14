@@ -51,7 +51,7 @@ const DEFAULTS: CreatorIntake = {
     guest_sessions: false,
   },
   pricing: { monthly: undefined, annual: undefined, tiers: [] },
-  trial_terms: { has_trial: false, duration_days: undefined },
+  trial_terms: { has_trial: false, duration_days: 7 },
   refund_policy: "",
   support_contact: "",
   brand_prefs: "",

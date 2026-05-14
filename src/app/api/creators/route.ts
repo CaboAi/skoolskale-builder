@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
         guest_sessions: false,
       },
       pricing: { tiers: [] },
-      trialTerms: { has_trial: false },
+      trialTerms: { has_trial: false, duration_days: 7 },
       refundPolicy: '',
       supportContact: body.support_contact,
       brandPrefs: '',
