@@ -1,7 +1,7 @@
 /**
  * Verify the prod Supabase Storage buckets match what `setup-storage.ts`
- * declares: every expected bucket exists, is public, and has its 3 RLS
- * policies on `storage.objects`.
+ * declares: every expected bucket exists, carries the right `public`
+ * flag, and has its 3 RLS policies on `storage.objects`.
  *
  * Run: pnpm verify:bucket
  *
@@ -18,12 +18,18 @@ import postgres from "postgres";
 type ExpectedBucket = {
   name: string;
   policyPrefix: string;
+  /**
+   * Mirrors `BucketConfig.public` in setup-storage.ts. After signed-URLs
+   * Stage 4 the two Gemini-output buckets are private; creator-photos
+   * stays public until its upload component is migrated.
+   */
+  public: boolean;
 };
 
 const EXPECTED: ExpectedBucket[] = [
-  { name: "creator-photos", policyPrefix: "creator_photos" },
-  { name: "cover-variants", policyPrefix: "cover_variants" },
-  { name: "image-variants", policyPrefix: "image_variants" },
+  { name: "creator-photos", policyPrefix: "creator_photos", public: true },
+  { name: "cover-variants", policyPrefix: "cover_variants", public: false },
+  { name: "image-variants", policyPrefix: "image_variants", public: false },
 ];
 
 const POLICY_SUFFIXES = ["authed_insert", "authed_update", "authed_delete"];
@@ -55,9 +61,9 @@ async function main() {
         failed = true;
         continue;
       }
-      if (!live.public) {
+      if (live.public !== exp.public) {
         console.error(
-          `[verify:bucket] bucket ${exp.name} is NOT public (cover/icon URLs are public-read)`,
+          `[verify:bucket] bucket ${exp.name} has public=${live.public}, expected public=${exp.public}`,
         );
         failed = true;
       }

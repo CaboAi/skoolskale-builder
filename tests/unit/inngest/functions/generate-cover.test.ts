@@ -21,16 +21,24 @@
  */
 import { describe, expect, test, vi, beforeEach } from "vitest";
 
-const { buildImagePromptMock, imageProviderGenerateMock, uploadMock } =
-  vi.hoisted(() => ({
-    buildImagePromptMock: vi.fn<(...args: unknown[]) => string>(
-      () => "BUILT BY THE BUILDER",
-    ),
-    imageProviderGenerateMock: vi.fn<
-      (input: { prompt: string }) => Promise<{ images: Buffer[]; costUsd: number }>
-    >(async () => ({ images: [Buffer.from("img")], costUsd: 0.045 })),
-    uploadMock: vi.fn(async () => ({ error: null })),
-  }));
+const {
+  buildImagePromptMock,
+  imageProviderGenerateMock,
+  uploadMock,
+  insertValuesMock,
+} = vi.hoisted(() => ({
+  buildImagePromptMock: vi.fn<(...args: unknown[]) => string>(
+    () => "BUILT BY THE BUILDER",
+  ),
+  imageProviderGenerateMock: vi.fn<
+    (input: { prompt: string }) => Promise<{ images: Buffer[]; costUsd: number }>
+  >(async () => ({ images: [Buffer.from("img")], costUsd: 0.045 })),
+  uploadMock: vi.fn(async () => ({ error: null })),
+  // Capture every db.insert(...).values(payload) so we can assert the
+  // persisted generated_assets row carries storagePath + url:"" per the
+  // signed-URLs Stage 4 contract.
+  insertValuesMock: vi.fn(),
+}));
 
 vi.mock("@/lib/inngest/client", () => ({
   inngest: {
@@ -57,7 +65,9 @@ vi.mock("@/lib/supabase/server", () => ({
     storage: {
       from: () => ({
         upload: uploadMock,
-        getPublicUrl: () => ({ data: { publicUrl: "https://test/img.png" } }),
+        // Intentionally NO getPublicUrl mock: Stage 4 dropped the call.
+        // If the writer regresses and calls it, the test crashes with a
+        // helpful TypeError instead of silently persisting a public URL.
       }),
     },
   }),
@@ -66,9 +76,12 @@ vi.mock("@/lib/supabase/server", () => ({
 vi.mock("@/lib/db", () => ({
   db: {
     insert: () => ({
-      values: () => ({
-        returning: async () => [{ id: "asset-1" }],
-      }),
+      values: (payload: unknown) => {
+        insertValuesMock(payload);
+        return {
+          returning: async () => [{ id: "asset-1" }],
+        };
+      },
     }),
     update: () => ({
       set: () => ({
@@ -191,6 +204,28 @@ describe("generateCover editedPrompt branch", () => {
       expect(call[0].prompt).toBe("EDITED PROMPT FROM THE VA");
       expect(call[0].prompt).not.toContain("USER FEEDBACK");
       expect(call[0].prompt).not.toContain("softer please");
+    }
+  });
+});
+
+describe("generateCover signed-URLs Stage 4 contract", () => {
+  test("persists storagePath and url:'' for every variant; never a public URL", async () => {
+    await runHandler({ packageId: "pkg-1", userId: "user-1" });
+
+    // Two insert paths share module="cover": generation_jobs (create-job)
+    // and generated_assets (finalize). Pick the one with a content payload.
+    const assetPayload = insertValuesMock.mock.calls
+      .map((c) => c[0] as Record<string, unknown>)
+      .find((p) => p.module === "cover" && "content" in p);
+
+    expect(assetPayload).toBeDefined();
+    const content = assetPayload!.content as {
+      variants: { url: string; storagePath: string; index: number }[];
+    };
+    expect(content.variants).toHaveLength(3);
+    for (const v of content.variants) {
+      expect(v.url).toBe("");
+      expect(v.storagePath).toMatch(/^pkg-1\/variant-[123]\.png$/);
     }
   });
 });

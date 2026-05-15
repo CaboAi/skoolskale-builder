@@ -10,6 +10,7 @@ const {
   buildCalendarCoverPromptMock,
   imageProviderGenerateMock,
   uploadMock,
+  insertValuesMock,
 } = vi.hoisted(() => ({
   buildCalendarCoverPromptMock: vi.fn<(...args: unknown[]) => string>(
     () => "BUILT BY THE BUILDER",
@@ -18,6 +19,7 @@ const {
     (input: { prompt: string }) => Promise<{ images: Buffer[]; costUsd: number }>
   >(async () => ({ images: [Buffer.from("img")], costUsd: 0.045 })),
   uploadMock: vi.fn(async () => ({ error: null })),
+  insertValuesMock: vi.fn(),
 }));
 
 vi.mock("@/lib/inngest/client", () => ({
@@ -45,7 +47,7 @@ vi.mock("@/lib/supabase/server", () => ({
     storage: {
       from: () => ({
         upload: uploadMock,
-        getPublicUrl: () => ({ data: { publicUrl: "https://test/img.png" } }),
+        // Intentionally NO getPublicUrl mock — Stage 4 dropped the call.
       }),
     },
   }),
@@ -54,9 +56,12 @@ vi.mock("@/lib/supabase/server", () => ({
 vi.mock("@/lib/db", () => ({
   db: {
     insert: () => ({
-      values: () => ({
-        returning: async () => [{ id: "asset-1" }],
-      }),
+      values: (payload: unknown) => {
+        insertValuesMock(payload);
+        return {
+          returning: async () => [{ id: "asset-1" }],
+        };
+      },
     }),
     update: () => ({ set: () => ({ where: async () => undefined }) }),
     select: () => ({
@@ -167,5 +172,30 @@ describe("generateCalendarCover editedPrompt branch", () => {
     const passed = imageProviderGenerateMock.mock.calls[0][0].prompt;
     expect(passed).toBe("EDITED PROMPT FROM THE VA");
     expect(passed).not.toContain("softer please");
+  });
+});
+
+describe("generateCalendarCover signed-URLs Stage 4 contract", () => {
+  test("persists storagePath and url:'' (no public URL)", async () => {
+    await runHandler({ packageId: "pkg-1", userId: "user-1" });
+
+    const assetPayload = insertValuesMock.mock.calls
+      .map((c) => c[0] as Record<string, unknown>)
+      .find((p) => p.module === "calendar_cover" && "content" in p);
+
+    expect(assetPayload).toBeDefined();
+    expect(assetPayload).toMatchObject({
+      packageId: "pkg-1",
+      module: "calendar_cover",
+      content: {
+        variants: [
+          {
+            url: "",
+            storagePath: "pkg-1/calendar_cover/variant-0.png",
+            index: 0,
+          },
+        ],
+      },
+    });
   });
 });

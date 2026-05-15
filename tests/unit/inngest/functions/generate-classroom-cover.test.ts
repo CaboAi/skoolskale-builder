@@ -49,7 +49,7 @@ vi.mock("@/lib/supabase/server", () => ({
     storage: {
       from: () => ({
         upload: uploadMock,
-        getPublicUrl: () => ({ data: { publicUrl: "https://test/img.png" } }),
+        // Intentionally NO getPublicUrl mock — Stage 4 dropped the call.
       }),
     },
   }),
@@ -177,8 +177,8 @@ describe("generateClassroomCover editedPrompt branch", () => {
   });
 });
 
-describe("generateClassroomCover storagePath persistence", () => {
-  test("persists storagePath alongside url in generated_assets.content", async () => {
+describe("generateClassroomCover signed-URLs Stage 4 contract", () => {
+  test("persists storagePath and url:'' (no public URL)", async () => {
     await runHandler({ packageId: "pkg-1", userId: "user-1" });
 
     // Two inserts share module="classroom_cover": generation_jobs (create-job)
@@ -195,7 +195,7 @@ describe("generateClassroomCover storagePath persistence", () => {
       content: {
         variants: [
           {
-            url: expect.any(String),
+            url: "",
             storagePath: "pkg-1/classroom_cover/variant-0.png",
             index: 0,
           },
