@@ -144,15 +144,15 @@ export const generateIcon = inngest.createFunction(
                 `icon upload failed for variant ${idx}: ${upErr.message}`,
               );
             }
-            const { data: pub } = supabase.storage
-              .from(IMAGE_BUCKET)
-              .getPublicUrl(path);
-
+            // Signed-URLs migration Stage 4: bucket is private. We persist
+            // `url: ""` and rely on `storagePath` as the source of truth.
+            // Stage 3 readers (resolveAssetUrls) rewrite the URL with a
+            // fresh 1-hour signed URL on every page render.
             const durationMs = Date.now() - start;
             console.log(
-              `${tag} variant-${idx} done url=${pub.publicUrl} ms=${durationMs} attempts=${attempt}`,
+              `${tag} variant-${idx} done path=${path} ms=${durationMs} attempts=${attempt}`,
             );
-            return { url: pub.publicUrl, storagePath: path, index: i, durationMs };
+            return { url: "", storagePath: path, index: i, durationMs };
           } catch (err) {
             lastErr = err;
             const msg = err instanceof Error ? err.message : String(err);

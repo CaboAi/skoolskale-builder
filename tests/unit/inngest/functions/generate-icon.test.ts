@@ -9,16 +9,21 @@
  */
 import { describe, expect, test, vi, beforeEach } from "vitest";
 
-const { buildIconPromptMock, imageProviderGenerateMock, uploadMock } =
-  vi.hoisted(() => ({
-    buildIconPromptMock: vi.fn<(input: { style: string }) => string>(
-      (input) => `BUILT FOR ${input.style.toUpperCase()}`,
-    ),
-    imageProviderGenerateMock: vi.fn<
-      (input: { prompt: string }) => Promise<{ images: Buffer[]; costUsd: number }>
-    >(async () => ({ images: [Buffer.from("img")], costUsd: 0.045 })),
-    uploadMock: vi.fn(async () => ({ error: null })),
-  }));
+const {
+  buildIconPromptMock,
+  imageProviderGenerateMock,
+  uploadMock,
+  insertValuesMock,
+} = vi.hoisted(() => ({
+  buildIconPromptMock: vi.fn<(input: { style: string }) => string>(
+    (input) => `BUILT FOR ${input.style.toUpperCase()}`,
+  ),
+  imageProviderGenerateMock: vi.fn<
+    (input: { prompt: string }) => Promise<{ images: Buffer[]; costUsd: number }>
+  >(async () => ({ images: [Buffer.from("img")], costUsd: 0.045 })),
+  uploadMock: vi.fn(async () => ({ error: null })),
+  insertValuesMock: vi.fn(),
+}));
 
 vi.mock("@/lib/inngest/client", () => ({
   inngest: {
@@ -47,7 +52,7 @@ vi.mock("@/lib/supabase/server", () => ({
     storage: {
       from: () => ({
         upload: uploadMock,
-        getPublicUrl: () => ({ data: { publicUrl: "https://test/img.png" } }),
+        // Intentionally NO getPublicUrl mock — Stage 4 dropped the call.
       }),
     },
   }),
@@ -56,9 +61,12 @@ vi.mock("@/lib/supabase/server", () => ({
 vi.mock("@/lib/db", () => ({
   db: {
     insert: () => ({
-      values: () => ({
-        returning: async () => [{ id: "asset-1" }],
-      }),
+      values: (payload: unknown) => {
+        insertValuesMock(payload);
+        return {
+          returning: async () => [{ id: "asset-1" }],
+        };
+      },
     }),
     update: () => ({ set: () => ({ where: async () => undefined }) }),
     select: () => ({
@@ -175,6 +183,26 @@ describe("generateIcon editedPrompt branch", () => {
     for (const call of imageProviderGenerateMock.mock.calls) {
       expect(call[0].prompt).toBe("EDITED PROMPT FROM THE VA");
       expect(call[0].prompt).not.toContain("softer please");
+    }
+  });
+});
+
+describe("generateIcon signed-URLs Stage 4 contract", () => {
+  test("persists storagePath and url:'' for every variant; never a public URL", async () => {
+    await runHandler({ packageId: "pkg-1", userId: "user-1" });
+
+    const assetPayload = insertValuesMock.mock.calls
+      .map((c) => c[0] as Record<string, unknown>)
+      .find((p) => p.module === "icon" && "content" in p);
+
+    expect(assetPayload).toBeDefined();
+    const content = assetPayload!.content as {
+      variants: { url: string; storagePath: string; index: number }[];
+    };
+    expect(content.variants).toHaveLength(3);
+    for (const v of content.variants) {
+      expect(v.url).toBe("");
+      expect(v.storagePath).toMatch(/^pkg-1\/icon\/variant-[123]\.png$/);
     }
   });
 });
