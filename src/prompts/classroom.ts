@@ -70,13 +70,6 @@ ${ex.content}
     .map((t, i) => `${i + 1}. ${t}`)
     .join('\n');
 
-  const offer = input.creator.offer_breakdown;
-  const courses = offer.courses?.length
-    ? offer.courses
-        .map((c) => `- ${c.name}${c.description ? `: ${c.description}` : ''}`)
-        .join('\n')
-    : '<!-- no courses listed -->';
-
   return `<examples>
 ${examples || '<!-- no examples available -->'}
 </examples>
@@ -88,8 +81,6 @@ Niche: ${input.creator.niche}
 Audience: ${input.creator.audience}
 Transformation promise: ${input.creator.transformation}
 Tone: ${input.creator.tone}
-Courses in the offer:
-${courses}
 </creator_context>
 
 <classroom_titles>

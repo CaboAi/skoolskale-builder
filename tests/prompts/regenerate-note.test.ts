@@ -44,12 +44,10 @@ function makeCreator(): CreatorContext {
     transformation: "reclaim your power",
     tone: "warm",
     offer_breakdown: {
-      courses: [{ name: "Foundations" }],
       perks: [],
-      events: [],
       guest_sessions: false,
     },
-    pricing: { monthly: 47, annual: 470, tiers: [] },
+    pricing: { monthly: 47, annual: 470, additional_tiers: [] },
     trial_terms: { has_trial: false, duration_days: 7 as const },
     refund_policy: "14-day refund",
     support_contact: "support@example.test",

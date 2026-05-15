@@ -43,14 +43,21 @@ ${ex.content}
     )
     .join('\n\n');
 
-  const offer = input.creator.offer_breakdown;
+  // Offer hints pull from the intake surfaces that still exist: classroom
+  // titles (step 5) and calendar event titles (step 5). The old free-form
+  // `offer_breakdown.courses` / `offer_breakdown.events` strings were
+  // dropped because they duplicated those structured sources.
   const offerHints: string[] = [];
-  if (offer.courses?.length) {
+  const classroomTitles = input.creator.classroom_titles ?? [];
+  if (classroomTitles.length) {
+    offerHints.push(`courses: ${classroomTitles.join(', ')}`);
+  }
+  const calendarEvents = input.creator.calendar_intake?.events ?? [];
+  if (calendarEvents.length) {
     offerHints.push(
-      `courses: ${offer.courses.map((c) => c.name).join(', ')}`,
+      `events: ${calendarEvents.map((e) => e.title).join(', ')}`,
     );
   }
-  if (offer.events?.length) offerHints.push(`events: ${offer.events.join(', ')}`);
 
   return `<examples>
 ${examples || '<!-- no examples available -->'}
