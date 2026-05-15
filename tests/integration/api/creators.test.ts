@@ -103,12 +103,10 @@ const VALID_CREATOR = {
   transformation: 'Reclaim your power',
   tone: 'warm',
   offer_breakdown: {
-    courses: [{ name: 'Foundations' }],
     perks: ['private podcast'],
-    events: [],
     guest_sessions: false,
   },
-  pricing: { monthly: 47, annual: 470, tiers: [] },
+  pricing: { monthly: 47, annual: 470, additional_tiers: [] },
   trial_terms: { has_trial: true, duration_days: 7 },
   refund_policy: '14 days, no questions',
   support_contact: 'support@alchemy.co',

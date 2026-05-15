@@ -28,12 +28,10 @@ function buildInput(
       transformation: 't',
       tone: 'direct',
       offer_breakdown: {
-        courses: [],
         perks: [],
-        events: [],
         guest_sessions: false,
       },
-      pricing: { tiers: [] },
+      pricing: { additional_tiers: [] },
       trial_terms: { has_trial: false, duration_days: 7 as const },
       refund_policy: '',
       support_contact: 'x',

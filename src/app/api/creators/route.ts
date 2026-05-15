@@ -57,12 +57,10 @@ export async function POST(req: NextRequest) {
       transformation: '',
       tone: 'warm',
       offerBreakdown: {
-        courses: [],
         perks: [],
-        events: [],
         guest_sessions: false,
       },
-      pricing: { tiers: [] },
+      pricing: { additional_tiers: [] },
       trialTerms: { has_trial: false, duration_days: 7 },
       refundPolicy: '',
       supportContact: body.support_contact,

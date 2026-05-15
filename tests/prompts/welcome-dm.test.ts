@@ -13,12 +13,10 @@ const MINIMAL_INPUT: GeneratorInput = {
     transformation: 'reclaim power',
     tone: 'warm',
     offer_breakdown: {
-      courses: [],
       perks: [],
-      events: [],
       guest_sessions: false,
     },
-    pricing: { tiers: [] },
+    pricing: { additional_tiers: [] },
     trial_terms: { has_trial: false, duration_days: 7 },
     refund_policy: '',
     support_contact: 'Ramsha A.',

@@ -1,7 +1,6 @@
 'use client';
 
 import type { IntakeFormReturn } from '../wizard';
-import type { CreatorIntake } from '@/types/schemas';
 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,14 +19,8 @@ export function Step2Offer({ form }: Props) {
 
   const offer = watch('offer_breakdown');
 
-  const setCourses = (courses: CreatorIntake['offer_breakdown']['courses']) =>
-    setValue('offer_breakdown.courses', courses, { shouldDirty: true });
-
   const setPerks = (perks: string[]) =>
     setValue('offer_breakdown.perks', perks, { shouldDirty: true });
-
-  const setEvents = (events: string[]) =>
-    setValue('offer_breakdown.events', events, { shouldDirty: true });
 
   return (
     <section className="space-y-5">
@@ -61,53 +54,12 @@ export function Step2Offer({ form }: Props) {
         ) : null}
       </div>
 
-      {/* Courses */}
-      <div className="space-y-2">
-        <Label>Courses</Label>
-        {offer.courses.map((c, i) => (
-          <div key={i} className="flex gap-2">
-            <Input
-              value={c.name}
-              onChange={(e) => {
-                const next = [...offer.courses];
-                next[i] = { ...next[i], name: e.target.value };
-                setCourses(next);
-              }}
-              placeholder="Course name"
-            />
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setCourses(offer.courses.filter((_, idx) => idx !== i))}
-            >
-              Remove
-            </Button>
-          </div>
-        ))}
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => setCourses([...offer.courses, { name: '' }])}
-        >
-          Add course
-        </Button>
-      </div>
-
       {/* Perks */}
       <StringListField
         label="Perks"
         placeholder="Private podcast, community Q&A, ..."
         values={offer.perks}
         onChange={setPerks}
-      />
-
-      {/* Events */}
-      <StringListField
-        label="Events"
-        placeholder="Quarterly retreat, monthly workshop, ..."
-        values={offer.events}
-        onChange={setEvents}
-        maxItems={10}
       />
 
       {/* Guest sessions */}

@@ -10,6 +10,9 @@ import { Button } from '@/components/ui/button';
 
 type Props = { form: IntakeFormReturn };
 
+const TIER_ORDER = ['Premium', 'VIP'] as const;
+type TierName = (typeof TIER_ORDER)[number];
+
 export function Step3Pricing({ form }: Props) {
   const {
     register,
@@ -20,9 +23,41 @@ export function Step3Pricing({ form }: Props) {
 
   const pricing = watch('pricing');
   const trial = watch('trial_terms');
+  const additionalTiers = pricing.additional_tiers ?? [];
 
-  const setTiers = (tiers: CreatorIntake['pricing']['tiers']) =>
-    setValue('pricing.tiers', tiers, { shouldDirty: true });
+  const setTiers = (
+    tiers: CreatorIntake['pricing']['additional_tiers'],
+  ) =>
+    setValue('pricing.additional_tiers', tiers, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+
+  // Order invariant: Premium first, VIP only with Premium present. Adding the
+  // next tier picks the next name in TIER_ORDER. Removing Premium cascades to
+  // VIP so the array can never carry a lone VIP — matches the schema refine.
+  const nextTierName: TierName | null =
+    additionalTiers.length < TIER_ORDER.length
+      ? TIER_ORDER[additionalTiers.length]
+      : null;
+
+  function addNextTier() {
+    if (!nextTierName) return;
+    setTiers([...additionalTiers, { name: nextTierName, price: '' }]);
+  }
+
+  function removeTierAt(i: number) {
+    // Removing Premium (i=0) drops everything after it (cascade); removing VIP
+    // (i=1) just pops the last row. Both reduce to "keep the first i rows".
+    setTiers(additionalTiers.slice(0, i));
+  }
+
+  function setTierPrice(i: number, price: string) {
+    const next = additionalTiers.map((row, idx) =>
+      idx === i ? { ...row, price } : row,
+    );
+    setTiers(next);
+  }
 
   return (
     <section className="space-y-5">
@@ -53,45 +88,46 @@ export function Step3Pricing({ form }: Props) {
         </div>
       </div>
 
-      {/* Tiers */}
+      {/* Additional tiers — locked Premium / VIP labels */}
       <div className="space-y-2">
         <Label>Additional tiers (optional)</Label>
-        {pricing.tiers.map((t, i) => (
-          <div key={i} className="flex gap-2">
-            <Input
-              value={t.name}
-              onChange={(e) => {
-                const next = [...pricing.tiers];
-                next[i] = { ...next[i], name: e.target.value };
-                setTiers(next);
-              }}
-              placeholder="Tier name (e.g. VIP)"
-            />
-            <Input
-              value={t.price}
-              onChange={(e) => {
-                const next = [...pricing.tiers];
-                next[i] = { ...next[i], price: e.target.value };
-                setTiers(next);
-              }}
-              placeholder="Price (text)"
-            />
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setTiers(pricing.tiers.filter((_, idx) => idx !== i))}
-            >
-              Remove
-            </Button>
-          </div>
-        ))}
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => setTiers([...pricing.tiers, { name: '', price: '' }])}
-        >
-          Add tier
-        </Button>
+        {additionalTiers.map((tier, i) => {
+          const priceId = `tier-${tier.name.toLowerCase()}-price`;
+          return (
+            <div key={tier.name} className="flex items-center gap-2">
+              <span
+                className="inline-flex h-9 min-w-[80px] items-center justify-center rounded-md border bg-muted px-3 text-sm font-medium"
+                aria-label={`${tier.name} tier`}
+              >
+                {tier.name}
+              </span>
+              <Input
+                id={priceId}
+                value={tier.price}
+                onChange={(e) => setTierPrice(i, e.target.value)}
+                placeholder="Price (text)"
+                aria-label={`${tier.name} price`}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => removeTierAt(i)}
+              >
+                Remove
+              </Button>
+            </div>
+          );
+        })}
+        {nextTierName ? (
+          <Button type="button" variant="outline" onClick={addNextTier}>
+            Add {nextTierName} tier
+          </Button>
+        ) : null}
+        {additionalTiers.length === 1 ? (
+          <p className="text-xs text-muted-foreground">
+            Removing Premium will also remove VIP — tiers must stay in order.
+          </p>
+        ) : null}
       </div>
 
       {/* Trial */}

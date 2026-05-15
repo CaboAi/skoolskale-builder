@@ -176,24 +176,43 @@ export const CreatorIntakeSchema = z.object({
   transformation: z.string().min(1),
   tone: ToneEnum,
   offer_breakdown: z.object({
-    courses: z
-      .array(
-        z.object({
-          name: z.string(),
-          description: z.string().optional(),
-        }),
-      )
-      .default([]),
+    // `courses` lived here historically but is now superseded by
+    // `classroom_titles` (step 5). `events` likewise moved to
+    // `calendar_intake.events`. Both were dropped from offer_breakdown
+    // to remove duplicate intake surfaces — see CHANGELOG.
     perks: z.array(z.string()).default([]),
-    events: z.array(z.string()).max(10).default([]),
     guest_sessions: z.boolean().default(false),
   }),
   pricing: z.object({
     monthly: z.number().optional(),
     annual: z.number().optional(),
-    tiers: z
-      .array(z.object({ name: z.string(), price: z.string() }))
-      .default([]),
+    /**
+     * Skool supports two "additional" tiers beyond monthly/annual: Premium
+     * and VIP, in that order. Names are locked because Skool's UI renders
+     * them with fixed labels; only the price is creator-supplied. The
+     * wizard cascade-removes VIP when Premium is removed to preserve
+     * order — see `step-3.tsx`.
+     */
+    additional_tiers: z
+      .array(
+        z.object({
+          name: z.enum(['Premium', 'VIP']),
+          price: z.string(),
+        }),
+      )
+      .max(2)
+      .default([])
+      .refine(
+        (rows) => {
+          if (rows.length === 0) return true;
+          if (rows.length === 1) return rows[0].name === 'Premium';
+          return rows[0].name === 'Premium' && rows[1].name === 'VIP';
+        },
+        {
+          message:
+            'Additional tiers must be ordered: Premium first, VIP second.',
+        },
+      ),
   }),
   trial_terms: z.object({
     has_trial: z.boolean(),

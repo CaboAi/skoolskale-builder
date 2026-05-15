@@ -45,12 +45,10 @@ const DEFAULTS: CreatorIntake = {
   transformation: "",
   tone: "warm",
   offer_breakdown: {
-    courses: [],
     perks: [],
-    events: [],
     guest_sessions: false,
   },
-  pricing: { monthly: undefined, annual: undefined, tiers: [] },
+  pricing: { monthly: undefined, annual: undefined, additional_tiers: [] },
   trial_terms: { has_trial: false, duration_days: 7 },
   refund_policy: "",
   support_contact: "",
