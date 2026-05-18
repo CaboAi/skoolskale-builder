@@ -6,7 +6,10 @@ import {
   type CalendarContent,
   type CalendarEventIntake,
 } from '@/types/schemas';
-import { formatSchedule } from '@/lib/calendar/format-schedule';
+import {
+  describeRecurrence,
+  formatSchedule,
+} from '@/lib/calendar/format-schedule';
 import type { GeneratorInput } from '@/types/generators';
 import { regenerateNoteSuffix } from './_shared';
 
@@ -18,7 +21,13 @@ export const systemPrompt = `You are a copywriter for Skool communities. The com
 
 For every event the user supplies, produce one <event> with:
 1. <title> — echo the title EXACTLY as given. Do not rename, reword, translate, or "improve" it. This is non-negotiable.
-2. <description> — 1 to 2 plain-prose sentences (max ${DESCRIPTION_MAX} characters) telling a member what happens at this event and why it matters to them. Do NOT restate the cadence/time — that's rendered separately from the schedule.
+2. <description> — 1 to 2 plain-prose sentences (max ${DESCRIPTION_MAX} characters) telling a member what happens at this event and why it matters to them.
+
+Cadence handling:
+- The <cadence> tag tells you whether the event is weekly, monthly, quarterly, yearly, or one-off.
+- When the cadence is monthly, quarterly, or yearly, the cadence itself IS part of the event's value (e.g. a monthly Full Moon Ceremony, a quarterly QBR Detox). Referencing it naturally in the description is welcome — "Each month we gather to...", "Every quarter we reset...", "Once a year we...".
+- For weekly events, the cadence is already obvious from context — DON'T restate "every Monday" in the description, that's wasted budget.
+- For one-off events, the description should reflect the singular nature without restating the date.
 
 Hard rules:
 - Echo every title verbatim. Same casing, same punctuation, same words.
@@ -72,10 +81,16 @@ ${ex.content}
   }
 
   const eventsBlock = events
-    .map(
-      (e, i) =>
-        `${i + 1}. ${e.title} — ${formatSchedule(e.schedule)}`,
-    )
+    .map((e, i) => {
+      // Surface cadence + full-schedule on every event so Claude can pick
+      // up the rhythm in monthly/yearly cases without us hand-tuning each
+      // recurrence branch in prose. <cadence> is the cadence-only phrase
+      // (e.g. "The 15th of every month"); <schedule> is cadence + time +
+      // tz for context.
+      return `${i + 1}. ${e.title}
+   <cadence>${describeRecurrence(e.schedule)}</cadence>
+   <schedule>${formatSchedule(e.schedule)}</schedule>`;
+    })
     .join('\n');
 
   return `<examples>

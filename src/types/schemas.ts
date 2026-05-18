@@ -62,17 +62,33 @@ export type ClassroomTitles = z.infer<typeof ClassroomTitlesSchema>;
 /**
  * Calendar (events) schemas.
  *
- * Skool's events are either recurring weekly OR a single dated occurrence. The
- * VA picks a recurrence type per event in the wizard; the generator writes a
- * short description per event. Storage keeps time as 24-hour HH:mm in an IANA
- * timezone — the export view formats it for humans (e.g., "Every Monday at
- * 9:00 AM PST").
+ * Skool's events are recurring (weekly / monthly / yearly) or a single dated
+ * occurrence. The VA picks a recurrence type per event in the wizard; the
+ * generator writes a short description per event. Storage keeps time as
+ * 24-hour HH:mm in an IANA timezone — the export view formats it for humans
+ * (e.g., "Every Monday at 9:00 AM PST", "The 15th of every month at 9:00 AM
+ * PST", "Annually on May 8 at 9:00 AM PST").
+ *
+ * Recurrence is a discriminated union on `type`. Adding a new variant means
+ * adding a branch here AND a branch in:
+ *   - src/lib/calendar/format-schedule.ts (formatSchedule + describeRecurrence)
+ *   - src/components/wizard/EventsRepeater.tsx (form UI)
+ *   - tests covering each.
+ *
+ * Out of scope for now: nth-weekday-of-month patterns (e.g. "last Saturday")
+ * and full RRULE string export — TODOs the day a real client needs them.
  */
 const TIME_24H_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 export const CALENDAR_EVENT_TITLE_MAX = 60;
 export const CALENDAR_EVENT_DESCRIPTION_MAX = 300;
 export const CALENDAR_MAX_EVENTS = 10;
+/**
+ * Interval cap. A 12-month gap is the largest "monthly" cadence we accept;
+ * past that, the event should be `yearly`. Keeps the dropdown small and the
+ * describe helper readable.
+ */
+export const MONTHLY_INTERVAL_MAX = 12;
 
 export const WeekdayEnum = z.enum([
   'mon',
@@ -85,6 +101,31 @@ export const WeekdayEnum = z.enum([
 ]);
 export type Weekday = z.infer<typeof WeekdayEnum>;
 
+const dayOfMonthField = z
+  .number()
+  .int()
+  .min(1)
+  .max(31);
+const monthField = z.number().int().min(1).max(12);
+const intervalField = z
+  .number()
+  .int()
+  .min(1)
+  .max(MONTHLY_INTERVAL_MAX);
+
+/**
+ * (month, dayOfMonth) pairs that can never occur in any year — Feb 30, Feb 31,
+ * Apr/Jun/Sep/Nov 31. Feb 29 is intentionally allowed: yearly events can land
+ * "leap year only" and Skool's calendar handles that fine; we don't try to be
+ * clever about it.
+ */
+function isImpossibleDate(month: number, day: number): boolean {
+  if (day < 1 || day > 31) return true;
+  if (month === 2 && day > 29) return true;
+  if ([4, 6, 9, 11].includes(month) && day === 31) return true;
+  return false;
+}
+
 export const EventScheduleSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('weekly'),
@@ -92,6 +133,40 @@ export const EventScheduleSchema = z.discriminatedUnion('type', [
     time: z.string().regex(TIME_24H_RE, 'Time must be HH:mm (24-hour)'),
     timezone: z.string().min(1),
   }),
+  /**
+   * Monthly: fires on `dayOfMonth` every `interval` months. dayOfMonth is
+   * 1-31 with NO refinement against short months — months that don't have
+   * that day (e.g. day 31 in Feb/Apr/Jun/Sep/Nov) are skipped by Skool's
+   * calendar at render time. This matches RRULE BYMONTHDAY semantics and
+   * avoids forcing the VA to pick "the 28th" just because Feb exists.
+   */
+  z.object({
+    type: z.literal('monthly'),
+    dayOfMonth: dayOfMonthField,
+    interval: intervalField.default(1),
+    time: z.string().regex(TIME_24H_RE, 'Time must be HH:mm (24-hour)'),
+    timezone: z.string().min(1),
+  }),
+  /**
+   * Yearly: fires on (month, dayOfMonth) once a year. The (month, day) pair
+   * must be a real date — Feb 30, Apr 31, etc. are rejected. Feb 29 is
+   * allowed and lands leap-year only.
+   */
+  z
+    .object({
+      type: z.literal('yearly'),
+      month: monthField,
+      dayOfMonth: dayOfMonthField,
+      time: z.string().regex(TIME_24H_RE, 'Time must be HH:mm (24-hour)'),
+      timezone: z.string().min(1),
+    })
+    .refine(
+      (s) => !isImpossibleDate(s.month, s.dayOfMonth),
+      {
+        message: 'Date does not exist (e.g. Feb 30, Apr 31).',
+        path: ['dayOfMonth'],
+      },
+    ),
   z.object({
     type: z.literal('one_off'),
     date: z.string().regex(ISO_DATE_RE, 'Date must be YYYY-MM-DD'),

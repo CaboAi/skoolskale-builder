@@ -1,23 +1,48 @@
 import { describe, expect, test } from 'vitest';
-import { parseOutput } from '@/prompts/calendar';
+import { buildUserMessage, parseOutput } from '@/prompts/calendar';
+import type { EventSchedule } from '@/types/schemas';
 import type { GeneratorInput } from '@/types/generators';
 
-const WEEKLY = {
-  type: 'weekly' as const,
-  dayOfWeek: 'mon' as const,
+const WEEKLY: EventSchedule = {
+  type: 'weekly',
+  dayOfWeek: 'mon',
   time: '09:00',
   timezone: 'America/New_York',
 };
 
-const ONE_OFF = {
-  type: 'one_off' as const,
+const ONE_OFF: EventSchedule = {
+  type: 'one_off',
   date: '2026-08-08',
   time: '11:00',
   timezone: 'America/Los_Angeles',
 };
 
+const MONTHLY: EventSchedule = {
+  type: 'monthly',
+  dayOfMonth: 15,
+  interval: 1,
+  time: '20:00',
+  timezone: 'America/New_York',
+};
+
+const QUARTERLY: EventSchedule = {
+  type: 'monthly',
+  dayOfMonth: 1,
+  interval: 3,
+  time: '09:00',
+  timezone: 'America/New_York',
+};
+
+const YEARLY: EventSchedule = {
+  type: 'yearly',
+  month: 5,
+  dayOfMonth: 8,
+  time: '09:00',
+  timezone: 'America/New_York',
+};
+
 function buildInput(
-  events: { title: string; schedule: typeof WEEKLY | typeof ONE_OFF }[],
+  events: { title: string; schedule: EventSchedule }[],
 ): GeneratorInput {
   return {
     creator: {
@@ -119,5 +144,76 @@ describe('calendar.parseOutput', () => {
     const raw = `<calendar><event><title>X</title><description>d</description></event></calendar>`;
     const out = parseOutput(raw);
     expect(out.events[0].schedule.type).toBe('weekly');
+  });
+
+  test('preserves monthly schedule (dayOfMonth + interval) through index stitching', () => {
+    const raw = `<calendar><event><title>Full Moon Ceremony</title><description>Each month we gather to release and reset.</description></event></calendar>`;
+    const out = parseOutput(
+      raw,
+      buildInput([{ title: 'Full Moon Ceremony', schedule: MONTHLY }]),
+    );
+    expect(out.events[0].schedule).toEqual(MONTHLY);
+  });
+
+  test('preserves yearly schedule (month + dayOfMonth) through index stitching', () => {
+    const raw = `<calendar><event><title>Spring Equinox Ritual</title><description>Once a year we mark the seasonal turn.</description></event></calendar>`;
+    const out = parseOutput(
+      raw,
+      buildInput([{ title: 'Spring Equinox Ritual', schedule: YEARLY }]),
+    );
+    expect(out.events[0].schedule).toEqual(YEARLY);
+  });
+});
+
+describe('calendar.buildUserMessage', () => {
+  test('renders <cadence> + <schedule> tags for weekly events', () => {
+    const msg = buildUserMessage(
+      buildInput([{ title: 'Weekly Q&A', schedule: WEEKLY }]),
+    );
+    expect(msg).toMatch(/<cadence>Every Monday<\/cadence>/);
+    expect(msg).toMatch(/<schedule>Every Monday at 9:00 AM /);
+  });
+
+  test('threads monthly cadence into the prompt', () => {
+    const msg = buildUserMessage(
+      buildInput([{ title: 'Full Moon Ceremony', schedule: MONTHLY }]),
+    );
+    expect(msg).toMatch(/<cadence>The 15th of every month<\/cadence>/);
+  });
+
+  test('threads quarterly (monthly interval=3) cadence into the prompt', () => {
+    const msg = buildUserMessage(
+      buildInput([{ title: 'QBR Detox', schedule: QUARTERLY }]),
+    );
+    expect(msg).toContain('quarterly');
+  });
+
+  test('threads yearly cadence into the prompt', () => {
+    const msg = buildUserMessage(
+      buildInput([{ title: 'Spring Equinox Ritual', schedule: YEARLY }]),
+    );
+    expect(msg).toMatch(/<cadence>Annually on May 8<\/cadence>/);
+  });
+
+  test('mixes all four recurrence types in one prompt without losing order', () => {
+    const msg = buildUserMessage(
+      buildInput([
+        { title: 'Weekly Q&A', schedule: WEEKLY },
+        { title: 'Full Moon Ceremony', schedule: MONTHLY },
+        { title: 'QBR Detox', schedule: QUARTERLY },
+        { title: 'Annual Retreat', schedule: YEARLY },
+        { title: 'Launch Workshop', schedule: ONE_OFF },
+      ]),
+    );
+    const weeklyIdx = msg.indexOf('Weekly Q&A');
+    const monthlyIdx = msg.indexOf('Full Moon Ceremony');
+    const quarterlyIdx = msg.indexOf('QBR Detox');
+    const yearlyIdx = msg.indexOf('Annual Retreat');
+    const oneOffIdx = msg.indexOf('Launch Workshop');
+    expect(weeklyIdx).toBeGreaterThan(-1);
+    expect(monthlyIdx).toBeGreaterThan(weeklyIdx);
+    expect(quarterlyIdx).toBeGreaterThan(monthlyIdx);
+    expect(yearlyIdx).toBeGreaterThan(quarterlyIdx);
+    expect(oneOffIdx).toBeGreaterThan(yearlyIdx);
   });
 });
