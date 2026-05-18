@@ -1,7 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { useFieldArray, useForm, type Control } from "react-hook-form";
+import {
+  useFieldArray,
+  useForm,
+  useWatch,
+  type Control,
+} from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,7 +19,13 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
-import { AboutUsSchema, type AboutUsOutput } from "@/prompts/about-us";
+import {
+  ABOUT_US_MAX_CHARS,
+  AboutUsSchema,
+  type AboutUsOutput,
+} from "@/prompts/about-us";
+import { renderAboutUsText } from "@/lib/modules/render";
+import { cn } from "@/lib/utils";
 
 /**
  * Structured edit form for the About Us module (PR #15 follow-up).
@@ -40,10 +51,14 @@ import { AboutUsSchema, type AboutUsOutput } from "@/prompts/about-us";
 
 type TabKey = "hero" | "buckets" | "pricing" | "refund";
 
-const MIN_BUCKETS = 3;
-const MAX_BUCKETS = 6;
-const MIN_ITEMS = 2;
-const MAX_ITEMS = 8;
+// Tightened to match the Skool char-cap structure: at most 3 buckets,
+// exactly one line per bucket. Legacy multi-item assets render their
+// extra items but the Add-item button is gated to one — VAs trim down
+// before saving.
+const MIN_BUCKETS = 1;
+const MAX_BUCKETS = 3;
+const MIN_ITEMS = 1;
+const MAX_ITEMS = 1;
 
 type Props = {
   initial: Partial<AboutUsOutput>;
@@ -85,6 +100,26 @@ export function AboutUsEditForm({
   } = form;
 
   const bucketArray = useFieldArray({ control, name: "value_buckets" });
+
+  // Live render — fires on every keystroke via RHF's useWatch. The
+  // counter mirrors the Skool paste-ready text length, which is what
+  // the .superRefine() validates on save.
+  const watched = useWatch({ control });
+  const renderedLen = renderAboutUsText({
+    hero: watched.hero ?? "",
+    trial_callout: watched.trial_callout ?? "",
+    value_buckets:
+      (watched.value_buckets ?? []).map((b) => ({
+        emoji: b?.emoji ?? "",
+        header: b?.header ?? "",
+        items: (b?.items ?? []).filter(
+          (x): x is string => typeof x === "string",
+        ),
+      })),
+    pricing: watched.pricing ?? "",
+    refund_policy: watched.refund_policy ?? "",
+  }).length;
+  const overCap = renderedLen > ABOUT_US_MAX_CHARS;
 
   return (
     <form onSubmit={handleSubmit(onSave)} className="space-y-4">
@@ -232,7 +267,19 @@ export function AboutUsEditForm({
         </TabsContent>
       </Tabs>
 
-      <footer className="flex justify-end gap-2 pt-2">
+      <footer className="flex flex-wrap items-center justify-end gap-2 pt-2">
+        <p
+          className={cn(
+            "mr-auto text-xs tabular-nums",
+            overCap
+              ? "font-semibold text-destructive"
+              : "text-muted-foreground",
+          )}
+          aria-live="polite"
+        >
+          {renderedLen} / {ABOUT_US_MAX_CHARS} chars
+          {overCap ? ` — ${renderedLen - ABOUT_US_MAX_CHARS} over Skool's cap` : ""}
+        </p>
         <Button
           type="button"
           variant="outline"
@@ -241,7 +288,7 @@ export function AboutUsEditForm({
         >
           Cancel
         </Button>
-        <Button type="submit" disabled={saving}>
+        <Button type="submit" disabled={saving || overCap}>
           {saving && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
           {saving ? "Saving…" : "Save"}
         </Button>

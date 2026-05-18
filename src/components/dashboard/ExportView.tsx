@@ -23,6 +23,7 @@ import type { Creator, GeneratedAsset, LaunchPackage } from "@/lib/db/schema";
 import type { CalendarEvent } from "@/types/schemas";
 import { formatSchedule } from "@/lib/calendar/format-schedule";
 import { MODULE_KEYS, type ModuleKey } from "@/lib/modules/registry";
+import { renderAboutUsText } from "@/lib/modules/render";
 
 /* -------------------------------------------------------------------------- */
 /* Content type aliases (mirror what the parsers produce)                     */
@@ -81,29 +82,11 @@ function CopyButton({
 
 /* -------------------------------------------------------------------------- */
 /* Render helpers — JSON → formatted-text the VA pastes into Skool            */
+/*                                                                            */
+/* `renderAboutUsText` lives in @/lib/modules/render so the prompt parser     */
+/* and Zod schema can use it for the Skool-cap refinement. Step helpers stay  */
+/* colocated here — they're Export-only with no parser implications.          */
 /* -------------------------------------------------------------------------- */
-
-function renderAboutUsText(c: AboutUsContent): string {
-  const buckets = c.value_buckets
-    .map((b) => {
-      const items = b.items.map((i) => `- ${i}`).join("\n");
-      return `${b.emoji} ${b.header}\n${items}`;
-    })
-    .join("\n\n");
-  return [
-    c.hero,
-    "",
-    c.trial_callout,
-    "",
-    buckets,
-    "",
-    c.pricing,
-    "",
-    c.refund_policy,
-  ]
-    .join("\n")
-    .trim();
-}
 
 function renderStep1Text(s: StartHereContent["step_1_how_to_use"]): string {
   const sections = s.sections

@@ -25,7 +25,9 @@ import {
 import { AboutUsEditForm } from "./edit-forms/AboutUsEditForm";
 import { StartHereEditForm } from "./edit-forms/StartHereEditForm";
 import type { AboutUsOutput } from "@/prompts/about-us";
+import { WELCOME_DM_MAX_CHARS } from "@/prompts/welcome-dm";
 import type { StartHereOutput } from "@/prompts/start-here";
+import { cn } from "@/lib/utils";
 import type {
   CalendarEvent,
   CalendarEventIntake,
@@ -135,12 +137,18 @@ function EditFormShell({
   description,
   children,
   saving,
+  saveDisabled = false,
+  saveDisabledReason,
   onSave,
   onCancel,
 }: {
   description: ReactNode;
   children: ReactNode;
   saving: boolean;
+  /** Per-form gate (e.g. char-cap violation). OR'd with `saving`. */
+  saveDisabled?: boolean;
+  /** Optional explainer shown next to a disabled Save button. */
+  saveDisabledReason?: ReactNode;
   onSave: () => void;
   onCancel: () => void;
 }) {
@@ -152,10 +160,15 @@ function EditFormShell({
       </DialogHeader>
       <div className="space-y-3">{children}</div>
       <DialogFooter>
+        {saveDisabled && saveDisabledReason ? (
+          <p className="mr-auto text-xs text-destructive">
+            {saveDisabledReason}
+          </p>
+        ) : null}
         <Button variant="outline" onClick={onCancel} disabled={saving}>
           Cancel
         </Button>
-        <Button onClick={onSave} disabled={saving}>
+        <Button onClick={onSave} disabled={saving || saveDisabled}>
           {saving && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
           {saving ? "Saving…" : "Save"}
         </Button>
@@ -334,10 +347,18 @@ function WelcomeDmEditForm({
 }) {
   const initial = (asset.content as WelcomeDmContent).content;
   const [text, setText] = useState(initial);
+  const len = text.length;
+  const overCap = len > WELCOME_DM_MAX_CHARS;
   return (
     <EditFormShell
       description="Welcome DM body. Must contain #NAME# and #GROUPNAME# merge tags."
       saving={saving}
+      saveDisabled={overCap}
+      saveDisabledReason={
+        overCap
+          ? `${len - WELCOME_DM_MAX_CHARS} chars over Skool's cap`
+          : undefined
+      }
       onSave={() => onSave({ content: text })}
       onCancel={onCancel}
     >
@@ -346,7 +367,17 @@ function WelcomeDmEditForm({
         onChange={(e) => setText(e.target.value)}
         rows={12}
         className="font-mono text-xs"
+        aria-invalid={overCap || undefined}
       />
+      <p
+        className={cn(
+          "text-right text-xs tabular-nums",
+          overCap ? "font-semibold text-destructive" : "text-muted-foreground",
+        )}
+        aria-live="polite"
+      >
+        {len} / {WELCOME_DM_MAX_CHARS}
+      </p>
     </EditFormShell>
   );
 }
