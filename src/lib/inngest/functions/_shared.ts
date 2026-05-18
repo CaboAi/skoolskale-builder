@@ -11,6 +11,10 @@ import type { GeneratorModule as ModuleName, GeneratorInput } from '@/types/gene
 import { toCreatorContext } from '@/types/generators';
 import { fetchPatternExamples } from '@/lib/generators/pattern-library';
 import { generate } from '@/lib/claude/generate';
+import {
+  CapViolationError,
+  buildCapRetryInstruction,
+} from '@/lib/inngest/cap-violation';
 
 /**
  * Shared helpers used by every per-module Inngest generation function.
@@ -152,16 +156,52 @@ export async function runModule<T>(params: {
 
       userMessage = params.prompt.buildUserMessage(input);
     }
-    console.log(`${tag} calling Claude (userMessage.length=${userMessage.length})`);
-    const { text, inputTokens, outputTokens, durationMs } = await generate({
-      systemPrompt: params.prompt.systemPrompt,
-      userMessage,
-      jobId: params.jobId,
-      maxTokens: params.prompt.maxTokens,
-    });
-    console.log(`${tag} Claude done in=${inputTokens} out=${outputTokens} ms=${durationMs}`);
+    // Generate + parse, with ONE cap-violation retry. The retry only
+    // fires when the parser throws CapViolationError (rendered output
+    // over the Skool char cap). Any other parse failure propagates
+    // immediately and lands in Inngest's standard retry machinery.
+    let parsed: T | null = null;
+    let attempt = 1;
+    const MAX_ATTEMPTS = 2;
+    let currentMessage = userMessage;
+    while (attempt <= MAX_ATTEMPTS) {
+      console.log(
+        `${tag} calling Claude attempt=${attempt} (userMessage.length=${currentMessage.length})`,
+      );
+      const { text, inputTokens, outputTokens, durationMs } = await generate({
+        systemPrompt: params.prompt.systemPrompt,
+        userMessage: currentMessage,
+        jobId: params.jobId,
+        maxTokens: params.prompt.maxTokens,
+      });
+      console.log(
+        `${tag} Claude done in=${inputTokens} out=${outputTokens} ms=${durationMs}`,
+      );
 
-    const parsed = params.prompt.parseOutput(text, input) as T;
+      try {
+        parsed = params.prompt.parseOutput(text, input) as T;
+        break;
+      } catch (e) {
+        if (e instanceof CapViolationError && attempt < MAX_ATTEMPTS) {
+          console.warn(
+            `${tag} cap violation ${e.actualChars}/${e.maxChars}; retrying once with rewrite-tighter follow-up`,
+          );
+          currentMessage =
+            userMessage +
+            buildCapRetryInstruction({
+              actualChars: e.actualChars,
+              maxChars: e.maxChars,
+              rawOutput: e.rawOutput,
+            });
+          attempt += 1;
+          continue;
+        }
+        throw e;
+      }
+    }
+    if (!parsed) {
+      throw new Error(`${params.module}: no output produced after retries`);
+    }
     console.log(`${tag} parsed OK; inserting asset`);
 
     const [asset] = await db

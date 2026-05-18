@@ -183,6 +183,23 @@ describe("E2E: generate-package pipeline", () => {
       );
       for (const a of assets) expect(a.content).toBeTruthy();
 
+      // Skool char-cap regression guards. Welcome DM must fit Skool's
+      // 300-char rendered cap (we generate to <=275 to leave merge-tag
+      // expansion room), and About Us must fit Skool's ~1,050 cap.
+      const welcomeDmAsset = assets.find((a) => a.module === "welcome_dm")!;
+      const welcomeContent = (welcomeDmAsset.content as { content: string })
+        .content;
+      expect(welcomeContent.length).toBeLessThanOrEqual(275);
+      expect(welcomeContent).toContain("#NAME#");
+      expect(welcomeContent).toContain("#GROUPNAME#");
+
+      const aboutUsAsset = assets.find((a) => a.module === "about_us")!;
+      const { renderAboutUsText } = await import("@/lib/modules/render");
+      const aboutRendered = renderAboutUsText(
+        aboutUsAsset.content as Parameters<typeof renderAboutUsText>[0],
+      );
+      expect(aboutRendered.length).toBeLessThanOrEqual(1050);
+
       // Cover-specific shape: 3 variants, each with a public Supabase URL
       // and a 0-based index.
       const coverAsset = assets.find((a) => a.module === "cover");

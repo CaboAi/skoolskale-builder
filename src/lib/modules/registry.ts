@@ -94,6 +94,20 @@ export interface ModuleConfig {
    * /modules/[module]/select-variant API route.
    */
   hasVariants?: boolean;
+  /**
+   * Soft length aim threaded into the prompt. Optional — only set for
+   * modules where Skool enforces a hard character cap and the prompt
+   * needs an explicit budget. Counted against the rendered text that
+   * the VA pastes into Skool, not the JSON envelope.
+   */
+  targetChars?: number;
+  /**
+   * Hard length cap enforced by the parser + Zod schema. Outputs above
+   * this length throw CapViolationError, trigger one automatic retry
+   * with a "rewrite tighter" follow-up, then fail the job if the retry
+   * is also over. Skool truncates or rejects pastes above this length.
+   */
+  maxChars?: number;
 }
 
 export const MODULE_REGISTRY: Record<ModuleKey, ModuleConfig> = {
@@ -105,6 +119,12 @@ export const MODULE_REGISTRY: Record<ModuleKey, ModuleConfig> = {
     cardVariant: "simple-text",
     includedByDefault: true,
     eventName: "generate.welcome_dm.requested",
+    // #NAME# (6 chars) and #GROUPNAME# (11 chars) expand at Skool send time.
+    // Worst-case net expansion is ~25 chars (e.g. 'Christopher' + 'The Calm
+    // Closer Locker Room'). We generate under 275 to guarantee the rendered
+    // DM stays under Skool's 300-char cap.
+    targetChars: 250,
+    maxChars: 275,
   },
   transformation: {
     key: "transformation",
@@ -123,6 +143,10 @@ export const MODULE_REGISTRY: Record<ModuleKey, ModuleConfig> = {
     cardVariant: "about-us",
     includedByDefault: true,
     eventName: "generate.about_us.requested",
+    // Skool's About Us field truncates around 1,050 chars. Two real deployed
+    // examples landed at 971 and 1,028 chars. Generate to 900 to leave slack.
+    targetChars: 900,
+    maxChars: 1050,
   },
   start_here: {
     key: "start_here",

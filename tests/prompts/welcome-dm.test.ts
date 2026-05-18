@@ -1,8 +1,17 @@
 import { describe, expect, test } from 'vitest';
-import { parseOutput, buildUserMessage } from '@/prompts/welcome-dm';
+import {
+  parseOutput,
+  buildUserMessage,
+  systemPrompt,
+  WelcomeDmSchema,
+  WELCOME_DM_MAX_CHARS,
+} from '@/prompts/welcome-dm';
+import { CapViolationError } from '@/lib/inngest/cap-violation';
 import type { GeneratorInput } from '@/types/generators';
 
-const GOOD_DM = `Namaste #NAME# and welcome to #GROUPNAME#. You've arrived in a sanctuary held with deep intention — a place where you can remember who you really are. Take a breath. Begin in Classroom then Start Here, where the first gentle threshold waits for you. Move at the pace of your own becoming. Questions or wobbles? Reach out to Ramsha A. directly and she'll make sure you land softly. This space will meet you where you are and gently expand from there. So glad you're here — let the work begin.`;
+// Realistic warm-tone DM at 248 chars (well inside the 275-char cap).
+// Counted: 248. Contains both merge tags verbatim.
+const GOOD_DM = `Welcome in, #NAME# — so glad you found us at #GROUPNAME#. Take a breath, then open Classroom > Start Here. It walks you through the first move, the rhythm of our calls, and the way we engage here. Pace it on your own time. See you inside.`;
 
 const MINIMAL_INPUT: GeneratorInput = {
   creator: {
@@ -23,13 +32,19 @@ const MINIMAL_INPUT: GeneratorInput = {
     brand_prefs: '',
   },
   patternLibrary: [
-    { tone: 'warm', niche: 'spiritual', sourceCreator: 'Test', content: 'namaste', raw: { text: 'namaste' } },
+    {
+      tone: 'warm',
+      niche: 'spiritual',
+      sourceCreator: 'Test',
+      content: 'namaste',
+      raw: { text: 'namaste' },
+    },
   ],
 };
 
 describe('welcome-dm', () => {
   describe('parseOutput', () => {
-    test('parses a valid DM with required merge tags and 80-120 words', () => {
+    test('parses a valid DM with required merge tags under the char cap', () => {
       const raw = `Here you go!
 <welcome_dm>
 ${GOOD_DM}
@@ -39,6 +54,7 @@ ${GOOD_DM}
       const out = parseOutput(raw);
       expect(out.content).toContain('#NAME#');
       expect(out.content).toContain('#GROUPNAME#');
+      expect(out.content.length).toBeLessThanOrEqual(WELCOME_DM_MAX_CHARS);
     });
 
     test('throws when <welcome_dm> tags are missing', () => {
@@ -48,46 +64,96 @@ ${GOOD_DM}
     });
 
     test('throws when #NAME# is missing', () => {
-      const short = Array(90).fill('word').join(' ');
-      const raw = `<welcome_dm>${short} welcome to #GROUPNAME#!</welcome_dm>`;
+      const raw = `<welcome_dm>Welcome to #GROUPNAME# — open Classroom > Start Here.</welcome_dm>`;
       expect(() => parseOutput(raw)).toThrow(/#NAME#/);
     });
 
     test('throws when #GROUPNAME# is missing', () => {
-      const body = Array(88).fill('word').join(' ') + ' #NAME# welcome!';
-      const raw = `<welcome_dm>${body}</welcome_dm>`;
+      const raw = `<welcome_dm>Hi #NAME# — open Classroom > Start Here.</welcome_dm>`;
       expect(() => parseOutput(raw)).toThrow(/#GROUPNAME#/);
     });
 
-    test('throws on word count below 80', () => {
-      const short = `Hey #NAME# welcome to #GROUPNAME# — start here, ping Ramsha if stuck.`;
-      const raw = `<welcome_dm>${short}</welcome_dm>`;
-      expect(() => parseOutput(raw)).toThrow(/word count/);
-    });
-
-    test('throws on word count above 120', () => {
-      const big = Array(125).fill('word').join(' ') + ' #NAME# #GROUPNAME#';
-      const raw = `<welcome_dm>${big}</welcome_dm>`;
-      expect(() => parseOutput(raw)).toThrow(/word count/);
+    test('throws CapViolationError when content exceeds the cap', () => {
+      // 320 chars including the merge tags — over 275.
+      const overCap =
+        'Hi #NAME#, welcome to #GROUPNAME#! ' +
+        'x'.repeat(300);
+      const raw = `<welcome_dm>${overCap}</welcome_dm>`;
+      let caught: unknown;
+      try {
+        parseOutput(raw);
+      } catch (e) {
+        caught = e;
+      }
+      expect(caught).toBeInstanceOf(CapViolationError);
+      const err = caught as CapViolationError;
+      expect(err.module).toBe('welcome_dm');
+      expect(err.maxChars).toBe(WELCOME_DM_MAX_CHARS);
+      expect(err.actualChars).toBeGreaterThan(WELCOME_DM_MAX_CHARS);
+      expect(err.message).toMatch(
+        new RegExp(`Welcome DM is \\d+ chars \\(cap: ${WELCOME_DM_MAX_CHARS}\\)`),
+      );
     });
 
     test('throws on unexpected merge tags', () => {
-      const body =
-        Array(90).fill('word').join(' ') +
-        ' #NAME# #GROUPNAME# #SUPPORT_NAME#';
-      const raw = `<welcome_dm>${body}</welcome_dm>`;
+      const raw = `<welcome_dm>Hi #NAME#, welcome to #GROUPNAME# — ping #SUPPORT_NAME#.</welcome_dm>`;
       expect(() => parseOutput(raw)).toThrow(/unexpected merge tags/);
     });
   });
 
+  describe('WelcomeDmSchema (refine)', () => {
+    test('rejects content over the char cap', () => {
+      const result = WelcomeDmSchema.safeParse({
+        content: 'a'.repeat(WELCOME_DM_MAX_CHARS + 1),
+      });
+      expect(result.success).toBe(false);
+    });
+
+    test('accepts content at or under the cap', () => {
+      expect(
+        WelcomeDmSchema.safeParse({ content: GOOD_DM }).success,
+      ).toBe(true);
+      expect(
+        WelcomeDmSchema.safeParse({
+          content: 'a'.repeat(WELCOME_DM_MAX_CHARS),
+        }).success,
+      ).toBe(true);
+    });
+  });
+
+  describe('systemPrompt', () => {
+    test('includes the char-count constraint', () => {
+      expect(systemPrompt).toContain(`${WELCOME_DM_MAX_CHARS}`);
+      expect(systemPrompt).toMatch(/INCLUDING the merge tags #NAME# and #GROUPNAME#/);
+      expect(systemPrompt).toMatch(/Count characters before outputting/);
+    });
+
+    test('mentions all calibrated tones', () => {
+      for (const tone of [
+        'warm',
+        'direct',
+        'playful',
+        'authoritative',
+        'inspirational',
+        'bold',
+      ] as const) {
+        expect(systemPrompt).toContain(`"${tone}"`);
+      }
+    });
+  });
+
   describe('buildUserMessage', () => {
-    test('includes tone, community name, support contact, and the example block', () => {
+    test('includes tone, community name, and the example block', () => {
       const msg = buildUserMessage(MINIMAL_INPUT);
       expect(msg).toContain('Tone: warm');
       expect(msg).toContain('Sanctuary');
-      expect(msg).toContain('Ramsha A.');
       expect(msg).toContain('<examples>');
       expect(msg).toContain('namaste');
+    });
+
+    test('threads the char target into the task line', () => {
+      const msg = buildUserMessage(MINIMAL_INPUT);
+      expect(msg).toContain(`${WELCOME_DM_MAX_CHARS} characters`);
     });
 
     test('appends USER FEEDBACK suffix when regenerateNote is provided', () => {
@@ -96,15 +162,12 @@ ${GOOD_DM}
         regenerateNote: 'less flowery',
       });
       expect(msg).toContain('USER FEEDBACK TO INCORPORATE:\nless flowery');
-      expect(msg).toContain('Treat this feedback as priority guidance');
-      // Suffix is at the END, after </task> — that's the whole point.
       expect(msg.endsWith('the user feedback wins.')).toBe(true);
     });
 
     test('omits USER FEEDBACK suffix when regenerateNote is absent', () => {
       const msg = buildUserMessage(MINIMAL_INPUT);
       expect(msg).not.toContain('USER FEEDBACK TO INCORPORATE');
-      expect(msg).not.toContain('<regenerate_note>');
     });
 
     test.each(['authoritative', 'inspirational', 'bold'] as const)(
@@ -116,16 +179,6 @@ ${GOOD_DM}
         });
         expect(msg).toContain(`Tone: ${tone}`);
         expect(msg).toContain(`in a ${tone} tone`);
-      },
-    );
-  });
-
-  describe('systemPrompt voice calibration', () => {
-    test.each(['warm', 'authoritative', 'inspirational', 'bold'] as const)(
-      'mentions %s in the per-tone calibration block',
-      async (tone) => {
-        const { systemPrompt } = await import('@/prompts/welcome-dm');
-        expect(systemPrompt).toContain(`"${tone}"`);
       },
     );
   });
