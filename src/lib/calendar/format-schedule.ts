@@ -3,13 +3,29 @@ import type { EventSchedule, Weekday } from "@/types/schemas";
 /**
  * Human-readable formatting for a calendar event's schedule.
  *
- * Storage keeps time as 24-hour HH:mm in an IANA timezone (e.g.,
+ * Two helpers, by design:
+ *
+ * - describeRecurrence: cadence-only, no time/tz. The short phrase a VA reads
+ *   under the form field and Claude reads in the generator prompt to ground
+ *   the description in the right cadence. Examples:
+ *     "Every Monday"
+ *     "The 15th of every month"
+ *     "The 15th, every 3 months (quarterly)"
+ *     "Annually on May 8"
+ *     "On June 12, 2026"
+ *
+ * - formatSchedule: cadence + time + IANA-short timezone. The fuller phrase
+ *   rendered on the dashboard, the export view, and the dev-only schedule
+ *   echo in the generator prompt. Examples:
+ *     "Every Monday at 9:00 AM PST"
+ *     "The 15th of every month at 9:00 AM PST"
+ *     "Annually on May 8 at 9:00 AM PST"
+ *     "August 8, 2026 at 9:00 AM PST"
+ *
+ * Storage keeps time as 24-hour HH:mm in an IANA timezone (e.g.
  * "America/New_York"). For display we render 12-hour AM/PM plus a short
  * timezone abbreviation derived via Intl.DateTimeFormat — falling back to the
  * raw IANA name when the runtime can't resolve a short form.
- *
- * Weekly:  "Every Monday at 9:00 AM PST"
- * One-off: "August 8, 2026 at 9:00 AM PST"
  */
 
 const WEEKDAY_LABELS: Record<Weekday, string> = {
@@ -89,6 +105,23 @@ function formatDateLong(isoDate: string): string {
   return `${monthLabel} ${day}, ${year}`;
 }
 
+function ordinalSuffix(day: number): string {
+  if (day >= 11 && day <= 13) return "th";
+  const last = day % 10;
+  if (last === 1) return "st";
+  if (last === 2) return "nd";
+  if (last === 3) return "rd";
+  return "th";
+}
+
+function ordinal(day: number): string {
+  return `${day}${ordinalSuffix(day)}`;
+}
+
+function monthLabel(month: number): string {
+  return MONTH_LABELS[month - 1] ?? `Month ${month}`;
+}
+
 function nextOccurrenceUTC(weekdayIndex: number, time: string): Date {
   // Build an anchor Date (UTC midnight today) and roll forward to the next
   // occurrence of weekdayIndex. Used purely so Intl can pick a DST-correct
@@ -116,13 +149,110 @@ function oneOffReferenceUTC(isoDate: string, time: string): Date {
   );
 }
 
-export function formatSchedule(schedule: EventSchedule): string {
-  if (schedule.type === "weekly") {
-    const ref = nextOccurrenceUTC(WEEKDAY_INDEX[schedule.dayOfWeek], schedule.time);
-    const tz = shortTimezone(schedule.timezone, ref);
-    return `Every ${WEEKDAY_LABELS[schedule.dayOfWeek]} at ${formatTime12h(schedule.time)} ${tz}`;
+function monthlyReferenceUTC(dayOfMonth: number, time: string): Date {
+  // Anchor the next occurrence at noon UTC on `dayOfMonth` in the current or
+  // next month — purely for DST-aware tz abbreviation; not used for display.
+  const now = new Date();
+  const [h, m] = time.split(":").map(Number);
+  const anchor = new Date(
+    Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      Math.min(dayOfMonth, 28),
+      h ?? 0,
+      m ?? 0,
+    ),
+  );
+  return anchor.getTime() < now.getTime()
+    ? new Date(
+        Date.UTC(
+          now.getUTCFullYear(),
+          now.getUTCMonth() + 1,
+          Math.min(dayOfMonth, 28),
+          h ?? 0,
+          m ?? 0,
+        ),
+      )
+    : anchor;
+}
+
+function yearlyReferenceUTC(month: number, day: number, time: string): Date {
+  const now = new Date();
+  const [h, m] = time.split(":").map(Number);
+  const safeDay = month === 2 && day === 29 ? 28 : day;
+  return new Date(
+    Date.UTC(now.getUTCFullYear(), month - 1, safeDay, h ?? 0, m ?? 0),
+  );
+}
+
+/**
+ * Cadence-only phrase. No time, no timezone. Used by the wizard preview, the
+ * generator prompt, and any caller that wants to surface the recurrence
+ * pattern in isolation.
+ */
+export function describeRecurrence(schedule: EventSchedule): string {
+  switch (schedule.type) {
+    case "weekly":
+      return `Every ${WEEKDAY_LABELS[schedule.dayOfWeek]}`;
+    case "monthly": {
+      const day = ordinal(schedule.dayOfMonth);
+      const interval = schedule.interval ?? 1;
+      if (interval === 1) return `The ${day} of every month`;
+      if (interval === 3) return `The ${day}, every 3 months (quarterly)`;
+      if (interval === 6) return `The ${day}, twice a year`;
+      if (interval === 12) return `The ${day}, once a year`;
+      return `The ${day}, every ${interval} months`;
+    }
+    case "yearly":
+      return `Annually on ${monthLabel(schedule.month)} ${schedule.dayOfMonth}`;
+    case "one_off":
+      return `On ${formatDateLong(schedule.date)}`;
   }
-  const ref = oneOffReferenceUTC(schedule.date, schedule.time);
-  const tz = shortTimezone(schedule.timezone, ref);
-  return `${formatDateLong(schedule.date)} at ${formatTime12h(schedule.time)} ${tz}`;
+}
+
+/**
+ * Cadence + time + IANA-short timezone. Stable surface for the dashboard,
+ * export view, and dev-only generator echo.
+ */
+export function formatSchedule(schedule: EventSchedule): string {
+  const time12h = formatTime12h(schedule.time);
+  switch (schedule.type) {
+    case "weekly": {
+      const ref = nextOccurrenceUTC(
+        WEEKDAY_INDEX[schedule.dayOfWeek],
+        schedule.time,
+      );
+      const tz = shortTimezone(schedule.timezone, ref);
+      return `Every ${WEEKDAY_LABELS[schedule.dayOfWeek]} at ${time12h} ${tz}`;
+    }
+    case "monthly": {
+      const ref = monthlyReferenceUTC(schedule.dayOfMonth, schedule.time);
+      const tz = shortTimezone(schedule.timezone, ref);
+      const day = ordinal(schedule.dayOfMonth);
+      const interval = schedule.interval ?? 1;
+      const cadence =
+        interval === 1
+          ? `The ${day} of every month`
+          : interval === 3
+            ? `The ${day}, every 3 months`
+            : interval === 6
+              ? `The ${day}, twice a year`
+              : `The ${day}, every ${interval} months`;
+      return `${cadence} at ${time12h} ${tz}`;
+    }
+    case "yearly": {
+      const ref = yearlyReferenceUTC(
+        schedule.month,
+        schedule.dayOfMonth,
+        schedule.time,
+      );
+      const tz = shortTimezone(schedule.timezone, ref);
+      return `Annually on ${monthLabel(schedule.month)} ${schedule.dayOfMonth} at ${time12h} ${tz}`;
+    }
+    case "one_off": {
+      const ref = oneOffReferenceUTC(schedule.date, schedule.time);
+      const tz = shortTimezone(schedule.timezone, ref);
+      return `${formatDateLong(schedule.date)} at ${time12h} ${tz}`;
+    }
+  }
 }
