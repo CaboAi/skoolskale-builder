@@ -10,13 +10,7 @@ import {
 } from "@/lib/db/schema";
 import { logAudit } from "@/lib/audit";
 import { MODULE_REGISTRY, MODULE_KEYS } from "@/lib/modules/registry";
-import { CoverPatchSchema } from "@/prompts/cover";
-import { resolveAssetUrls } from "@/lib/storage/resolve-variants";
 import type { ApiError } from "@/lib/validation";
-
-// PATCH response may include image-variant URLs — those need fresh signed
-// URLs every call. Disable any route-level caching.
-export const dynamic = "force-dynamic";
 
 /**
  * PATCH /api/packages/[id]/modules/[module]
@@ -26,9 +20,9 @@ export const dynamic = "force-dynamic";
  * into `edit_history`, and clears approval (the VA must re-approve after an
  * edit).
  *
- * For 'cover', the only allowed change is `selected_variant_index`; we
- * preserve `variants` and validate shape inline since cover doesn't have a
- * generation schema.
+ * The cover-specific branch (CoverPatchSchema + selected_variant_index)
+ * was removed in chore/remove-image-generation. All remaining modules use
+ * the registry's outputSchema for validation.
  */
 
 const UuidParam = z.string().uuid();
@@ -38,11 +32,6 @@ const ModuleParam = z.enum(MODULE_KEYS);
 const PatchSchema = z.object({
   content: z.unknown(),
 });
-
-type CoverContent = {
-  variants: { url: string; index: number }[];
-  selected_variant_index?: number;
-};
 
 type EditHistoryEntry = {
   version: number;
@@ -114,43 +103,20 @@ export async function PATCH(req: NextRequest, { params }: RouteCtx) {
     );
   }
 
-  // Validate the new content per module shape.
-  let nextContent: unknown;
-  if (modR.data === "cover") {
-    const coverPatch = CoverPatchSchema.safeParse(bodyR.data.content);
-    if (!coverPatch.success) {
-      return NextResponse.json<ApiError>(
-        {
-          error: "Cover edit must be { selected_variant_index: number }.",
-          code: "invalid_content",
-        },
-        { status: 400 },
-      );
-    }
-    const current = latest.content as CoverContent;
-    const idx = coverPatch.data.selected_variant_index;
-    if (idx >= current.variants.length) {
-      return NextResponse.json<ApiError>(
-        { error: "Variant index out of range.", code: "invalid_content" },
-        { status: 400 },
-      );
-    }
-    nextContent = { ...current, selected_variant_index: idx };
-  } else {
-    const schema = MODULE_REGISTRY[modR.data].outputSchema;
-    const result = schema.safeParse(bodyR.data.content);
-    if (!result.success) {
-      return NextResponse.json<ApiError>(
-        {
-          error: "Content does not match module schema.",
-          code: "invalid_content",
-          details: result.error.flatten(),
-        } as ApiError,
-        { status: 400 },
-      );
-    }
-    nextContent = result.data;
+  // Validate the new content against the registered module schema.
+  const schema = MODULE_REGISTRY[modR.data].outputSchema;
+  const result = schema.safeParse(bodyR.data.content);
+  if (!result.success) {
+    return NextResponse.json<ApiError>(
+      {
+        error: "Content does not match module schema.",
+        code: "invalid_content",
+        details: result.error.flatten(),
+      } as ApiError,
+      { status: 400 },
+    );
   }
+  const nextContent: unknown = result.data;
 
   // Snapshot the previous version into edit_history, then bump.
   const prevHistory = (latest.editHistory as EditHistoryEntry[]) ?? [];
@@ -182,11 +148,5 @@ export async function PATCH(req: NextRequest, { params }: RouteCtx) {
     { module: modR.data, newVersion: updated.version },
   );
 
-  // Sign variant URLs for the response. The row in the DB still carries the
-  // raw `storagePath` — only the JSON body we return has freshly signed
-  // `url` fields. The optimistic-update path in PackageDashboard merges this
-  // into the React Query cache, so the client gets working URLs immediately.
-  const [resolved] = await resolveAssetUrls([updated]);
-
-  return NextResponse.json<GeneratedAsset>(resolved);
+  return NextResponse.json<GeneratedAsset>(updated);
 }

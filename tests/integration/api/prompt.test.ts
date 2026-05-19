@@ -60,15 +60,15 @@ describe("GET /api/packages/[id]/modules/[module]/prompt", () => {
   test("threads ?note= through to the dispatch", async () => {
     const res = await GET(
       getRequest(
-        `http://test/api/packages/${PKG_ID}/modules/cover/prompt?note=less%20abstract`,
+        `http://test/api/packages/${PKG_ID}/modules/about_us/prompt?note=less%20abstract`,
       ),
-      { params: Promise.resolve({ id: PKG_ID, module: "cover" }) },
+      { params: Promise.resolve({ id: PKG_ID, module: "about_us" }) },
     );
     expect(res.status).toBe(200);
     expect(buildPromptForMock).toHaveBeenCalledWith({
       packageId: PKG_ID,
       userId: USER_ID,
-      module: "cover",
+      module: "about_us",
       regenerateNote: "less abstract",
     });
   });

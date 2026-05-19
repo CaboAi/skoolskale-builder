@@ -21,7 +21,6 @@
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.71",
     "@base-ui/react": "^1.4.1",
-    "@google/genai": "^1.50.1",
     "@hookform/resolvers": "^5.2.2",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.104.1",

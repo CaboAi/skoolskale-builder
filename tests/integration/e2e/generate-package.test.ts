@@ -178,7 +178,11 @@ describe("E2E: generate-package pipeline", () => {
           "transformation",
           "about_us",
           "start_here",
-          "cover",
+          "classroom",
+          "calendar",
+          "leaderboard",
+          "categories",
+          "discovery_seo",
         ]),
       );
       for (const a of assets) expect(a.content).toBeTruthy();
@@ -200,45 +204,21 @@ describe("E2E: generate-package pipeline", () => {
       );
       expect(aboutRendered.length).toBeLessThanOrEqual(1050);
 
-      // Cover-specific shape: 3 variants, each with a public Supabase URL
-      // and a 0-based index.
-      const coverAsset = assets.find((a) => a.module === "cover");
-      expect(coverAsset, "cover asset row missing").toBeTruthy();
-      const coverContent = coverAsset!.content as {
-        variants: Array<{ url: string; index: number }>;
-      };
-      expect(Array.isArray(coverContent.variants)).toBe(true);
-      expect(coverContent.variants.length).toBe(3);
-      for (const v of coverContent.variants) {
-        expect(typeof v.url).toBe("string");
-        expect(v.url.length).toBeGreaterThan(0);
-        expect(v.url.startsWith("https://")).toBe(true);
-      }
-      expect(new Set(coverContent.variants.map((v) => v.index))).toEqual(
-        new Set([0, 1, 2]),
-      );
-
       const [pkg] = await sql<{ status: string }[]>`
         SELECT status FROM launch_packages WHERE id = ${packageId}
       `;
       expect(pkg.status).toBe("review");
 
+      // gemini_image_usage column intentionally kept in the DB (legacy);
+      // every active module is now claude-text so we only assert on
+      // claude_usage. Image modules removed in chore/remove-image-generation.
       const jobs = await sql<
-        {
-          module: string;
-          status: string;
-          claude_usage: unknown;
-          gemini_image_usage: unknown;
-        }[]
-      >`SELECT module, status, claude_usage, gemini_image_usage FROM generation_jobs WHERE package_id = ${packageId}`;
-      expect(jobs.length).toBe(5);
+        { module: string; status: string; claude_usage: unknown }[]
+      >`SELECT module, status, claude_usage FROM generation_jobs WHERE package_id = ${packageId}`;
+      expect(jobs.length).toBe(9);
       for (const j of jobs) {
         expect(j.status).toBe("done");
-        if (j.module === "cover") {
-          expect(j.gemini_image_usage).toBeTruthy();
-        } else {
-          expect(j.claude_usage).toBeTruthy();
-        }
+        expect(j.claude_usage).toBeTruthy();
       }
     },
     MAX_WAIT_MS + 10_000,

@@ -38,10 +38,9 @@ import { buildUserMessage as buildStartHere } from "@/prompts/start-here";
 import { buildUserMessage as buildTransformation } from "@/prompts/transformation";
 import { buildUserMessage as buildWelcomeDm } from "@/prompts/welcome-dm";
 
-import { buildImagePrompt as buildCover } from "@/prompts/cover";
-import { buildIconPrompt, ICON_STYLES } from "@/prompts/icon";
-import { buildClassroomCoverPrompt } from "@/prompts/classroom_cover";
-import { buildCalendarCoverPrompt } from "@/prompts/calendar_cover";
+// Image-prompt builders (cover, icon, classroom_cover, calendar_cover)
+// were removed alongside the Gemini integration in
+// chore/remove-image-generation. All remaining modules are text-only.
 
 type TextBuilder = (input: GeneratorInput) => string;
 
@@ -93,35 +92,10 @@ export async function buildPromptFor(args: {
 
   const creatorContext = toCreatorContext(creator);
 
-  // Image modules — no pattern library lookup.
-  if (args.module === "cover") {
-    return buildCover({
-      creator: creatorContext,
-      transformationLine: creatorContext.transformation,
-      regenerateNote: args.regenerateNote,
-    });
-  }
-  if (args.module === "icon") {
-    return buildIconPrompt({
-      creator: creatorContext,
-      style: ICON_STYLES[0],
-      regenerateNote: args.regenerateNote,
-    });
-  }
-  if (args.module === "classroom_cover") {
-    return buildClassroomCoverPrompt({
-      creator: creatorContext,
-      regenerateNote: args.regenerateNote,
-    });
-  }
-  if (args.module === "calendar_cover") {
-    return buildCalendarCoverPrompt({
-      creator: creatorContext,
-      regenerateNote: args.regenerateNote,
-    });
-  }
-
   // Text modules — fetch pattern library, then build via the right builder.
+  // Image modules were removed in chore/remove-image-generation; the
+  // registry no longer surfaces them, so an image module key reaching
+  // this dispatcher would be an out-of-spec request.
   const builder = TEXT_BUILDERS[args.module];
   if (!builder) {
     throw new Error(`No prompt builder registered for module '${args.module}'`);

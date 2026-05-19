@@ -1,14 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowLeft, Copy, Download, Loader2 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { buttonVariants } from "@/components/ui/button";
+import { ArrowLeft, Copy, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -47,12 +44,6 @@ type StartHereContent = {
   step_3_faqs: { question: string; answer_template: string }[];
   step_4_need_assistance: { title: string; template: string };
 };
-type CoverVariant = { url: string; index: number };
-type CoverContent = {
-  variants: CoverVariant[];
-  selected_variant_index?: number;
-};
-
 /* -------------------------------------------------------------------------- */
 /* CopyButton                                                                  */
 /* -------------------------------------------------------------------------- */
@@ -270,251 +261,11 @@ function StartHereSection({ asset }: { asset: GeneratedAsset }) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Section: Cover                                                              */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Renders a same-origin `<a>` styled as a button. The link points at the
- * download-redirect route, which authenticates the user, re-signs the
- * storage path with a 60s TTL, and 302s the browser to the signed URL
- * with `?download=<filename>` — Supabase honors that with
- * Content-Disposition: attachment, forcing a real file download instead
- * of opening the image in a new tab.
- *
- * No client-side fetch / Blob plumbing required. Same-origin `<a download>`
- * is also a no-op here (the eventual signed URL is cross-origin) but the
- * server-supplied filename takes over via the response header.
- */
-function DownloadButton({
-  packageId,
-  module,
-  index,
-  label = "Download",
-}: {
-  packageId: string;
-  module: string;
-  index: number;
-  label?: string;
-}) {
-  const href = `/api/packages/${packageId}/assets/${module}/${index}/download`;
-  return (
-    <a
-      href={href}
-      className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-    >
-      <Download className="mr-1.5 h-4 w-4" />
-      {label}
-    </a>
-  );
-}
-
-function CoverSection({ asset }: { asset: GeneratedAsset }) {
-  const c = asset.content as CoverContent;
-  const selectedIdx = c.selected_variant_index ?? 0;
-  const selected =
-    c.variants.find((v) => v.index === selectedIdx) ?? c.variants[0];
-  const others = c.variants.filter((v) => v.index !== selected.index);
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Community Cover</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <div className="overflow-hidden rounded-md border">
-            <Image
-              src={selected.url}
-              alt="Selected community cover"
-              width={1456}
-              height={816}
-              className="h-auto w-full"
-              priority
-            />
-          </div>
-          <DownloadButton
-            packageId={asset.packageId}
-            module={asset.module}
-            index={selected.index}
-            label="Download cover"
-          />
-        </div>
-        {others.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Other variants</p>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {others.map((v) => (
-                <div key={v.index} className="space-y-2">
-                  <div className="overflow-hidden rounded-md border">
-                    <Image
-                      src={v.url}
-                      alt={`Cover variant ${v.index + 1}`}
-                      width={728}
-                      height={408}
-                      className="h-auto w-full"
-                    />
-                  </div>
-                  <DownloadButton
-                    packageId={asset.packageId}
-                    module={asset.module}
-                    index={v.index}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-        <p className="text-xs text-muted-foreground">
-          Upload to Skool &gt; Settings &gt; Branding &gt; Cover image.
-        </p>
-      </CardContent>
-    </Card>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/* Section: Icon (3 variant grid, mirrors CoverSection)                       */
-/* -------------------------------------------------------------------------- */
-
-function IconSection({ asset }: { asset: GeneratedAsset }) {
-  const c = asset.content as CoverContent;
-  const selectedIdx = c.selected_variant_index ?? 0;
-  const selected =
-    c.variants.find((v) => v.index === selectedIdx) ?? c.variants[0];
-  const others = c.variants.filter((v) => v.index !== selected.index);
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Community Icon</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <div className="overflow-hidden rounded-md border bg-muted/30 p-4">
-            <Image
-              src={selected.url}
-              alt="Selected community icon"
-              width={512}
-              height={512}
-              className="mx-auto h-auto max-w-[256px]"
-            />
-          </div>
-          <DownloadButton
-            packageId={asset.packageId}
-            module={asset.module}
-            index={selected.index}
-            label="Download icon"
-          />
-        </div>
-        {others.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Other variants</p>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {others.map((v) => (
-                <div key={v.index} className="space-y-2">
-                  <div className="overflow-hidden rounded-md border bg-muted/30 p-3">
-                    <Image
-                      src={v.url}
-                      alt={`Icon variant ${v.index + 1}`}
-                      width={512}
-                      height={512}
-                      className="mx-auto h-auto max-w-[160px]"
-                    />
-                  </div>
-                  <DownloadButton
-                    packageId={asset.packageId}
-                    module={asset.module}
-                    index={v.index}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-        <p className="text-xs text-muted-foreground">
-          Upload to Skool &gt; Settings &gt; Branding &gt; Community icon.
-        </p>
-      </CardContent>
-    </Card>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/* Section: Classroom Cover (single banner image)                             */
-/* -------------------------------------------------------------------------- */
-
-function ClassroomCoverSection({ asset }: { asset: GeneratedAsset }) {
-  const c = asset.content as CoverContent;
-  const variant = c.variants[0];
-  if (!variant) return null;
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Classroom Cover</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-2">
-        <div className="overflow-hidden rounded-md border">
-          <Image
-            src={variant.url}
-            alt="Classroom cover banner"
-            width={1456}
-            height={816}
-            className="h-auto w-full"
-          />
-        </div>
-        <DownloadButton
-          packageId={asset.packageId}
-          module={asset.module}
-          index={variant.index}
-          label="Download classroom cover"
-        />
-        <p className="text-xs text-muted-foreground">
-          Upload to Skool &gt; Classroom &gt; Settings (cover image).
-        </p>
-      </CardContent>
-    </Card>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/* Section: Calendar Cover (single banner image)                              */
-/* -------------------------------------------------------------------------- */
-
-function CalendarCoverSection({ asset }: { asset: GeneratedAsset }) {
-  const c = asset.content as CoverContent;
-  const variant = c.variants[0];
-  if (!variant) return null;
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Calendar Cover</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-2">
-        <div className="overflow-hidden rounded-md border">
-          <Image
-            src={variant.url}
-            alt="Calendar cover banner"
-            width={1456}
-            height={816}
-            className="h-auto w-full"
-          />
-        </div>
-        <DownloadButton
-          packageId={asset.packageId}
-          module={asset.module}
-          index={variant.index}
-          label="Download calendar cover"
-        />
-        <p className="text-xs text-muted-foreground">
-          Upload to Skool &gt; Calendar &gt; Settings (cover image).
-        </p>
-      </CardContent>
-    </Card>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/* Deployment checklist                                                        */
+/* Image module sections (cover, icon, classroom_cover, calendar_cover) were  */
+/* removed in chore/remove-image-generation. VAs handle community visuals     */
+/* externally in Canva using client photography. Old packages with image-    */
+/* module assets in the DB are intentionally orphaned — the registry no       */
+/* longer surfaces them so the export view simply ignores them.               */
 /* -------------------------------------------------------------------------- */
 
 /* -------------------------------------------------------------------------- */
@@ -725,8 +476,6 @@ function DiscoverySeoSection({ asset }: { asset: GeneratedAsset }) {
 
 const CHECKLIST_ITEMS = [
   "Created Skool community",
-  "Uploaded cover image",
-  "Uploaded community icon",
   "Set community description (transformation line)",
   "Pasted About Us page",
   'Created "Start Here" course with 4 lessons',
@@ -734,7 +483,6 @@ const CHECKLIST_ITEMS = [
   "Set pricing per the proposal",
   "Named Classroom area",
   "Created Calendar events",
-  "Uploaded Classroom + Calendar cover images",
   "Renamed leaderboard levels",
   "Created the 3 community categories",
   "Pasted Discovery search keywords",
@@ -825,8 +573,6 @@ export function ExportView({ package: pkg, creator, assets }: ExportViewProps) {
   const m = Object.fromEntries(
     MODULE_KEYS.map((k) => [k, byModule.get(k)]),
   ) as Record<ModuleKey, GeneratedAsset | undefined>;
-  const cover = m.cover;
-  const icon = m.icon;
   const welcomeDm = m.welcome_dm;
   const transformation = m.transformation;
   const aboutUs = m.about_us;
@@ -836,8 +582,6 @@ export function ExportView({ package: pkg, creator, assets }: ExportViewProps) {
   const leaderboard = m.leaderboard;
   const categories = m.categories;
   const discoverySeo = m.discovery_seo;
-  const classroomCover = m.classroom_cover;
-  const calendarCover = m.calendar_cover;
 
   return (
     <div className="space-y-6">
@@ -878,12 +622,8 @@ export function ExportView({ package: pkg, creator, assets }: ExportViewProps) {
       {transformation && <TransformationSection asset={transformation} />}
       {aboutUs && <AboutUsSection asset={aboutUs} />}
       {startHere && <StartHereSection asset={startHere} />}
-      {cover && <CoverSection asset={cover} />}
-      {icon && <IconSection asset={icon} />}
       {classroom && <ClassroomSection asset={classroom} />}
-      {classroomCover && <ClassroomCoverSection asset={classroomCover} />}
       {calendar && <CalendarSection asset={calendar} />}
-      {calendarCover && <CalendarCoverSection asset={calendarCover} />}
       {leaderboard && <LeaderboardSection asset={leaderboard} />}
       {categories && <CategoriesSection asset={categories} />}
       {discoverySeo && <DiscoverySeoSection asset={discoverySeo} />}
