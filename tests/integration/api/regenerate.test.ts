@@ -154,17 +154,10 @@ describe("POST /api/packages/[id]/modules/[module]/regenerate", () => {
       expect(call.data.regenerateNote).toBe("softer please");
     });
 
-    test("works on an image module (cover) too", async () => {
-      await POST(
-        jsonRequest(`http://test/regen`, "POST", {
-          editedPrompt: "A serene mountain at dawn.",
-        }),
-        { params: Promise.resolve({ id: PKG_ID, module: "cover" }) },
-      );
-      const call = inngestSendMock.mock.calls[0][0];
-      expect(call.name).toBe("generate.cover.requested");
-      expect(call.data.editedPrompt).toBe("A serene mountain at dawn.");
-    });
+    // The "works on an image module (cover) too" case was removed alongside
+    // the cover module itself in chore/remove-image-generation. The
+    // text-module coverage above exercises the same editedPrompt event-
+    // shape contract.
   });
 
   describe("audit log", () => {

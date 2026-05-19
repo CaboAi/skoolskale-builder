@@ -17,7 +17,9 @@ const serverSchema = z
 
     // AI providers
     ANTHROPIC_API_KEY: z.string().min(1),
-    GOOGLE_AI_API_KEY: z.string().min(1),
+    // GOOGLE_AI_API_KEY removed in chore/remove-image-generation. Mario
+    // needs to delete it from Vercel via CLI post-merge — Vercel's UI
+    // can't widen or delete sensitive env vars.
 
     // Inngest
     INNGEST_EVENT_KEY: z.string().min(1),

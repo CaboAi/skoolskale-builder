@@ -1,16 +1,16 @@
 /**
  * Cross-builder coverage for the regenerate-note pipeline.
  *
- * For every prompt builder (9 text + 4 image), assert two things:
+ * For every text prompt builder, assert two things:
  *
  *   1. without note   → the builder output does NOT contain the
  *      USER FEEDBACK suffix (and ends in its normal terminator).
  *   2. with note      → the builder output ends with the priority-framed
  *      suffix containing the literal note text and the priority line.
  *
- * The "byte-identical without note" expectation lives in the snapshot
- * test below, which captures one no-note output per builder and asserts
- * subsequent calls match.
+ * Image builders (cover, icon, classroom_cover, calendar_cover) were
+ * removed in chore/remove-image-generation. The text-builder coverage
+ * below stays.
  */
 import { describe, expect, test } from "vitest";
 import type { GeneratorInput, CreatorContext } from "@/types/generators";
@@ -24,11 +24,6 @@ import { buildUserMessage as buildLeaderboard } from "@/prompts/leaderboard";
 import { buildUserMessage as buildStartHere } from "@/prompts/start-here";
 import { buildUserMessage as buildTransformation } from "@/prompts/transformation";
 import { buildUserMessage as buildWelcomeDm } from "@/prompts/welcome-dm";
-
-import { buildImagePrompt as buildCover } from "@/prompts/cover";
-import { buildIconPrompt } from "@/prompts/icon";
-import { buildClassroomCoverPrompt } from "@/prompts/classroom_cover";
-import { buildCalendarCoverPrompt } from "@/prompts/calendar_cover";
 
 const NOTE = "make it more concise";
 
@@ -100,35 +95,6 @@ const textBuilders: Array<{ name: string; build: TextBuilder }> = [
   { name: "discovery_seo", build: buildDiscoverySeo },
 ];
 
-type ImageBuilder = (creator: CreatorContext, note?: string) => string;
-
-const imageBuilders: Array<{ name: string; build: ImageBuilder }> = [
-  {
-    name: "cover",
-    build: (creator, regenerateNote) =>
-      buildCover({
-        creator,
-        transformationLine: creator.transformation,
-        regenerateNote,
-      }),
-  },
-  {
-    name: "icon",
-    build: (creator, regenerateNote) =>
-      buildIconPrompt({ creator, style: "geometric", regenerateNote }),
-  },
-  {
-    name: "classroom_cover",
-    build: (creator, regenerateNote) =>
-      buildClassroomCoverPrompt({ creator, regenerateNote }),
-  },
-  {
-    name: "calendar_cover",
-    build: (creator, regenerateNote) =>
-      buildCalendarCoverPrompt({ creator, regenerateNote }),
-  },
-];
-
 describe("regenerate-note wiring — text builders", () => {
   describe.each(textBuilders)("$name", ({ build }) => {
     test("without note: no USER FEEDBACK block in the output", () => {
@@ -158,30 +124,3 @@ describe("regenerate-note wiring — text builders", () => {
   });
 });
 
-describe("regenerate-note wiring — image builders", () => {
-  describe.each(imageBuilders)("$name", ({ build }) => {
-    test("without note: no USER FEEDBACK block in the output", () => {
-      const out = build(makeCreator(), undefined);
-      expect(out).not.toContain("USER FEEDBACK TO INCORPORATE");
-    });
-
-    test("without note: output is byte-identical across two invocations", () => {
-      const a = build(makeCreator(), undefined);
-      const b = build(makeCreator(), undefined);
-      expect(a).toBe(b);
-    });
-
-    test("with note: suffix is appended at the END with priority framing", () => {
-      const out = build(makeCreator(), NOTE);
-      expect(out).toContain(`USER FEEDBACK TO INCORPORATE:\n${NOTE}`);
-      expect(out).toContain(PRIORITY_LINE);
-      expect(out.endsWith(PRIORITY_LINE)).toBe(true);
-    });
-
-    test("with note: the no-note prompt is a strict prefix of the with-note prompt", () => {
-      const without = build(makeCreator(), undefined);
-      const withNote = build(makeCreator(), NOTE);
-      expect(withNote.startsWith(without)).toBe(true);
-    });
-  });
-});

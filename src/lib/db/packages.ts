@@ -9,7 +9,6 @@ import {
   type LaunchPackage,
   type GeneratedAsset,
 } from "@/lib/db/schema";
-import { resolveAssetUrls } from "@/lib/storage/resolve-variants";
 
 export type PackageWithDetails = {
   package: LaunchPackage;
@@ -23,13 +22,11 @@ export type PackageWithDetails = {
  * doesn't exist (or its creator row is missing — should never happen due
  * to the FK, but defensive).
  *
- * Image-module variant `url` fields are REWRITTEN in the returned data to
- * fresh signed URLs (Supabase Storage `/object/sign/...?token=...`) with
- * TTL = IMAGE_RENDER_TTL_SECONDS (1h). Callers can pass `variants[].url`
- * straight to `<Image>` or any HTTP-fetching client. Treat the field as
- * ephemeral — DO NOT persist it back to the DB (that would round-trip a
- * signed URL with a token into storage and corrupt the row). For write
- * paths that need to preserve `storagePath`, use `getPackageWithDetailsRaw`.
+ * Post chore/remove-image-generation: the signed-URL rewrite that used to
+ * wrap image-module variants is gone. All active modules are text — assets
+ * are returned as raw DB rows. Legacy image-module rows on old packages
+ * are still returned but the dashboard + export view ignore them via the
+ * registry filter, so the stale URLs never render.
  *
  * No createdBy filter: every authenticated VA can open every package so
  * handoffs work ("VA closes out, next VA picks up"). RLS on launch_packages
@@ -40,17 +37,13 @@ export type PackageWithDetails = {
 export async function getPackageWithDetails(
   packageId: string,
 ): Promise<PackageWithDetails | null> {
-  const raw = await getPackageWithDetailsRaw(packageId);
-  if (!raw) return null;
-  const assets = await resolveAssetUrls(raw.assets);
-  return { ...raw, assets };
+  return getPackageWithDetailsRaw(packageId);
 }
 
 /**
- * Same as `getPackageWithDetails` but returns the raw DB rows — image-module
- * variants keep their stored `storagePath` and any legacy public `url`
- * untouched. Use this from write paths (PATCH/PUT routes, the download
- * route) where the caller must read `storagePath` directly.
+ * Raw DB rows variant — kept as a named export so any out-of-tree caller
+ * that imported it before the signed-URL collapse still resolves. Now a
+ * trivial alias of the canonical fetcher.
  */
 export async function getPackageWithDetailsRaw(
   packageId: string,

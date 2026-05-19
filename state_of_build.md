@@ -1,9 +1,13 @@
 # State of Build — SkoolSkale Community Builder
 
-**Snapshot date:** 2026-05-03
-**Demo to client:** 2026-05-04 (tomorrow)
+**Snapshot date:** 2026-05-21 (post `chore/remove-image-generation`)
 **Live URL:** https://skoolskale-builder.vercel.app
-**Latest production deployment:** `dpl_5Rg5PuEptePSVXaMyW5cQWH7DdCf` (commit `b29e3ef`, plus a newer build pending for `b29e3ef` follow-ups — see Open Items)
+**Latest production deployment:** _to be updated after this PR merges_
+
+> **Major change in this snapshot:** AI image generation removed entirely.
+> The builder is now a pure copy generator. VAs handle community visuals
+> (cover, icon, classroom cover, calendar cover) externally in Canva using
+> the client's professional photography. See CHANGELOG for the full cut.
 
 ---
 
@@ -11,54 +15,35 @@
 
 A VA can:
 
-1. **Sign in** via the demo-mode auto-session (skips magic link for the demo window — see Open Items #1).
+1. **Sign in** via the demo-mode auto-session (see Open Items #1).
 2. **Create a creator profile** with intake form (`/creators/new`).
 3. **Spin up a launch package** (`POST /api/packages` → `POST /api/packages/[id]/generate`).
-4. **Watch all 10 modules generate in parallel** via Inngest + the package detail page polling:
+4. **Watch all 9 text modules generate in parallel** via Inngest + the package detail page polling:
    - `welcome_dm` (Claude Sonnet 4.6)
    - `transformation` (Claude)
    - `about_us` (Claude)
    - `start_here` (Claude)
-   - `cover` (Gemini 3.1 Flash Image — 3 variants in parallel)
-   - `classroom` — title + description (Claude)
-   - `calendar` — title + description (Claude)
+   - `classroom` — title + description per VA-supplied title (Claude)
+   - `calendar` — title + description per event (Claude)
    - `leaderboard` — 9 level names (Claude)
    - `categories` — 3 named blocks (Claude)
    - `discovery_seo` — 11 search keywords (Claude)
-   - Image add-ons (`classroom_cover`, `calendar_cover`, `icon`) land in PR #7.
 5. **Edit, regenerate, or approve** each module from the dashboard.
-6. **Select one of three cover variants** and approve.
-7. **Hit the export page** and copy/paste-ready outputs for Skool deployment.
+6. **Hit the export page** and copy/paste-ready outputs for Skool deployment.
 
-Confirmed by Mario in production at 21:21:43 today: package `0ba5c6de-...` generated all 5 modules including 3 cover variants in **~4:18 wall-clock** (one Gemini hang triggered a retry). After the perf patch in `b29e3ef`, expected wall-clock is **30s best case, ~90s worst case**.
-
----
-
-## What was fixed today (2026-05-03)
-
-In demo-prep order, all on `master`:
-
-| Commit | Why |
-|---|---|
-| `4364928` `fix(cover): durable per-variant steps to survive Vercel timeouts` | Old code ran 3 Gemini calls + uploads in one `step.run`. A single 504 retried everything from zero. Split into `prepare` + `variant-1/2/3` (parallel) + `finalize`. Each variant's URL persists across retries. Bumped `/api/inngest` `maxDuration` to 300s. |
-| `d43dff9` `fix(cover): hard timeout on Gemini calls so stuck images retry fast` | Gemini SDK occasionally hangs indefinitely. Added 60s `Promise.race` timeout per call and 10s `AbortSignal.timeout` on reference-image fetch so we fail fast instead of waiting for Vercel to 504. |
-| `b29e3ef` `perf(cover): inline retries and tighter timeout` | Inngest's exponential retry backoff was adding 1–2 min between attempts. Replaced with an inline 2-attempt retry loop inside each variant `step.run`. Tightened Gemini timeout 90s → 60s. |
-| (uncommitted) `tests/unit/gemini-image/generate.test.ts` updated to assert the new `AbortSignal` arg on the reference fetch. Test now green. |
-
-Also during the session: discovered `GOOGLE_AI_API_KEY` in Vercel env vars was either missing or invalid. Re-pasted the Skool Skale project key, redeployed. Cover gen works.
+Package wall-clock is now bounded by the slowest Claude call (typically 5-15s) rather than by Gemini's 30-90s variant generation. Expected total wall-clock: **20-45s** for a 9-module package.
 
 ---
 
-## Stack (unchanged)
+## Stack
 
 - **App:** Next.js 15 App Router, TypeScript strict
 - **DB:** Supabase Postgres + Drizzle ORM
 - **Auth:** Supabase Auth (currently behind demo-mode bypass)
-- **Storage:** Supabase Storage (`cover-variants` bucket, public URLs — see Tech Debt)
 - **AI copy:** Claude Sonnet 4.6 via Vercel AI SDK
-- **AI images:** Gemini 3.1 Flash Image Preview (`gemini-3.1-flash-image-preview`) via `@google/genai`
+- **AI images:** none (removed in chore/remove-image-generation)
 - **Background jobs:** Inngest
-- **Hosting:** Vercel (Hobby plan — confirm if `maxDuration: 300` is honored in prod)
+- **Hosting:** Vercel
 - **UI:** shadcn/ui + Tailwind v4
 
 ---
@@ -68,42 +53,34 @@ Also during the session: discovered `GOOGLE_AI_API_KEY` in Vercel env vars was e
 | Check | Status |
 |---|---|
 | `pnpm typecheck` | ✅ clean |
-| `pnpm vitest run` | ✅ **70 passed, 3 skipped, 0 failing** |
-| Production deploy (latest) | ✅ live |
-| Cover gen end-to-end | ✅ verified (package `0ba5c6de-...`, 21:21:43 UTC) |
-| All 4 copy modules end-to-end | ✅ verified same run |
-| Gemini API key + project quota | ✅ Skool Skale key, paid tier |
-| Anthropic API key | ✅ working (Claude calls succeed) |
+| `pnpm lint` | ✅ clean |
+| `pnpm vitest run --no-file-parallelism` | ✅ 402 passed, 3 skipped, 0 failing |
+| `pnpm vitest run` (parallel) | ⚠️ flaky — see CLAUDE.md "Mocking conventions" pool-timeout note |
+| Anthropic API key | ✅ working |
 | Inngest event delivery | ✅ working |
-| Supabase RLS on all tables | Assumed pass — no new tables since last review |
+| Supabase RLS on all tables | Workspace-wide model, current per latest review |
 
 ---
 
 ## Open items / Known issues
 
 ### 1. Demo-mode auth bypass is still on (HIGH)
-Three commits (`eed3533`, `fc0a033`, `199a170`) bypass `requireUser` for the Monday demo. **Roll back or gate by env var before any non-demo deployment.** Currently anyone hitting the URL is auto-signed in as the demo user.
+Demo-mode auto-signs anyone hitting the URL as the demo user. Gate by env / flip off before any non-demo audience.
 
-### 2. Cover image-gen provider may swap at handover (MEDIUM)
-Imagine Art was researched as an alternate image-gen provider and deferred. Agency's `GOOGLE_AI_API_KEY` and `ANTHROPIC_API_KEY` will be removed at handover; client supplies their own. If a swap is needed, the work is contained to `src/lib/gemini-image/` and `src/lib/inngest/functions/generate-cover.ts`.
+### 2. GOOGLE_AI_API_KEY still in Vercel env vars (LOW — manual cleanup)
+The Gemini integration is gone but the sensitive env var lives until Mario removes it via `vercel env rm GOOGLE_AI_API_KEY`. Vercel's UI can't widen or delete sensitive env vars.
 
-### 3. Regenerate dialog note is collected but ignored for cover (LOW)
-Pressing **Regenerate** on the Community Cover module opens the standard dialog asking "What would you like changed?" The note is sent to the API and into the Inngest event as `regenerateNote` — but `generate-cover.ts` does not pass it to `buildImagePrompt`. Net effect: the note has no influence on cover output. Mentioned in `~/.claude/plans/i-forget-if-i-graceful-shell.md`. Plan for a dedicated cover prompt-editor UI was deferred until post-demo.
+### 3. Legacy image storage buckets still provisioned (LOW — ops decision)
+`cover-variants` and `image-variants` Supabase buckets remain in place to keep historical cover URLs in deployed Skool communities resolvable. Removal of the buckets (and the orphaned `generated_assets` rows with `module='cover'/'icon'/'classroom_cover'/'calendar_cover'`) is a separate ops decision once the legacy URLs are confirmed retired.
 
-### 4. Gemini image-preview rate limits are tight (LOW for demo, MEDIUM for prod)
-With 3 parallel calls per package, the preview model's RPM cap occasionally throttles → SDK hangs. Mitigation in place (60s timeout + inline retry). For higher-volume usage, request a tier bump on the Gemini project or switch to Ideogram (see #2).
+### 4. Test suite is flaky in parallel mode (LOW)
+Per CLAUDE.md "Mocking conventions": closure-captured state inside `vi.mock` factories leaks across parallel workers and surfaces as timeouts in unrelated test files. Different test fails each full-suite run, all pass in isolation. CI should run with `--no-file-parallelism` until that's debugged.
 
-### 5. Cover URLs are public, not signed (TECH DEBT)
-`getPublicUrl` is used in `generate-cover.ts:148`. CLAUDE.md mandates signed URLs ("Supabase Storage always via signed URLs. Never expose public bucket URLs."). Pre-existing — not introduced today. **Fix before handover.**
+### 5. No Canva integration yet
+Future sprint.
 
-### 6. No Sentry breadcrumbs for cover failures (TECH DEBT)
-Generators log to `console`. Inngest's failure handler marks the job row `failed`, but VAs only see the surface state. A Sentry hook (or an Inngest observability integration) would surface these earlier.
-
-### 7. No Canva integration yet
-Out of scope for tomorrow's demo; will be the next sprint.
-
-### 8. No pattern library admin UI yet
-Out of scope for tomorrow's demo.
+### 6. No pattern library admin UI yet
+Future sprint.
 
 ---
 
@@ -112,56 +89,21 @@ Out of scope for tomorrow's demo.
 | Scope | Status |
 |---|---|
 | Foundation + Copy Engine | **✅ Shipped** (9 text modules, dashboard, intake step 5) |
-| Visual Engine | **🟡 Partial** — cover only; classroom_cover / calendar_cover / icon land in PR #7 |
 | Canva Integration | **❌ Not started** |
 | Pattern Library Intelligence | **❌ Not started** (read-only fetch from DB exists) |
 
----
-
-## Recommended demo script (low-risk path)
-
-1. Start on `/creators/new`. Fill the form with a real-feeling creator (use Mario's profile or a stock one).
-2. Click **Generate launch package**.
-3. Land on the package page. Watch the 10 module cards populate. Talk through the streaming UX while it loads (~60–120s — more parallel Claude calls than the 5-module demo).
-4. **Do not click Regenerate** on cover. (Note field is ignored; you'd just spin another ~90s wait for no observable change.)
-5. Show the edit-inline UX on one text module. Approve it.
-6. Pick a cover variant. Approve.
-7. Click through to the export page. Show the copy actions and Skool deployment checklist.
-
-If any module fails mid-demo: refresh the page; Inngest will have logged the error and the module card will show a "Retry" affordance.
-
----
-
-## How to verify cover generation right now
-
-```bash
-# From a browser logged into the deployed app:
-# 1. POST to /api/packages with a creatorId → returns packageId
-# 2. POST to /api/packages/{packageId}/generate → 202
-# 3. Watch /api/packages/{packageId} GET responses (UI polls every 5s)
-
-# From this repo, watch logs in real time via the Vercel MCP:
-#   query="gen/cover" since="5m"
-# Look for the sequence:
-#   createJobRow → variant-1/2/3 calling Gemini → variant-N done → asset inserted
-```
-
-End-to-end success criterion: an `asset inserted` log line for module `cover` within ~90s of `createJobRow`.
+> The "Visual Engine" scope from earlier snapshots is **DEAD** — image generation removed in chore/remove-image-generation. VAs use Canva for all visuals.
 
 ---
 
 ## Repo paths to know
 
-- `src/lib/inngest/functions/generate-cover.ts` — image pipeline (the file that took most of today's work)
-- `src/lib/gemini-image/generate.ts` — Gemini SDK wrapper, timeouts, usage logging
-- `src/app/api/inngest/route.ts` — Inngest handler, `maxDuration = 300`
-- `src/app/api/packages/[id]/modules/[module]/regenerate/route.ts` — Regenerate API
-- `src/components/dashboard/module-cards.tsx` — `CoverCard` and other module cards
-- `src/components/dashboard/action-dialogs.tsx` — `RegenerateDialog`
-- `src/prompts/cover.ts` — image prompt builder (`buildImagePrompt`, `CoverStyle`)
+- `src/lib/modules/registry.ts` — single source of truth for all module-level metadata
+- `src/lib/inngest/functions/generate-package.ts` — orchestrator fan-out
+- `src/lib/inngest/functions/_factory.ts` + `_shared.ts` — shared Inngest runner (cap-violation retry, edited-prompt path)
+- `src/app/api/inngest/route.ts` — Inngest handler
+- `src/components/dashboard/module-cards.tsx` — module card components
+- `src/components/dashboard/ExportView.tsx` — paste-ready export view
+- `src/prompts/<module>.ts` — per-module Claude prompt builders + parsers
 - `PRD.md` — full product spec
 - `CLAUDE.md` — engineering rules; read before any structural change
-
----
-
-**TL;DR:** The build is demo-ready. Cover generation works in 30–90s after today's three-commit fix. Don't press Regenerate live. Roll back the demo-auth bypass before any non-demo audience sees this URL.

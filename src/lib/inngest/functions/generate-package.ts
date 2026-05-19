@@ -7,15 +7,11 @@ import { generateWelcomeDm } from "./generate-welcome-dm";
 import { generateTransformation } from "./generate-transformation";
 import { generateAboutUs } from "./generate-about-us";
 import { generateStartHere } from "./generate-start-here";
-import { generateCover } from "./generate-cover";
 import { generateClassroom } from "./generate-classroom";
 import { generateCalendar } from "./generate-calendar";
 import { generateLeaderboard } from "./generate-leaderboard";
 import { generateCategories } from "./generate-categories";
 import { generateDiscoverySeo } from "./generate-discovery-seo";
-import { generateIcon } from "./generate-icon";
-import { generateClassroomCover } from "./generate-classroom-cover";
-import { generateCalendarCover } from "./generate-calendar-cover";
 
 type PackageEventData = {
   packageId: string;
@@ -40,30 +36,22 @@ const FUNCTIONS: Partial<
     | typeof generateTransformation
     | typeof generateAboutUs
     | typeof generateStartHere
-    | typeof generateCover
     | typeof generateClassroom
     | typeof generateCalendar
     | typeof generateLeaderboard
     | typeof generateCategories
     | typeof generateDiscoverySeo
-    | typeof generateIcon
-    | typeof generateClassroomCover
-    | typeof generateCalendarCover
   >
 > = {
   welcome_dm: generateWelcomeDm,
   transformation: generateTransformation,
   about_us: generateAboutUs,
   start_here: generateStartHere,
-  cover: generateCover,
   classroom: generateClassroom,
   calendar: generateCalendar,
   leaderboard: generateLeaderboard,
   categories: generateCategories,
   discovery_seo: generateDiscoverySeo,
-  icon: generateIcon,
-  classroom_cover: generateClassroomCover,
-  calendar_cover: generateCalendarCover,
 };
 
 /**
@@ -133,7 +121,6 @@ export const generatePackage = inngest.createFunction(
       transformation: byKey.transformation,
       aboutUs: byKey.about_us,
       startHere: byKey.start_here,
-      cover: byKey.cover,
     };
   },
 );
