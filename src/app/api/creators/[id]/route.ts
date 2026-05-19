@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { requireUser } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { creators } from '@/lib/db/schema';
-import { CreatorPatchSchema } from '@/types/schemas';
+import { CreatorDraftSchema } from '@/types/schemas';
 import { validateBody, ValidationError, type ApiError } from '@/lib/validation';
 import { logAudit } from '@/lib/audit';
 import { parsePublicStorageUrl } from '@/lib/storage/parse-public-url';
@@ -66,7 +66,7 @@ export async function PATCH(req: NextRequest, { params }: RouteCtx) {
 
   let body;
   try {
-    body = await validateBody(req, CreatorPatchSchema);
+    body = await validateBody(req, CreatorDraftSchema);
   } catch (err) {
     if (err instanceof ValidationError) {
       return NextResponse.json<ApiError>(err.payload, { status: 400 });

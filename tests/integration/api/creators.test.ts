@@ -329,4 +329,62 @@ describe('PATCH /api/creators/[id]', () => {
     expect(res.status).toBe(400);
     expect((await res.json()).code).toBe('validation_failed');
   });
+
+  // Regression: the wizard's Step 5 seed values are `classroom_titles: [""]`
+  // and `calendar_intake.events[0].title: ""` — empty strings INSIDE arrays
+  // that survive the top-level strip. Before the schema split they tripped
+  // the strict .min(1) constraints and the autosave 400'd with "Invalid
+  // request body" on every tick of Steps 1-4.
+  test('accepts the wizard seed-shaped autosave payload (classroom_titles: [""] etc.)', async () => {
+    const uuid = '550e8400-e29b-41d4-a716-446655440000';
+    dbState.selectRows = [{ id: uuid, created_by: fakeUser.id }];
+    dbState.updateReturning = [{ id: uuid, name: 'Jane' }];
+
+    const seedAutosave = {
+      name: 'Jane',
+      community_name: 'Sanctuary',
+      niche: 'spiritual',
+      support_contact: 'jane@example.com',
+      classroom_titles: [''],
+      calendar_intake: {
+        events: [
+          {
+            title: '',
+            schedule: {
+              type: 'weekly',
+              dayOfWeek: 'mon',
+              time: '09:00',
+              timezone: 'America/New_York',
+            },
+          },
+        ],
+      },
+    };
+
+    const res = await PATCH(
+      jsonRequest(`http://test/api/creators/${uuid}`, 'PATCH', seedAutosave),
+      { params: Promise.resolve({ id: uuid }) },
+    );
+
+    expect(res.status).toBe(200);
+    const updateSet = dbState.lastUpdateSet as Record<string, unknown>;
+    // The seeded fields persist through to the DB write — we DON'T strip
+    // empty inner strings, we just don't reject them. Submit will catch
+    // the real problem when the user clicks "Create launch package".
+    expect(updateSet.classroomIntake).toEqual(['']);
+  });
+
+  test('rejects a type mismatch in the autosave payload (string where number expected)', async () => {
+    const uuid = '550e8400-e29b-41d4-a716-446655440000';
+
+    const res = await PATCH(
+      jsonRequest(`http://test/api/creators/${uuid}`, 'PATCH', {
+        pricing: { monthly: 'twenty' },
+      }),
+      { params: Promise.resolve({ id: uuid }) },
+    );
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).code).toBe('validation_failed');
+  });
 });

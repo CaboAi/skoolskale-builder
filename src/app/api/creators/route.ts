@@ -3,7 +3,7 @@ import { desc } from 'drizzle-orm';
 import { requireUser } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { creators } from '@/lib/db/schema';
-import { CreatorDraftSchema } from '@/types/schemas';
+import { CreatorStep1Schema } from '@/types/schemas';
 import { validateBody, ValidationError, type ApiError } from '@/lib/validation';
 import { logAudit } from '@/lib/audit';
 import { parsePublicStorageUrl } from '@/lib/storage/parse-public-url';
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
 
   let body;
   try {
-    body = await validateBody(req, CreatorDraftSchema);
+    body = await validateBody(req, CreatorStep1Schema);
   } catch (err) {
     if (err instanceof ValidationError) {
       return NextResponse.json<ApiError>(err.payload, { status: 400 });
