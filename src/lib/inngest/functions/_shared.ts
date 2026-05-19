@@ -13,6 +13,7 @@ import { fetchPatternExamples } from '@/lib/generators/pattern-library';
 import { generate } from '@/lib/claude/generate';
 import {
   CapViolationError,
+  EmptyIntakeError,
   buildCapRetryInstruction,
 } from '@/lib/inngest/cap-violation';
 
@@ -154,7 +155,39 @@ export async function runModule<T>(params: {
         regenerateNote: params.regenerateNote,
       };
 
-      userMessage = params.prompt.buildUserMessage(input);
+      try {
+        userMessage = params.prompt.buildUserMessage(input);
+      } catch (e) {
+        // Empty-intake skip path. classroom + calendar throw this when
+        // the creator has no Step 5 intake — we write an empty asset
+        // and mark the job done rather than failing the module.
+        if (e instanceof EmptyIntakeError) {
+          console.log(
+            `${tag} empty intake — skipping Claude, writing empty asset`,
+          );
+          const [asset] = await db
+            .insert(generatedAssets)
+            .values({
+              packageId: params.packageId,
+              module: params.module,
+              version: 1,
+              content: e.emptyContent,
+              approved: false,
+              editHistory: [],
+              createdBy: params.userId,
+            })
+            .returning({ id: generatedAssets.id });
+          await db
+            .update(generationJobs)
+            .set({ status: 'done', completedAt: new Date() })
+            .where(eq(generationJobs.id, params.jobId));
+          return {
+            parsed: e.emptyContent as T,
+            assetId: asset.id,
+          };
+        }
+        throw e;
+      }
     }
     // Generate + parse, with ONE cap-violation retry. The retry only
     // fires when the parser throws CapViolationError (rendered output

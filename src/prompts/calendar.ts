@@ -11,6 +11,7 @@ import {
   formatSchedule,
 } from '@/lib/calendar/format-schedule';
 import type { GeneratorInput } from '@/types/generators';
+import { EmptyIntakeError } from '@/lib/inngest/cap-violation';
 import { regenerateNoteSuffix } from './_shared';
 
 const TITLE_MAX = CALENDAR_EVENT_TITLE_MAX;
@@ -70,9 +71,15 @@ ${ex.content}
 
   const events: CalendarEventIntake[] = input.creator.calendar_intake?.events ?? [];
   if (events.length === 0) {
-    throw new Error(
-      'calendar: no events supplied — the wizard should require at least one before generation runs.',
-    );
+    // Skip gracefully — the runner catches this typed error and writes
+    // an empty calendar asset rather than failing the whole module.
+    // The wizard normally seeds at least one event row, but creators
+    // created via API or drafts loaded from earlier state can land here.
+    throw new EmptyIntakeError({
+      module: 'calendar',
+      moduleLabel: 'Calendar',
+      emptyContent: { events: [] },
+    });
   }
   if (events.length > MAX_EVENTS) {
     throw new Error(

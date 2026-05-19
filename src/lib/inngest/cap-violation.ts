@@ -68,3 +68,33 @@ ${detail.rawOutput.trim()}
 That was ${detail.actualChars} characters. Cap is ${detail.maxChars}. Rewrite tighter — cut whichever bucket or sentence is least essential. Keep the same structure.
 </retry_instruction>`;
 }
+
+/**
+ * Thrown by a prompt builder when the creator has no Step 5 intake for a
+ * module that requires it (currently: classroom, calendar). The runner
+ * in `_shared.ts` catches this BEFORE calling Claude, writes an empty
+ * generated_asset row, and marks the job done. The dashboard renders
+ * the module card with an empty list rather than a 'failed' badge.
+ *
+ * Modules that synthesize from the creator profile alone (leaderboard,
+ * categories, discovery_seo) never throw this — they have sensible
+ * defaults regardless of Step 5 intake.
+ */
+export class EmptyIntakeError extends Error {
+  readonly module: string;
+  readonly moduleLabel: string;
+  /** The shape to persist as the empty asset's `content`. */
+  readonly emptyContent: object;
+
+  constructor(detail: {
+    module: string;
+    moduleLabel: string;
+    emptyContent: object;
+  }) {
+    super(`${detail.moduleLabel}: no intake supplied — skipping`);
+    this.name = "EmptyIntakeError";
+    this.module = detail.module;
+    this.moduleLabel = detail.moduleLabel;
+    this.emptyContent = detail.emptyContent;
+  }
+}

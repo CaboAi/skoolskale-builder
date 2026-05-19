@@ -3,6 +3,7 @@ import {
   type ClassroomContent,
 } from '@/types/schemas';
 import type { GeneratorInput } from '@/types/generators';
+import { EmptyIntakeError } from '@/lib/inngest/cap-violation';
 import { regenerateNoteSuffix } from './_shared';
 
 const TITLE_MAX = 50;
@@ -56,9 +57,15 @@ ${ex.content}
 
   const titles = input.creator.classroom_titles ?? [];
   if (titles.length === 0) {
-    throw new Error(
-      'classroom: no classroom_titles supplied — the wizard should require at least one before generation runs.',
-    );
+    // Skip gracefully — the runner catches this typed error and writes
+    // an empty classroom asset rather than failing the whole module.
+    // The wizard normally seeds at least one title, but creators created
+    // via API or drafts loaded from earlier state can land here.
+    throw new EmptyIntakeError({
+      module: 'classroom',
+      moduleLabel: 'Classroom',
+      emptyContent: { items: [] },
+    });
   }
   if (titles.length > MAX_ITEMS) {
     throw new Error(
