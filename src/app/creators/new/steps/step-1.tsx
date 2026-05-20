@@ -12,7 +12,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { PhotoUpload } from '../photo-upload';
 
 type Props = { form: IntakeFormReturn };
 
@@ -35,7 +34,6 @@ export function Step1CreatorInfo({ form }: Props) {
   } = form;
 
   const niche = watch('niche');
-  const photoUrl = watch('creator_photo_url');
 
   return (
     <section className="space-y-4">
@@ -89,21 +87,6 @@ export function Step1CreatorInfo({ form }: Props) {
           id="support_contact"
           {...register('support_contact')}
           placeholder="@handle or support@example.com"
-        />
-      </FieldRow>
-
-      <FieldRow
-        label="Creator photo (optional)"
-        error={errors.creator_photo_url?.message}
-      >
-        <PhotoUpload
-          value={photoUrl}
-          onChange={(url) =>
-            setValue('creator_photo_url', url, {
-              shouldValidate: true,
-              shouldDirty: true,
-            })
-          }
         />
       </FieldRow>
     </section>

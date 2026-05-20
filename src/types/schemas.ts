@@ -301,7 +301,6 @@ export const CreatorIntakeSchema = z.object({
   refund_policy: z.string(),
   support_contact: z.string().min(1),
   brand_prefs: z.string(),
-  creator_photo_url: z.string().url().optional(),
   // Add-on intake fields (PR #4 step 5). All optional during draft so existing
   // POST-then-PATCH flow stays compatible; final-submit validation enforces.
   // Always required at final-submit time: the classroom generator can't fan
@@ -340,7 +339,6 @@ export const CreatorStep1Schema = z.object({
   community_name: z.string().min(1).max(200),
   niche: NicheEnum,
   support_contact: z.string().min(1),
-  creator_photo_url: z.string().url().optional(),
 });
 export type CreatorStep1 = z.infer<typeof CreatorStep1Schema>;
 
@@ -463,7 +461,6 @@ export const CreatorDraftSchema = z.preprocess(
       refund_policy: z.string().optional(),
       support_contact: z.string().optional(),
       brand_prefs: z.string().optional(),
-      creator_photo_url: z.string().optional(),
       // Add-on fields. Inner element constraints intentionally relaxed —
       // an empty seed entry must not 400. Submit re-enforces .min(1) etc.
       classroom_titles: z.array(z.string()).optional(),

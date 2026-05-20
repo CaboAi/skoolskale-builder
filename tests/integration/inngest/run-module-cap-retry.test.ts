@@ -99,7 +99,6 @@ beforeEach(() => {
       refundPolicy: "",
       supportContact: "Ramsha A.",
       brandPrefs: "",
-      creatorPhotoUrl: null,
     },
   ]);
 });

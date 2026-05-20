@@ -24,7 +24,7 @@ const AUTOSAVE_MS = 30_000;
 
 // Fields to validate on each step's Next click.
 const STEP_FIELDS: FieldPath<CreatorIntake>[][] = [
-  ["name", "community_name", "niche", "support_contact", "creator_photo_url"],
+  ["name", "community_name", "niche", "support_contact"],
   ["transformation", "audience", "offer_breakdown"],
   ["pricing", "trial_terms", "refund_policy"],
   ["tone", "brand_prefs"],
@@ -53,7 +53,6 @@ const DEFAULTS: CreatorIntake = {
   refund_policy: "",
   support_contact: "",
   brand_prefs: "",
-  creator_photo_url: undefined,
   // Seed one empty row so the VA sees the repeater immediately. The
   // schema's per-item `.string().min(1)` blocks an empty-string submission
   // with a clear error.
@@ -103,7 +102,6 @@ export function IntakeWizard() {
       community_name: v.community_name,
       niche: v.niche,
       support_contact: v.support_contact,
-      creator_photo_url: v.creator_photo_url,
     };
     const res = await fetch("/api/creators", {
       method: "POST",

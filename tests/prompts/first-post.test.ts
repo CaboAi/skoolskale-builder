@@ -31,7 +31,6 @@ function makeCreator(): CreatorContext {
     refund_policy: "",
     support_contact: "support@example.test",
     brand_prefs: "",
-    creator_photo_url: undefined,
     classroom_titles: ["Foundations"],
     calendar_intake: {
       events: [
