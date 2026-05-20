@@ -55,6 +55,8 @@ export const moduleEnum = pgEnum('module', [
   // PR #7 image companions for the add-on text modules above.
   'classroom_cover',
   'calendar_cover',
+  // PR #41 — pinned welcome post on the community's main feed.
+  'first_post',
 ]);
 
 export const launchPackageStatusEnum = pgEnum('launch_package_status', [

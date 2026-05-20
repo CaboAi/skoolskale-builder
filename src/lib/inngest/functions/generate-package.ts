@@ -7,6 +7,7 @@ import { generateWelcomeDm } from "./generate-welcome-dm";
 import { generateTransformation } from "./generate-transformation";
 import { generateAboutUs } from "./generate-about-us";
 import { generateStartHere } from "./generate-start-here";
+import { generateFirstPost } from "./generate-first-post";
 import { generateClassroom } from "./generate-classroom";
 import { generateCalendar } from "./generate-calendar";
 import { generateLeaderboard } from "./generate-leaderboard";
@@ -36,6 +37,7 @@ const FUNCTIONS: Partial<
     | typeof generateTransformation
     | typeof generateAboutUs
     | typeof generateStartHere
+    | typeof generateFirstPost
     | typeof generateClassroom
     | typeof generateCalendar
     | typeof generateLeaderboard
@@ -47,6 +49,7 @@ const FUNCTIONS: Partial<
   transformation: generateTransformation,
   about_us: generateAboutUs,
   start_here: generateStartHere,
+  first_post: generateFirstPost,
   classroom: generateClassroom,
   calendar: generateCalendar,
   leaderboard: generateLeaderboard,

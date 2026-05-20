@@ -27,6 +27,7 @@ import { WelcomeDmSchema } from "@/prompts/welcome-dm";
 import { TransformationSchema } from "@/prompts/transformation";
 import { AboutUsSchema } from "@/prompts/about-us";
 import { StartHereSchema } from "@/prompts/start-here";
+import { FirstPostSchema } from "@/prompts/first-post";
 import {
   ClassroomContentSchema,
   CalendarContentSchema,
@@ -40,6 +41,7 @@ export type ModuleKey =
   | "transformation"
   | "about_us"
   | "start_here"
+  | "first_post"
   // Add-on text modules — registered in PR #4 (intake), generators in PR #6.
   | "classroom"
   | "calendar"
@@ -66,6 +68,7 @@ export type CardVariant =
   | "simple-text"
   | "about-us"
   | "start-here"
+  | "title-body"
   | "leaderboard"
   | "repeater"
   | "chips";
@@ -141,6 +144,21 @@ export const MODULE_REGISTRY: Record<ModuleKey, ModuleConfig> = {
     cardVariant: "start-here",
     includedByDefault: true,
     eventName: "generate.start_here.requested",
+  },
+  first_post: {
+    key: "first_post",
+    label: "First Post",
+    outputSchema: FirstPostSchema,
+    generatorKind: "claude-text",
+    cardVariant: "title-body",
+    includedByDefault: true,
+    eventName: "generate.first_post.requested",
+    // Body-only cap. Title has its own .max(100) inside FirstPostSchema.
+    // Modeled on the Ramsha example post (~1,733 chars rendered). The
+    // CapViolationError + auto-retry plumbing in generate-first-post
+    // catches body-over-cap and fires one rewrite-tighter retry.
+    targetChars: 1800,
+    maxChars: 2500,
   },
   classroom: {
     key: "classroom",

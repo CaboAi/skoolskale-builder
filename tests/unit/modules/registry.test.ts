@@ -23,6 +23,7 @@ const TEXT_MODULE_KEYS: readonly ModuleKey[] = [
   "transformation",
   "about_us",
   "start_here",
+  "first_post",
   "classroom",
   "calendar",
   "leaderboard",
@@ -40,7 +41,7 @@ const REMOVED_IMAGE_KEYS = [
 describe("MODULE_REGISTRY shape", () => {
   test("exposes exactly the 9 text modules — no image modules", () => {
     expect(new Set(MODULE_KEYS)).toEqual(new Set(TEXT_MODULE_KEYS));
-    expect(MODULE_KEYS).toHaveLength(9);
+    expect(MODULE_KEYS).toHaveLength(10);
   });
 
   test.each(REMOVED_IMAGE_KEYS)("removed image module %s is NOT in the registry", (key) => {
@@ -56,7 +57,7 @@ describe("MODULE_REGISTRY shape", () => {
     ).length;
     expect(DASHBOARD_MODULE_KEYS).toHaveLength(total);
     expect(defaultOn).toBe(total);
-    expect(total).toBe(9);
+    expect(total).toBe(10);
   });
 
   test("every module's generatorKind is 'claude-text' — no gemini-image left", () => {
@@ -66,11 +67,12 @@ describe("MODULE_REGISTRY shape", () => {
     expect(kinds).toEqual(new Set<GeneratorKind>(["claude-text"]));
   });
 
-  test("every module's cardVariant is one of the 6 surviving text-card variants", () => {
+  test("every module's cardVariant is one of the 7 text-card variants", () => {
     const allowed = new Set<CardVariant>([
       "simple-text",
       "about-us",
       "start-here",
+      "title-body",
       "leaderboard",
       "repeater",
       "chips",
@@ -95,7 +97,7 @@ describe("Package status math", () => {
     const totalModules = Object.values(MODULE_REGISTRY).filter(
       (m) => m.includedByDefault,
     ).length;
-    expect(totalModules).toBe(9);
+    expect(totalModules).toBe(10);
   });
 });
 
@@ -124,7 +126,21 @@ describe("Add-on text modules default-on contract", () => {
     }
   });
 
-  test("DASHBOARD_MODULE_KEYS contains every key (all 9 surface in the dashboard)", () => {
+  test("DASHBOARD_MODULE_KEYS contains every key (all 10 surface in the dashboard)", () => {
     expect(new Set(DASHBOARD_MODULE_KEYS)).toEqual(new Set(MODULE_KEYS));
+  });
+});
+
+describe("first_post module config", () => {
+  test("is registered with the title-body card variant and Skool-cap math", () => {
+    const cfg = MODULE_REGISTRY.first_post;
+    expect(cfg.label).toBe("First Post");
+    expect(cfg.generatorKind).toBe("claude-text");
+    expect(cfg.cardVariant).toBe("title-body");
+    expect(cfg.includedByDefault).toBe(true);
+    expect(cfg.eventName).toBe("generate.first_post.requested");
+    // Body-only caps from src/prompts/first-post.ts.
+    expect(cfg.targetChars).toBe(1800);
+    expect(cfg.maxChars).toBe(2500);
   });
 });

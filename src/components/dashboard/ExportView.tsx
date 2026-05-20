@@ -106,6 +106,52 @@ function renderStep4Text(
 }
 
 /* -------------------------------------------------------------------------- */
+/* Section: First Post — title + body with separate copy buttons              */
+/*                                                                            */
+/* Skool's pinned-post editor has independent title and body fields, so the   */
+/* VA needs two distinct copy targets (not a single combined blob).           */
+/* -------------------------------------------------------------------------- */
+
+type FirstPostContent = { title: string; body: string };
+
+function FirstPostSection({ asset }: { asset: GeneratedAsset }) {
+  const c = asset.content as FirstPostContent;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>First Post (pinned welcome)</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="space-y-1">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+              Title
+            </p>
+            <CopyButton text={c.title} label="Copy title" />
+          </div>
+          <p className="font-semibold">{c.title}</p>
+        </div>
+        <div className="space-y-1">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+              Body
+            </p>
+            <CopyButton text={c.body} label="Copy body" />
+          </div>
+          <pre className="whitespace-pre-wrap rounded-md bg-muted p-3 font-mono text-xs leading-relaxed">
+            {c.body}
+          </pre>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Paste into Skool &gt; New post &gt; pin to the community feed. Use
+          the title for the post title field and the body for the post body.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
 /* Section: Welcome DM                                                         */
 /* -------------------------------------------------------------------------- */
 
@@ -577,6 +623,7 @@ export function ExportView({ package: pkg, creator, assets }: ExportViewProps) {
   const transformation = m.transformation;
   const aboutUs = m.about_us;
   const startHere = m.start_here;
+  const firstPost = m.first_post;
   const classroom = m.classroom;
   const calendar = m.calendar;
   const leaderboard = m.leaderboard;
@@ -622,6 +669,7 @@ export function ExportView({ package: pkg, creator, assets }: ExportViewProps) {
       {transformation && <TransformationSection asset={transformation} />}
       {aboutUs && <AboutUsSection asset={aboutUs} />}
       {startHere && <StartHereSection asset={startHere} />}
+      {firstPost && <FirstPostSection asset={firstPost} />}
       {classroom && <ClassroomSection asset={classroom} />}
       {calendar && <CalendarSection asset={calendar} />}
       {leaderboard && <LeaderboardSection asset={leaderboard} />}

@@ -37,6 +37,8 @@ import { buildUserMessage as buildLeaderboard } from "@/prompts/leaderboard";
 import { buildUserMessage as buildStartHere } from "@/prompts/start-here";
 import { buildUserMessage as buildTransformation } from "@/prompts/transformation";
 import { buildUserMessage as buildWelcomeDm } from "@/prompts/welcome-dm";
+import { buildUserMessage as buildFirstPost } from "@/prompts/first-post";
+import { resolveIntroCategory } from "@/lib/inngest/resolve-intro-category";
 
 // Image-prompt builders (cover, icon, classroom_cover, calendar_cover)
 // were removed alongside the Gemini integration in
@@ -92,6 +94,32 @@ export async function buildPromptFor(args: {
 
   const creatorContext = toCreatorContext(creator);
 
+  const patternLibrary = await fetchPatternExamples({
+    module: args.module,
+    niche: creator.niche,
+    tone: creator.tone,
+  });
+  const baseInput = {
+    creator: creatorContext,
+    patternLibrary,
+    regenerateNote: args.regenerateNote,
+  };
+
+  // first_post has a different buildUserMessage signature because of
+  // its cross-module dependency on the categories asset (intro
+  // category name). Resolve here so the prompt-editor preview shows
+  // the exact prompt the Inngest function would send.
+  if (args.module === "first_post") {
+    const introCategoryName = await resolveIntroCategory(args.packageId);
+    const hasCalendarEvents =
+      (creatorContext.calendar_intake?.events?.length ?? 0) > 0;
+    return buildFirstPost({
+      input: baseInput,
+      introCategoryName,
+      hasCalendarEvents,
+    });
+  }
+
   // Text modules — fetch pattern library, then build via the right builder.
   // Image modules were removed in chore/remove-image-generation; the
   // registry no longer surfaces them, so an image module key reaching
@@ -100,14 +128,5 @@ export async function buildPromptFor(args: {
   if (!builder) {
     throw new Error(`No prompt builder registered for module '${args.module}'`);
   }
-  const patternLibrary = await fetchPatternExamples({
-    module: args.module,
-    niche: creator.niche,
-    tone: creator.tone,
-  });
-  return builder({
-    creator: creatorContext,
-    patternLibrary,
-    regenerateNote: args.regenerateNote,
-  });
+  return builder(baseInput);
 }
