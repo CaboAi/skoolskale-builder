@@ -108,10 +108,14 @@ export const creators = pgTable(
     refundPolicy: text('refund_policy'),
     supportContact: text('support_contact'),
     brandPrefs: text('brand_prefs'),
+    // Orphan columns after chore/remove-creator-photo-upload. Photo upload
+    // existed as the Gemini reference image for cover generation; with
+    // image generation removed (PR #39) and the upload UI removed in this
+    // PR, no code writes or reads these. Columns kept (not dropped) to
+    // preserve any historical data — same pattern as `gemini_image_usage`
+    // in generation_jobs. Dropping requires a migration that's only
+    // reversible via backup restore; ops decision for later.
     creatorPhotoUrl: text('creator_photo_url'),
-    // Storage path within the `creator-photos` bucket (e.g. "userId/file.png").
-    // Replaces creatorPhotoUrl once the signed-URLs migration is complete; both
-    // coexist during the migration window. See memory/signed-urls-migration.md.
     creatorPhotoPath: text('creator_photo_path'),
     // Add-on intake (PR #4) — nullable so the Step 1 POST flow doesn't have
     // to backfill. Step 5 PATCHes these in. Stored as jsonb / text[] mirrors

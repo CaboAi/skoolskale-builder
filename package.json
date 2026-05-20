@@ -12,7 +12,6 @@
     "demo:seed": "dotenv -e .env.local -- tsx scripts/seed-demo-user.ts",
     "verify:enum": "dotenv -e .env.local -- tsx scripts/verify-module-enum.ts",
     "verify:bucket": "dotenv -e .env.local -- tsx scripts/verify-buckets.ts",
-    "backfill:storage-paths": "dotenv -e .env.local -- tsx scripts/backfill-storage-paths.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",

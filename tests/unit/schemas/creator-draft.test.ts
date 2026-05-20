@@ -229,15 +229,4 @@ describe("CreatorStep1Schema (Step 1 POST bootstrap)", () => {
     ).toBe(false);
   });
 
-  test("rejects an invalid creator_photo_url", () => {
-    expect(
-      CreatorStep1Schema.safeParse({
-        name: "Jane",
-        community_name: "Sanctuary",
-        niche: "spiritual",
-        support_contact: "jane@example.com",
-        creator_photo_url: "not-a-url",
-      }).success,
-    ).toBe(false);
-  });
 });

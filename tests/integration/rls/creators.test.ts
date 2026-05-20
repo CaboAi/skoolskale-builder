@@ -38,7 +38,6 @@ const VALID_CREATOR_VALUES = (ownerUuid: string) => ({
   refund_policy: 'none',
   support_contact: 'rls@test.example',
   brand_prefs: '',
-  creator_photo_url: null,
   created_by: ownerUuid,
 });
 
@@ -74,13 +73,13 @@ describeOrSkip('RLS: creators table — owner-scoped visibility', () => {
       INSERT INTO creators (
         name, community_name, niche, audience, transformation, tone,
         offer_breakdown, pricing, trial_terms, refund_policy,
-        support_contact, brand_prefs, creator_photo_url, created_by
+        support_contact, brand_prefs, created_by
       ) VALUES (
         ${row.name}, ${row.community_name}, ${row.niche}, ${row.audience},
         ${row.transformation}, ${row.tone},
         ${sql.json(row.offer_breakdown)}, ${sql.json(row.pricing)},
         ${sql.json(row.trial_terms)}, ${row.refund_policy},
-        ${row.support_contact}, ${row.brand_prefs}, ${row.creator_photo_url},
+        ${row.support_contact}, ${row.brand_prefs},
         ${row.created_by}
       )
       RETURNING id
@@ -125,13 +124,13 @@ describeOrSkip('RLS: creators table — owner-scoped visibility', () => {
       INSERT INTO creators (
         name, community_name, niche, audience, transformation, tone,
         offer_breakdown, pricing, trial_terms, refund_policy,
-        support_contact, brand_prefs, creator_photo_url, created_by
+        support_contact, brand_prefs, created_by
       ) VALUES (
         ${row.name}, ${row.community_name}, ${row.niche}, ${row.audience},
         ${row.transformation}, ${row.tone},
         ${sql.json(row.offer_breakdown)}, ${sql.json(row.pricing)},
         ${sql.json(row.trial_terms)}, ${row.refund_policy},
-        ${row.support_contact}, ${row.brand_prefs}, ${row.creator_photo_url},
+        ${row.support_contact}, ${row.brand_prefs},
         ${row.created_by}
       )
       RETURNING id

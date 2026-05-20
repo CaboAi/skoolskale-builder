@@ -123,7 +123,6 @@ beforeEach(() => {
       refundPolicy: "",
       supportContact: "x",
       brandPrefs: "",
-      creatorPhotoUrl: null,
     },
   ]);
 });

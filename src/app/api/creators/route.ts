@@ -6,7 +6,6 @@ import { creators } from '@/lib/db/schema';
 import { CreatorStep1Schema } from '@/types/schemas';
 import { validateBody, ValidationError, type ApiError } from '@/lib/validation';
 import { logAudit } from '@/lib/audit';
-import { parsePublicStorageUrl } from '@/lib/storage/parse-public-url';
 
 /**
  * POST /api/creators — create a draft creator record from the Step 1
@@ -30,22 +29,6 @@ export async function POST(req: NextRequest) {
     throw err;
   }
 
-  // Derive the storage path from the public URL so newly-created rows
-  // already carry both fields (signed-URLs migration stage 2). If the URL
-  // doesn't match the Supabase public-storage shape (e.g. hand-pasted or
-  // external), persist URL only and warn — never block the create.
-  let creatorPhotoPath: string | null | undefined = undefined;
-  if (body.creator_photo_url) {
-    const parsed = parsePublicStorageUrl(body.creator_photo_url);
-    if (parsed) {
-      creatorPhotoPath = parsed.path;
-    } else {
-      console.warn(
-        `creator_photo_url did not match public-storage shape; storing url only: ${body.creator_photo_url}`,
-      );
-    }
-  }
-
   const [row] = await db
     .insert(creators)
     .values({
@@ -65,8 +48,6 @@ export async function POST(req: NextRequest) {
       refundPolicy: '',
       supportContact: body.support_contact,
       brandPrefs: '',
-      creatorPhotoUrl: body.creator_photo_url,
-      creatorPhotoPath,
       createdBy: user.id,
     })
     .returning();

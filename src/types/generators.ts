@@ -30,7 +30,6 @@ export type CreatorContext = Pick<
   | "refund_policy"
   | "support_contact"
   | "brand_prefs"
-  | "creator_photo_url"
 > & {
   /**
    * Optional here because legacy DB rows may have null classroom_intake.
@@ -46,14 +45,6 @@ export type CreatorContext = Pick<
    * Claude with an empty events list.
    */
   calendar_intake?: CreatorIntake["calendar_intake"];
-  /**
-   * Storage path (bucket-relative) for the creator photo. Set by the
-   * signed-URLs migration so generators can read the bytes via
-   * `storage.download()` instead of fetching the public URL. Coexists with
-   * `creator_photo_url` during the migration window; the latter is dropped
-   * after Stage 4 verifies signed-URL traffic in prod.
-   */
-  creator_photo_path?: string;
 };
 
 /**
@@ -127,8 +118,6 @@ export function toCreatorContext(row: Creator): CreatorContext {
     refund_policy: row.refundPolicy ?? "",
     support_contact: row.supportContact ?? "",
     brand_prefs: row.brandPrefs ?? "",
-    creator_photo_url: row.creatorPhotoUrl ?? undefined,
-    creator_photo_path: row.creatorPhotoPath ?? undefined,
     classroom_titles:
       (row.classroomIntake as CreatorContext["classroom_titles"]) ?? undefined,
     calendar_intake:

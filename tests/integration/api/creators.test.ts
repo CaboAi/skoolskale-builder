@@ -111,7 +111,6 @@ const VALID_CREATOR = {
   refund_policy: '14 days, no questions',
   support_contact: 'support@alchemy.co',
   brand_prefs: 'soft gold + deep teal',
-  creator_photo_url: 'https://cdn.example.com/jane.jpg',
 };
 
 function jsonRequest(url: string, method: string, body?: unknown) {
