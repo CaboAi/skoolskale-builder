@@ -27,6 +27,11 @@ import { StartHereEditForm } from "./edit-forms/StartHereEditForm";
 import type { AboutUsOutput } from "@/prompts/about-us";
 import { WELCOME_DM_MAX_CHARS } from "@/prompts/welcome-dm";
 import type { StartHereOutput } from "@/prompts/start-here";
+import {
+  FIRST_POST_BODY_MAX,
+  FIRST_POST_TITLE_MAX,
+  type FirstPostOutput,
+} from "@/prompts/first-post";
 import { cn } from "@/lib/utils";
 import type {
   CalendarEvent,
@@ -317,6 +322,16 @@ function EditDialogBody({
       />
     );
   }
+  if (module === "first_post") {
+    return (
+      <FirstPostEditForm
+        asset={asset}
+        onSave={onSave}
+        onCancel={onCancel}
+        saving={saving}
+      />
+    );
+  }
   // Defensive fallback. Per the PR #15 audit, no other module currently
   // routes through EditDialog with a structured-only shape — the per-
   // module forms above cover every dispatched module key. Kept so that
@@ -378,6 +393,88 @@ function WelcomeDmEditForm({
       >
         {len} / {WELCOME_DM_MAX_CHARS}
       </p>
+    </EditFormShell>
+  );
+}
+
+/* ---------- First Post — title + body with independent counters ---------- */
+
+function FirstPostEditForm({
+  asset,
+  onSave,
+  onCancel,
+  saving,
+}: {
+  asset: GeneratedAsset;
+  onSave: (content: unknown) => void;
+  onCancel: () => void;
+  saving: boolean;
+}) {
+  const initial = asset.content as FirstPostOutput;
+  const [title, setTitle] = useState(initial.title ?? "");
+  const [body, setBody] = useState(initial.body ?? "");
+  const titleLen = title.length;
+  const bodyLen = body.length;
+  const titleOver = titleLen > FIRST_POST_TITLE_MAX;
+  const bodyOver = bodyLen > FIRST_POST_BODY_MAX;
+  const overCap = titleOver || bodyOver;
+  return (
+    <EditFormShell
+      description="Pinned welcome post — title + body have independent Skool fields."
+      saving={saving}
+      saveDisabled={overCap}
+      saveDisabledReason={
+        titleOver
+          ? `Title ${titleLen - FIRST_POST_TITLE_MAX} chars over cap`
+          : bodyOver
+            ? `Body ${bodyLen - FIRST_POST_BODY_MAX} chars over cap`
+            : undefined
+      }
+      onSave={() => onSave({ title, body })}
+      onCancel={onCancel}
+    >
+      <div className="space-y-1.5">
+        <Label htmlFor="first-post-title">Title</Label>
+        <Input
+          id="first-post-title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          aria-invalid={titleOver || undefined}
+        />
+        <p
+          className={cn(
+            "text-right text-xs tabular-nums",
+            titleOver
+              ? "font-semibold text-destructive"
+              : "text-muted-foreground",
+          )}
+          aria-live="polite"
+        >
+          {titleLen} / {FIRST_POST_TITLE_MAX}
+        </p>
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="first-post-body">Body</Label>
+        <Textarea
+          id="first-post-body"
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          rows={20}
+          className="font-mono text-xs"
+          aria-invalid={bodyOver || undefined}
+        />
+        <p
+          className={cn(
+            "text-right text-xs tabular-nums",
+            bodyOver
+              ? "font-semibold text-destructive"
+              : "text-muted-foreground",
+          )}
+          aria-live="polite"
+        >
+          {bodyLen.toLocaleString()} / {FIRST_POST_BODY_MAX.toLocaleString()}
+        </p>
+      </div>
     </EditFormShell>
   );
 }

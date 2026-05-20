@@ -1,0 +1,1 @@
+ALTER TYPE "public"."module" ADD VALUE 'first_post';

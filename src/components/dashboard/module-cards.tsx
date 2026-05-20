@@ -409,6 +409,52 @@ export function AboutUsCard({
 }
 
 /* -------------------------------------------------------------------------- */
+/* First Post — pinned welcome thread (title + body)                          */
+/* -------------------------------------------------------------------------- */
+
+type FirstPostContent = { title: string; body: string };
+
+export function FirstPostCard({
+  asset,
+  onAction,
+  pendingAction = null,
+}: {
+  asset: GeneratedAsset;
+  onAction: ModuleActionHandler;
+  pendingAction?: ModuleAction | null;
+}) {
+  const c = asset.content as FirstPostContent;
+  return (
+    <Card className={cn(MODULE_CARD_CLASS, "md:col-span-2")}>
+      <ModuleHeader module="first_post" approved={asset.approved} />
+      <CardContent className="space-y-3">
+        <p
+          className="text-base font-semibold leading-snug"
+          data-slot="first-post-title"
+        >
+          {c.title}
+        </p>
+        <pre
+          className="whitespace-pre-wrap rounded-md bg-muted p-3 font-mono text-xs leading-relaxed"
+          data-slot="first-post-body"
+        >
+          {c.body}
+        </pre>
+        <p className="text-xs text-muted-foreground">
+          {c.body.length.toLocaleString()} chars
+        </p>
+      </CardContent>
+      <ModuleFooter
+        module="first_post"
+        onAction={onAction}
+        approved={asset.approved}
+        pendingAction={pendingAction}
+      />
+    </Card>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
 /* Start Here                                                                  */
 /* -------------------------------------------------------------------------- */
 
@@ -648,6 +694,7 @@ export const CARD_COMPONENTS: Record<
   "simple-text": TextModuleCard,
   "about-us": AboutUsCard,
   "start-here": StartHereCard,
+  "title-body": FirstPostCard,
   leaderboard: LeaderboardCard,
   repeater: CategoriesCard,
   chips: DiscoverySeoCard,

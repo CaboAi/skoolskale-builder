@@ -2,6 +2,7 @@ export { generateWelcomeDm } from "./generate-welcome-dm";
 export { generateTransformation } from "./generate-transformation";
 export { generateAboutUs } from "./generate-about-us";
 export { generateStartHere } from "./generate-start-here";
+export { generateFirstPost } from "./generate-first-post";
 export { generateClassroom } from "./generate-classroom";
 export { generateCalendar } from "./generate-calendar";
 export { generateLeaderboard } from "./generate-leaderboard";
@@ -13,6 +14,7 @@ import { generateWelcomeDm } from "./generate-welcome-dm";
 import { generateTransformation } from "./generate-transformation";
 import { generateAboutUs } from "./generate-about-us";
 import { generateStartHere } from "./generate-start-here";
+import { generateFirstPost } from "./generate-first-post";
 import { generateClassroom } from "./generate-classroom";
 import { generateCalendar } from "./generate-calendar";
 import { generateLeaderboard } from "./generate-leaderboard";
@@ -33,6 +35,7 @@ export const functions = [
   generateTransformation,
   generateAboutUs,
   generateStartHere,
+  generateFirstPost,
   generateClassroom,
   generateCalendar,
   generateLeaderboard,

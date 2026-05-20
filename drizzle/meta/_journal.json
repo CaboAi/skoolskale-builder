@@ -57,6 +57,13 @@
       "when": 1778624499882,
       "tag": "0007_creator_photo_path",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1779236107793,
+      "tag": "0008_sturdy_human_torch",
+      "breakpoints": true
     }
   ]
 }

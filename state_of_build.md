@@ -26,11 +26,18 @@ A VA can:
 1. **Sign in** via the demo-mode auto-session (see Open Items #1).
 2. **Create a creator profile** with intake form (`/creators/new`).
 3. **Spin up a launch package** (`POST /api/packages` → `POST /api/packages/[id]/generate`).
-4. **Watch all 9 text modules generate in parallel** via Inngest + the package detail page polling:
+4. **Watch all 10 text modules generate in parallel** via Inngest + the package detail page polling:
    - `welcome_dm` (Claude Sonnet 4.6)
    - `transformation` (Claude)
    - `about_us` (Claude)
    - `start_here` (Claude)
+   - `first_post` — pinned welcome post, title + body (Claude). Reads
+     the generated `categories` asset to fill the intro-category name
+     — first cross-module dependency in the builder. Polling-with-
+     backoff resolver in `src/lib/inngest/resolve-intro-category.ts`
+     handles the parallel-dispatch ordering; falls back to "Introduce
+     Yourself" if the categories asset is missing, corrupted, or has
+     no /intro/i match.
    - `classroom` — title + description per VA-supplied title (Claude)
    - `calendar` — title + description per event (Claude)
    - `leaderboard` — 9 level names (Claude)
