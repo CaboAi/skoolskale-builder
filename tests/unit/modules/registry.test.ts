@@ -98,3 +98,33 @@ describe("Package status math", () => {
     expect(totalModules).toBe(9);
   });
 });
+
+/**
+ * Lock the includedByDefault contract for the five add-on text modules.
+ * They were initially `false` (waiting on the image generators in the
+ * since-removed PR #7) and got flipped to `true` in
+ * `feat/text-modules-default-on` once image generation went away.
+ */
+describe("Add-on text modules default-on contract", () => {
+  const ADDON_MODULES: ModuleKey[] = [
+    "classroom",
+    "calendar",
+    "leaderboard",
+    "categories",
+    "discovery_seo",
+  ];
+
+  test.each(ADDON_MODULES)("%s is includedByDefault: true", (key) => {
+    expect(MODULE_REGISTRY[key].includedByDefault).toBe(true);
+  });
+
+  test("every registered module is default-on (no opt-in modules left)", () => {
+    for (const m of Object.values(MODULE_REGISTRY)) {
+      expect(m.includedByDefault).toBe(true);
+    }
+  });
+
+  test("DASHBOARD_MODULE_KEYS contains every key (all 9 surface in the dashboard)", () => {
+    expect(new Set(DASHBOARD_MODULE_KEYS)).toEqual(new Set(MODULE_KEYS));
+  });
+});

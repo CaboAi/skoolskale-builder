@@ -8,6 +8,14 @@
 > The builder is now a pure copy generator. VAs handle community visuals
 > (cover, icon, classroom cover, calendar cover) externally in Canva using
 > the client's professional photography. See CHANGELOG for the full cut.
+>
+> **Follow-up:** the five add-on text modules (classroom, calendar,
+> leaderboard, categories, discovery_seo) flipped to `includedByDefault:
+> true` — every new package now generates 9 modules by default. Step 5
+> intake fields remain customizable per package. classroom + calendar
+> handle empty intake gracefully (write an empty asset rather than
+> failing the module); the other three synthesize from the creator
+> profile alone.
 
 ---
 
