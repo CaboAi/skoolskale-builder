@@ -3,6 +3,7 @@
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
   Select,
   SelectContent,
@@ -581,18 +582,22 @@ function RecurrenceFields({
     );
   }
 
-  // one_off
+  // one_off — controlled shadcn Calendar + Popover, not the native date input.
+  // Native <input type="date"> has a known cross-browser bug where editing the
+  // year segment can wipe partial input; the DatePicker is timezone-safe
+  // (date-fns format/parse, never .toISOString()) and renders identically
+  // across Chrome/Safari/Firefox.
   const dateId = `events-${rowIndex}-date`;
   return (
     <div className="space-y-1.5">
       <Label htmlFor={dateId} className="text-xs">
         Date
       </Label>
-      <Input
+      <DatePicker
         id={dateId}
-        type="date"
-        value={schedule.date}
-        onChange={(e) => onScheduleChange({ date: e.target.value })}
+        value={schedule.date || undefined}
+        onChange={(value) => onScheduleChange({ date: value })}
+        placeholder="Pick a date"
         aria-invalid={fieldErrors?.date ? true : undefined}
       />
       {fieldErrors?.date ? (
