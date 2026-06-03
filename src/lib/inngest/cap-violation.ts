@@ -72,8 +72,18 @@ export function buildCapRetryInstruction(detail: {
   regenerateNote?: string;
 }): string {
   const hasNote = Boolean(detail.regenerateNote?.trim());
+  // No-note directive is intentionally byte-identical to the pre-fix
+  // wording — regression-guarded by the no-note test.
+  //
+  // With-note directive uses module-agnostic vocabulary ("removing
+  // sections" instead of "dropping a bucket") because this helper is
+  // shared by every module that throws CapViolationError (about_us,
+  // welcome_dm, first-post), and appends a cap-vs-note disambiguation
+  // clause so the priority-framed note suffix below ("user feedback
+  // wins") can't be misread as overriding the cap on length-up notes
+  // like "much longer".
   const directive = hasNote
-    ? `That was ${detail.actualChars} characters. Cap is ${detail.maxChars}. Trim only enough to land just under ${detail.maxChars} — stay as close to the cap as possible. Keep the same structure; tighten sentences rather than dropping a whole bucket.`
+    ? `That was ${detail.actualChars} characters. Cap is ${detail.maxChars}. Trim only enough to land just under ${detail.maxChars} — stay as close to the cap as possible. Keep the same structure; tighten existing sentences rather than removing sections. The note below is honored within the ${detail.maxChars}-char cap; the cap is the hard ceiling.`
     : `That was ${detail.actualChars} characters. Cap is ${detail.maxChars}. Rewrite tighter — cut whichever bucket or sentence is least essential. Keep the same structure.`;
   return `
 

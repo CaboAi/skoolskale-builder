@@ -72,11 +72,23 @@ That was 1247 characters. Cap is 1050. Rewrite tighter — cut whichever bucket 
     });
     // Softened directive: trim-to-fit, not cut-a-bucket.
     expect(msg).toContain('stay as close to the cap as possible');
-    expect(msg).toContain('tighten sentences rather than dropping a whole bucket');
+    // Module-agnostic vocabulary: shared by about_us, welcome_dm, first-post.
+    expect(msg).toContain('tighten existing sentences rather than removing sections');
+    expect(msg).not.toContain('dropping a whole bucket');
     expect(msg).not.toContain('cut whichever bucket or sentence is least essential');
+    // Cap-vs-note disambiguation: prevents "user feedback wins" from being
+    // misread as overriding the cap on length-up notes like "much longer".
+    expect(msg).toContain('the cap is the hard ceiling');
+    expect(msg).toContain('1050-char cap');
     // The note is re-stated AFTER the trim directive so it stays weighted last.
     expect(msg).toContain('make it longer');
     expect(msg.indexOf('make it longer')).toBeGreaterThan(
+      msg.indexOf('</retry_instruction>'),
+    );
+    // Note-text-independent ordering invariant: the priority-framed
+    // suffix marker must follow </retry_instruction>. Locks the load-
+    // bearing ordering even if future tests use a different note text.
+    expect(msg.indexOf('USER FEEDBACK TO INCORPORATE')).toBeGreaterThan(
       msg.indexOf('</retry_instruction>'),
     );
   });
