@@ -140,7 +140,7 @@ Brand prefs: ${input.creator.brand_prefs || '(none)'}
 </creator_context>
 
 <task>
-Write the About Us page in a ${input.creator.tone} tone. Produce 2-3 value_buckets, each with exactly one short line (max 18 words). Total rendered output must be under ${ABOUT_US_MAX_CHARS} characters. Output only the JSON inside the <about_us_json> tags.
+Write the About Us page in a ${input.creator.tone} tone. Produce 2-3 value_buckets, each with exactly one short line (max 18 words). Total rendered output must be ${ABOUT_US_TARGET_MIN}-${ABOUT_US_MAX_CHARS} characters — aim for the upper end when the offer supports it, and never exceed ${ABOUT_US_MAX_CHARS}. Output only the JSON inside the <about_us_json> tags.
 </task>${regenerateNoteSuffix(input.regenerateNote)}`;
 }
 

@@ -24,16 +24,60 @@ describe('CapViolationError', () => {
 });
 
 describe('buildCapRetryInstruction', () => {
+  const RAW = '<about_us_json>{"too":"long"}</about_us_json>';
+
   test('includes the previous attempt and the numeric guidance the model needs', () => {
     const msg = buildCapRetryInstruction({
       actualChars: 1247,
       maxChars: 1050,
-      rawOutput: '<about_us_json>{"too":"long"}</about_us_json>',
+      rawOutput: RAW,
     });
     expect(msg).toContain('<previous_attempt chars="1247">');
     expect(msg).toContain('That was 1247 characters');
     expect(msg).toContain('Cap is 1050');
     expect(msg).toContain('Keep the same structure');
     expect(msg).toContain('{"too":"long"}');
+  });
+
+  test('no-note path is byte-identical to the blunt-trim instruction (regression guard)', () => {
+    const expected = `
+
+<previous_attempt chars="1247">
+${RAW}
+</previous_attempt>
+
+<retry_instruction>
+That was 1247 characters. Cap is 1050. Rewrite tighter — cut whichever bucket or sentence is least essential. Keep the same structure.
+</retry_instruction>`;
+    // A blank/whitespace note must not change the no-note output either.
+    expect(
+      buildCapRetryInstruction({ actualChars: 1247, maxChars: 1050, rawOutput: RAW }),
+    ).toBe(expected);
+    expect(
+      buildCapRetryInstruction({
+        actualChars: 1247,
+        maxChars: 1050,
+        rawOutput: RAW,
+        regenerateNote: '   ',
+      }),
+    ).toBe(expected);
+  });
+
+  test('with a length note: softens the directive and re-states the note as the last signal', () => {
+    const msg = buildCapRetryInstruction({
+      actualChars: 1247,
+      maxChars: 1050,
+      rawOutput: RAW,
+      regenerateNote: 'make it longer',
+    });
+    // Softened directive: trim-to-fit, not cut-a-bucket.
+    expect(msg).toContain('stay as close to the cap as possible');
+    expect(msg).toContain('tighten sentences rather than dropping a whole bucket');
+    expect(msg).not.toContain('cut whichever bucket or sentence is least essential');
+    // The note is re-stated AFTER the trim directive so it stays weighted last.
+    expect(msg).toContain('make it longer');
+    expect(msg.indexOf('make it longer')).toBeGreaterThan(
+      msg.indexOf('</retry_instruction>'),
+    );
   });
 });

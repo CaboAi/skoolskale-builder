@@ -5,6 +5,7 @@ import {
   buildUserMessage,
   AboutUsSchema,
   ABOUT_US_MAX_CHARS,
+  ABOUT_US_TARGET_MIN,
 } from '@/prompts/about-us';
 import { renderAboutUsText } from '@/lib/modules/render';
 import { CapViolationError } from '@/lib/inngest/cap-violation';
@@ -204,10 +205,26 @@ Trailing text.`;
   });
 
   describe('buildUserMessage', () => {
-    test('threads the cap into the task line', () => {
+    test('threads the target band (min + max) into the task line', () => {
       const msg = buildUserMessage(MINIMAL_INPUT);
-      expect(msg).toContain(`${ABOUT_US_MAX_CHARS} characters`);
+      expect(msg).toContain(`${ABOUT_US_TARGET_MIN}-${ABOUT_US_MAX_CHARS} characters`);
       expect(msg).toContain('2-3 value_buckets');
+    });
+
+    test('appends the regenerate note as a priority-framed suffix when present', () => {
+      const msg = buildUserMessage({
+        ...MINIMAL_INPUT,
+        regenerateNote: 'make it longer',
+      });
+      expect(msg).toContain('USER FEEDBACK TO INCORPORATE');
+      expect(msg).toContain('make it longer');
+      // Suffix lands after the task block so it stays weighted last.
+      expect(msg.indexOf('make it longer')).toBeGreaterThan(msg.indexOf('</task>'));
+    });
+
+    test('omits the suffix entirely when no note is supplied', () => {
+      const msg = buildUserMessage(MINIMAL_INPUT);
+      expect(msg).not.toContain('USER FEEDBACK TO INCORPORATE');
     });
   });
 });
