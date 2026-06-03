@@ -169,6 +169,43 @@ describe("runModule cap-violation retry", () => {
     expect(dbMock._spies.dbInsertReturning).toHaveBeenCalledTimes(1);
   });
 
+  test("over-cap retry forwards a length note → softened trim directive + re-stated note", async () => {
+    generateMock.mockResolvedValueOnce({
+      text: "OVER_CAP_OUTPUT",
+      inputTokens: 10,
+      outputTokens: 50,
+      durationMs: 100,
+    });
+    generateMock.mockResolvedValueOnce({
+      text: "UNDER_CAP_OUTPUT",
+      inputTokens: 10,
+      outputTokens: 20,
+      durationMs: 80,
+    });
+
+    const prompt = makeCapFlippingPrompt({ firstAttemptOverCap: true });
+    await runModule({
+      packageId: "pkg-1",
+      module: "about_us",
+      jobId: "job-1",
+      userId: "user-1",
+      prompt,
+      regenerateNote: "make it longer",
+    });
+
+    const secondUserMessage = (
+      generateMock.mock.calls[1][0] as { userMessage: string }
+    ).userMessage;
+    expect(secondUserMessage).toContain("stay as close to the cap as possible");
+    expect(secondUserMessage).not.toContain(
+      "cut whichever bucket or sentence is least essential",
+    );
+    expect(secondUserMessage).toContain("make it longer");
+    expect(secondUserMessage.indexOf("make it longer")).toBeGreaterThan(
+      secondUserMessage.indexOf("</retry_instruction>"),
+    );
+  });
+
   test("first attempt under-cap → no retry, single Claude call", async () => {
     generateMock.mockResolvedValueOnce({
       text: "UNDER_CAP_OUTPUT",
