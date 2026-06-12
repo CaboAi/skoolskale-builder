@@ -186,6 +186,18 @@ function yearlyReferenceUTC(month: number, day: number, time: string): Date {
 }
 
 /**
+ * Weekly cadence phrase, interval-aware. interval 1 reads exactly as before
+ * ("Every Monday") so existing copy is unchanged; 2 is the idiomatic "Every
+ * other Monday"; 3+ spells it out. Shared by describeRecurrence + formatSchedule.
+ */
+function weeklyCadence(dayOfWeek: Weekday, interval: number): string {
+  const label = WEEKDAY_LABELS[dayOfWeek];
+  if (interval === 2) return `Every other ${label}`;
+  if (interval >= 3) return `Every ${interval} weeks on ${label}`;
+  return `Every ${label}`;
+}
+
+/**
  * Cadence-only phrase. No time, no timezone. Used by the wizard preview, the
  * generator prompt, and any caller that wants to surface the recurrence
  * pattern in isolation.
@@ -193,7 +205,7 @@ function yearlyReferenceUTC(month: number, day: number, time: string): Date {
 export function describeRecurrence(schedule: EventSchedule): string {
   switch (schedule.type) {
     case "weekly":
-      return `Every ${WEEKDAY_LABELS[schedule.dayOfWeek]}`;
+      return weeklyCadence(schedule.dayOfWeek, schedule.interval ?? 1);
     case "monthly": {
       const day = ordinal(schedule.dayOfMonth);
       const interval = schedule.interval ?? 1;
@@ -223,7 +235,7 @@ export function formatSchedule(schedule: EventSchedule): string {
         schedule.time,
       );
       const tz = shortTimezone(schedule.timezone, ref);
-      return `Every ${WEEKDAY_LABELS[schedule.dayOfWeek]} at ${time12h} ${tz}`;
+      return `${weeklyCadence(schedule.dayOfWeek, schedule.interval ?? 1)} at ${time12h} ${tz}`;
     }
     case "monthly": {
       const ref = monthlyReferenceUTC(schedule.dayOfMonth, schedule.time);

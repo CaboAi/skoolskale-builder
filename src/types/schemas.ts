@@ -127,9 +127,16 @@ function isImpossibleDate(month: number, day: number): boolean {
 }
 
 export const EventScheduleSchema = z.discriminatedUnion('type', [
+  /**
+   * Weekly: fires on `dayOfWeek` every `interval` weeks. interval 1 = weekly,
+   * 2 = bi-weekly, etc. — mirrors the monthly interval. Weekly events with no
+   * `interval` (pre-feature rows) default to 1, so existing schedules keep
+   * parsing unchanged.
+   */
   z.object({
     type: z.literal('weekly'),
     dayOfWeek: WeekdayEnum,
+    interval: intervalField.default(1),
     time: z.string().regex(TIME_24H_RE, 'Time must be HH:mm (24-hour)'),
     timezone: z.string().min(1),
   }),
@@ -377,9 +384,17 @@ const LooseEventScheduleSchema = z
   .object({
     type: z.enum(['weekly', 'monthly', 'yearly', 'one_off']).optional(),
     dayOfWeek: WeekdayEnum.optional(),
-    dayOfMonth: z.number().optional(),
-    month: z.number().optional(),
-    interval: z.number().optional(),
+    // Numeric structural fields keep their generation-time integer+range
+    // floors even in the loose/autosave path: when PRESENT they must be
+    // generatable (the form never produces out-of-range values mid-edit),
+    // so an un-generatable cadence like `interval: 0` can no longer persist.
+    // They stay `.optional()` — an absent field is a legitimate in-progress
+    // draft. `interval` is shared by weekly + monthly, which use the same
+    // `intervalField` constraint, so one rule covers both. time/date/timezone
+    // stay permissive: empty/partial values there are normal mid-edit state.
+    dayOfMonth: dayOfMonthField.optional(),
+    month: monthField.optional(),
+    interval: intervalField.optional(),
     date: z.string().optional(),
     time: z.string().optional(),
     timezone: z.string().optional(),

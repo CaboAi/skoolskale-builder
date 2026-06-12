@@ -39,6 +39,7 @@ function makeCreator(): CreatorContext {
           schedule: {
             type: "weekly",
             dayOfWeek: "mon",
+            interval: 1,
             time: "19:00",
             timezone: "America/New_York",
           },

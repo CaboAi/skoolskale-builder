@@ -6,6 +6,15 @@ import type { GeneratorInput } from '@/types/generators';
 const WEEKLY: EventSchedule = {
   type: 'weekly',
   dayOfWeek: 'mon',
+  interval: 1,
+  time: '09:00',
+  timezone: 'America/New_York',
+};
+
+const BIWEEKLY: EventSchedule = {
+  type: 'weekly',
+  dayOfWeek: 'sun',
+  interval: 2,
   time: '09:00',
   timezone: 'America/New_York',
 };
@@ -179,6 +188,14 @@ describe('calendar.buildUserMessage', () => {
       buildInput([{ title: 'Full Moon Ceremony', schedule: MONTHLY }]),
     );
     expect(msg).toMatch(/<cadence>The 15th of every month<\/cadence>/);
+  });
+
+  test('threads bi-weekly (weekly interval=2) cadence into the prompt', () => {
+    const msg = buildUserMessage(
+      buildInput([{ title: 'Bi-weekly Q&A', schedule: BIWEEKLY }]),
+    );
+    expect(msg).toMatch(/<cadence>Every other Sunday<\/cadence>/);
+    expect(msg).toMatch(/<schedule>Every other Sunday at 9:00 AM /);
   });
 
   test('threads quarterly (monthly interval=3) cadence into the prompt', () => {

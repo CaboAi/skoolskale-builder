@@ -33,10 +33,35 @@ describe('describeRecurrence', () => {
       describeRecurrence({
         type: 'weekly',
         dayOfWeek: 'mon',
+        interval: 1,
         time: '09:00',
         timezone: 'UTC',
       }),
     ).toBe('Every Monday');
+  });
+
+  test('weekly with interval=2 returns "Every other <Weekday>"', () => {
+    expect(
+      describeRecurrence({
+        type: 'weekly',
+        dayOfWeek: 'sun',
+        interval: 2,
+        time: '09:00',
+        timezone: 'UTC',
+      }),
+    ).toBe('Every other Sunday');
+  });
+
+  test('weekly with interval=3 spells out the week count', () => {
+    expect(
+      describeRecurrence({
+        type: 'weekly',
+        dayOfWeek: 'mon',
+        interval: 3,
+        time: '09:00',
+        timezone: 'UTC',
+      }),
+    ).toBe('Every 3 weeks on Monday');
   });
 
   test('monthly with interval=1 returns "The Nth of every month"', () => {
@@ -151,10 +176,23 @@ describe('formatSchedule', () => {
     const out = formatSchedule({
       type: 'weekly',
       dayOfWeek: 'mon',
+      interval: 1,
       time: '09:00',
       timezone: 'America/Los_Angeles',
     });
     expect(out).toMatch(/^Every Monday at 9:00 AM /);
+    expect(out).toMatch(/(PST|PDT|America\/Los_Angeles)$/);
+  });
+
+  test('weekly with interval=2 renders the bi-weekly cadence with time + tz', () => {
+    const out = formatSchedule({
+      type: 'weekly',
+      dayOfWeek: 'sun',
+      interval: 2,
+      time: '09:00',
+      timezone: 'America/Los_Angeles',
+    });
+    expect(out).toMatch(/^Every other Sunday at 9:00 AM /);
     expect(out).toMatch(/(PST|PDT|America\/Los_Angeles)$/);
   });
 
@@ -208,6 +246,7 @@ describe('formatSchedule', () => {
     const out = formatSchedule({
       type: 'weekly',
       dayOfWeek: 'thu',
+      interval: 1,
       time: '14:30',
       timezone: 'Not/A_Real_Zone',
     });

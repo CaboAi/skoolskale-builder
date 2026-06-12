@@ -66,6 +66,7 @@ const DEFAULTS: CreatorIntake = {
         schedule: {
           type: "weekly" as const,
           dayOfWeek: "mon" as const,
+          interval: 1,
           time: "09:00",
           timezone: "America/New_York",
         },
