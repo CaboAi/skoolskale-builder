@@ -5,9 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowLeft, Copy, Loader2 } from "lucide-react";
+import { ArrowLeft, Copy, Download, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -21,6 +21,13 @@ import type { CalendarEvent } from "@/types/schemas";
 import { formatSchedule } from "@/lib/calendar/format-schedule";
 import { MODULE_KEYS, type ModuleKey } from "@/lib/modules/registry";
 import { renderAboutUsText } from "@/lib/modules/render";
+import {
+  renderStep1Text,
+  renderStep2Text,
+  renderStep3Text,
+  renderStep4Text,
+} from "@/lib/modules/serialize";
+import { cn } from "@/lib/utils";
 
 /* -------------------------------------------------------------------------- */
 /* Content type aliases (mirror what the parsers produce)                     */
@@ -74,36 +81,11 @@ function CopyButton({
 /* -------------------------------------------------------------------------- */
 /* Render helpers — JSON → formatted-text the VA pastes into Skool            */
 /*                                                                            */
-/* `renderAboutUsText` lives in @/lib/modules/render so the prompt parser     */
-/* and Zod schema can use it for the Skool-cap refinement. Step helpers stay  */
-/* colocated here — they're Export-only with no parser implications.          */
+/* `renderAboutUsText` and the Start-Here step renderers live in              */
+/* @/lib/modules — the prompt parser + Zod cap refinement and the Markdown    */
+/* export share them, so they're a single source of truth rather than         */
+/* duplicated per consumer.                                                    */
 /* -------------------------------------------------------------------------- */
-
-function renderStep1Text(s: StartHereContent["step_1_how_to_use"]): string {
-  const sections = s.sections
-    .map((sec) => `${sec.name}\n${sec.description}`)
-    .join("\n\n");
-  return `${s.title}\n\n${sections}`;
-}
-
-function renderStep2Text(
-  s: StartHereContent["step_2_community_rules"],
-): string {
-  const rules = s.rules.map((r, i) => `${i + 1}. ${r}`).join("\n");
-  return `${s.title}\n\n${rules}`;
-}
-
-function renderStep3Text(faqs: StartHereContent["step_3_faqs"]): string {
-  return faqs
-    .map((f) => `Q: ${f.question}\nA: ${f.answer_template}`)
-    .join("\n\n");
-}
-
-function renderStep4Text(
-  s: StartHereContent["step_4_need_assistance"],
-): string {
-  return `${s.title}\n\n${s.template}`;
-}
 
 /* -------------------------------------------------------------------------- */
 /* Section: First Post — title + body with separate copy buttons              */
@@ -648,21 +630,31 @@ export function ExportView({ package: pkg, creator, assets }: ExportViewProps) {
             {creator.name} — {creator.communityName}
           </p>
         </div>
-        <Button
-          onClick={() => deployMutation.mutate()}
-          disabled={!allChecked || isDeployed || deployMutation.isPending}
-        >
-          {deployMutation.isPending && (
-            <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-          )}
-          {isDeployed
-            ? "Deployed"
-            : deployMutation.isPending
-              ? "Deploying…"
-              : allChecked
-                ? "Deploy Package"
-                : "In Review"}
-        </Button>
+        <div className="flex items-center gap-2">
+          <a
+            href={`/api/packages/${pkg.id}/export/document`}
+            download
+            className={cn(buttonVariants({ variant: "outline" }))}
+          >
+            <Download className="mr-1.5 h-4 w-4" />
+            Download .md
+          </a>
+          <Button
+            onClick={() => deployMutation.mutate()}
+            disabled={!allChecked || isDeployed || deployMutation.isPending}
+          >
+            {deployMutation.isPending && (
+              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+            )}
+            {isDeployed
+              ? "Deployed"
+              : deployMutation.isPending
+                ? "Deploying…"
+                : allChecked
+                  ? "Deploy Package"
+                  : "In Review"}
+          </Button>
+        </div>
       </header>
 
       {welcomeDm && <WelcomeDmSection asset={welcomeDm} />}

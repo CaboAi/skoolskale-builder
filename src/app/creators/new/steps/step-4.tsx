@@ -116,7 +116,7 @@ export function Step4Voice({ form }: Props) {
           id="brand_prefs"
           rows={5}
           {...register('brand_prefs')}
-          placeholder="Colors, typography vibes, visual references, words to use / avoid…"
+          placeholder="Words to use, words to avoid, signature phrases, voice samples to mimic…"
         />
         {errors.brand_prefs?.message ? (
           <p className="text-xs text-destructive">
