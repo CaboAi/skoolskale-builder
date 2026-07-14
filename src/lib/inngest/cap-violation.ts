@@ -12,6 +12,10 @@
  * `failed` with the actual length in the message.
  */
 
+// `@/prompts/_shared` is itself dependency-free (one pure string helper),
+// so importing it here keeps this module client-safe and cycle-free.
+import { regenerateNoteSuffix } from '@/prompts/_shared';
+
 export type CapViolationDetail = {
   /** Module key, e.g. 'welcome_dm'. */
   module: string;
@@ -52,12 +56,35 @@ export class CapViolationError extends Error {
  * Build the user-message suffix appended on the single auto-retry.
  * Concrete numbers + "same structure" gives the model the targeted
  * signal it needs to cut without restructuring.
+ *
+ * When a `regenerateNote` is present (e.g. the VA asked to "make it
+ * longer"), the directive softens to "trim only enough to fit, stay
+ * near the cap" instead of "cut whichever bucket is least essential",
+ * and the note is re-stated AFTER the trim directive so it remains the
+ * last — and most heavily weighted — signal. Without a note the output
+ * is byte-identical to the original blunt-trim instruction, preserving
+ * behavior for every note-less regeneration and other modules.
  */
 export function buildCapRetryInstruction(detail: {
   actualChars: number;
   maxChars: number;
   rawOutput: string;
+  regenerateNote?: string;
 }): string {
+  const hasNote = Boolean(detail.regenerateNote?.trim());
+  // No-note directive is intentionally byte-identical to the pre-fix
+  // wording — regression-guarded by the no-note test.
+  //
+  // With-note directive uses module-agnostic vocabulary ("removing
+  // sections" instead of "dropping a bucket") because this helper is
+  // shared by every module that throws CapViolationError (about_us,
+  // welcome_dm, first-post), and appends a cap-vs-note disambiguation
+  // clause so the priority-framed note suffix below ("user feedback
+  // wins") can't be misread as overriding the cap on length-up notes
+  // like "much longer".
+  const directive = hasNote
+    ? `That was ${detail.actualChars} characters. Cap is ${detail.maxChars}. Trim only enough to land just under ${detail.maxChars} — stay as close to the cap as possible. Keep the same structure; tighten existing sentences rather than removing sections. The note below is honored within the ${detail.maxChars}-char cap; the cap is the hard ceiling.`
+    : `That was ${detail.actualChars} characters. Cap is ${detail.maxChars}. Rewrite tighter — cut whichever bucket or sentence is least essential. Keep the same structure.`;
   return `
 
 <previous_attempt chars="${detail.actualChars}">
@@ -65,8 +92,8 @@ ${detail.rawOutput.trim()}
 </previous_attempt>
 
 <retry_instruction>
-That was ${detail.actualChars} characters. Cap is ${detail.maxChars}. Rewrite tighter — cut whichever bucket or sentence is least essential. Keep the same structure.
-</retry_instruction>`;
+${directive}
+</retry_instruction>${regenerateNoteSuffix(detail.regenerateNote)}`;
 }
 
 /**

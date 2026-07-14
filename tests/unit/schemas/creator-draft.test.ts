@@ -143,6 +143,76 @@ describe("CreatorDraftSchema (autosave, permissive)", () => {
     ).toBe(true);
   });
 
+  test("accepts a weekly draft with a bi-weekly interval", () => {
+    expect(
+      CreatorDraftSchema.safeParse({
+        calendar_intake: {
+          events: [
+            {
+              title: "Bi-weekly Sync",
+              schedule: {
+                type: "weekly",
+                dayOfWeek: "sun",
+                interval: 2,
+                time: "09:00",
+                timezone: "America/New_York",
+              },
+            },
+          ],
+        },
+      }).success,
+    ).toBe(true);
+  });
+
+  test("accepts a schedule with interval absent (incomplete in-progress draft)", () => {
+    // The reconciliation tightens `interval` but keeps it optional — a
+    // half-typed event with no interval yet must still autosave.
+    expect(
+      CreatorDraftSchema.safeParse({
+        calendar_intake: {
+          events: [
+            {
+              title: "Half typed",
+              schedule: { type: "weekly", dayOfWeek: "mon" },
+            },
+          ],
+        },
+      }).success,
+    ).toBe(true);
+  });
+
+  test("rejects interval=0 (the un-generatable cadence that previously persisted)", () => {
+    // Regression guard: before the reconciliation, loose `interval` was a
+    // bare optional number, so interval:0 autosaved and then failed
+    // generation. It must now fail at autosave time.
+    for (const type of ["weekly", "monthly"] as const) {
+      expect(
+        CreatorDraftSchema.safeParse({
+          calendar_intake: {
+            events: [{ title: "X", schedule: { type, interval: 0 } }],
+          },
+        }).success,
+      ).toBe(false);
+    }
+  });
+
+  test("rejects out-of-range dayOfMonth and month (analogous hard floors)", () => {
+    expect(
+      CreatorDraftSchema.safeParse({
+        calendar_intake: {
+          events: [{ title: "X", schedule: { type: "monthly", dayOfMonth: 0 } }],
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      CreatorDraftSchema.safeParse({
+        calendar_intake: {
+          events: [{ title: "X", schedule: { type: "yearly", month: 13 } }],
+        },
+      }).success,
+    ).toBe(false);
+  });
+
   test("does NOT enforce additional_tiers ordering (that's a submit-time check)", () => {
     // Strict schema rejects [VIP, Premium] ordering; the autosave must
     // accept it because the VA might be mid-edit when the timer fires.

@@ -27,18 +27,47 @@ const WEEKLY_EVENT: CalendarEventIntake = {
   schedule: {
     type: "weekly",
     dayOfWeek: "mon",
+    interval: 1,
     time: "09:00",
     timezone: "America/New_York",
   },
 };
 
 describe("EventsRepeater recurrence sub-forms", () => {
-  test("weekly schedule shows the day-of-week select and no other recurrence fields", () => {
+  test("weekly schedule shows the day-of-week + How often selects and no other-type fields", () => {
     render(<Harness initial={[WEEKLY_EVENT]} />);
     expect(screen.getByLabelText(/Day of week/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/How often/i)).toBeInTheDocument();
     expect(screen.queryByLabelText(/Day of month/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/^Month$/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/^Date$/i)).not.toBeInTheDocument();
+  });
+
+  test("weekly with interval=1 hides the Custom weeks input", () => {
+    render(<Harness initial={[WEEKLY_EVENT]} />);
+    expect(
+      screen.queryByLabelText(/Weeks between events/i),
+    ).not.toBeInTheDocument();
+  });
+
+  test("weekly with a non-preset interval reveals the Custom weeks input", () => {
+    render(
+      <Harness
+        initial={[
+          {
+            title: "Every 4 weeks check-in",
+            schedule: {
+              type: "weekly",
+              dayOfWeek: "mon",
+              interval: 4,
+              time: "09:00",
+              timezone: "UTC",
+            },
+          },
+        ]}
+      />,
+    );
+    expect(screen.getByLabelText(/Weeks between events/i)).toBeInTheDocument();
   });
 
   test("monthly schedule shows day-of-month and the interval select", () => {

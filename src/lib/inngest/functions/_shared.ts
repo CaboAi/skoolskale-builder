@@ -225,6 +225,7 @@ export async function runModule<T>(params: {
               actualChars: e.actualChars,
               maxChars: e.maxChars,
               rawOutput: e.rawOutput,
+              regenerateNote: params.regenerateNote,
             });
           attempt += 1;
           continue;

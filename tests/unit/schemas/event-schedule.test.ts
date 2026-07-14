@@ -8,14 +8,16 @@ const baseTime = { time: '09:00', timezone: 'America/New_York' };
 
 describe('EventScheduleSchema', () => {
   describe('weekly (backward-compat)', () => {
-    test('accepts a valid weekly schedule', () => {
-      expect(
-        EventScheduleSchema.safeParse({
-          type: 'weekly',
-          dayOfWeek: 'mon',
-          ...baseTime,
-        }).success,
-      ).toBe(true);
+    test('accepts a valid weekly schedule, interval defaults to 1', () => {
+      const result = EventScheduleSchema.safeParse({
+        type: 'weekly',
+        dayOfWeek: 'mon',
+        ...baseTime,
+      });
+      expect(result.success).toBe(true);
+      if (result.success && result.data.type === 'weekly') {
+        expect(result.data.interval).toBe(1);
+      }
     });
 
     test('rejects a bogus dayOfWeek', () => {
@@ -26,6 +28,36 @@ describe('EventScheduleSchema', () => {
           ...baseTime,
         }).success,
       ).toBe(false);
+    });
+  });
+
+  describe('weekly interval', () => {
+    test('accepts bi-weekly (interval=2) and every-3-weeks (interval=3)', () => {
+      for (const interval of [2, 3]) {
+        const result = EventScheduleSchema.safeParse({
+          type: 'weekly',
+          dayOfWeek: 'sun',
+          interval,
+          ...baseTime,
+        });
+        expect(result.success).toBe(true);
+        if (result.success && result.data.type === 'weekly') {
+          expect(result.data.interval).toBe(interval);
+        }
+      }
+    });
+
+    test('rejects interval=0, negative, and above the cap', () => {
+      for (const interval of [0, -1, MONTHLY_INTERVAL_MAX + 1]) {
+        expect(
+          EventScheduleSchema.safeParse({
+            type: 'weekly',
+            dayOfWeek: 'mon',
+            interval,
+            ...baseTime,
+          }).success,
+        ).toBe(false);
+      }
     });
   });
 

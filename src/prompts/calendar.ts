@@ -27,7 +27,8 @@ For every event the user supplies, produce one <event> with:
 Cadence handling:
 - The <cadence> tag tells you whether the event is weekly, monthly, quarterly, yearly, or one-off.
 - When the cadence is monthly, quarterly, or yearly, the cadence itself IS part of the event's value (e.g. a monthly Full Moon Ceremony, a quarterly QBR Detox). Referencing it naturally in the description is welcome — "Each month we gather to...", "Every quarter we reset...", "Once a year we...".
-- For weekly events, the cadence is already obvious from context — DON'T restate "every Monday" in the description, that's wasted budget.
+- For plain weekly events ("Every Monday"), the cadence is already obvious from context — DON'T restate "every Monday" in the description, that's wasted budget.
+- For bi-weekly or every-N-weeks events (the <cadence> reads "Every other Monday" or "Every 3 weeks on Monday"), the interval IS meaningful and easy to miss — referencing it naturally is welcome ("Every other week we...").
 - For one-off events, the description should reflect the singular nature without restating the date.
 
 Hard rules:

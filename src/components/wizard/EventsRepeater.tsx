@@ -27,7 +27,7 @@ import { describeRecurrence } from "@/lib/calendar/format-schedule";
  * Wizard repeater for calendar events. Each row captures:
  *   - title
  *   - recurrence type (weekly | monthly | yearly | one_off)
- *   - weekly:  dayOfWeek + time + timezone
+ *   - weekly:  dayOfWeek + interval + time + timezone
  *   - monthly: dayOfMonth + interval + time + timezone
  *   - yearly:  month + dayOfMonth + time + timezone
  *   - one_off: date + time + timezone
@@ -110,6 +110,32 @@ function intervalOfMode(mode: IntervalMode, currentInterval: number): number {
   return [1, 3, 6].includes(currentInterval) ? 2 : currentInterval;
 }
 
+/**
+ * Weekly counterpart to IntervalMode. Parallel to the monthly helpers above
+ * rather than a shared abstraction — the preset sets differ (weeks vs months)
+ * and keeping them separate keeps each readable.
+ */
+type WeeklyIntervalMode = "weekly" | "biweekly" | "triweekly" | "custom";
+
+function weeklyIntervalModeOf(interval: number): WeeklyIntervalMode {
+  if (interval === 1) return "weekly";
+  if (interval === 2) return "biweekly";
+  if (interval === 3) return "triweekly";
+  return "custom";
+}
+
+function weeklyIntervalOfMode(
+  mode: WeeklyIntervalMode,
+  currentInterval: number,
+): number {
+  if (mode === "weekly") return 1;
+  if (mode === "biweekly") return 2;
+  if (mode === "triweekly") return 3;
+  // "custom" — keep a non-preset value as-is, otherwise seed at 4 so the
+  // input lands above the presets and is visibly active.
+  return [1, 2, 3].includes(currentInterval) ? 4 : currentInterval;
+}
+
 // TODO: pull from creator profile once a timezone field lands on the intake.
 export const DEFAULT_TIMEZONE = "America/New_York";
 
@@ -137,6 +163,7 @@ export function makeDefaultWeeklySchedule(): EventSchedule {
   return {
     type: "weekly",
     dayOfWeek: "mon",
+    interval: 1,
     time: "09:00",
     timezone: DEFAULT_TIMEZONE,
   };
@@ -410,31 +437,89 @@ function RecurrenceFields({
 }) {
   if (schedule.type === "weekly") {
     const dayId = `events-${rowIndex}-day`;
+    const intervalModeId = `events-${rowIndex}-weekly-interval-mode`;
+    const intervalNumId = `events-${rowIndex}-weekly-interval`;
+    const mode = weeklyIntervalModeOf(schedule.interval ?? 1);
     return (
-      <div className="space-y-1.5">
-        <Label htmlFor={dayId} className="text-xs">
-          Day of week
-        </Label>
-        <Select
-          value={schedule.dayOfWeek}
-          onValueChange={(v) => {
-            if (v) onScheduleChange({ dayOfWeek: v as Weekday });
-          }}
-        >
-          <SelectTrigger id={dayId}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {WEEKDAYS.map((d) => (
-              <SelectItem key={d.value} value={d.value}>
-                {d.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {fieldErrors?.dayOfWeek ? (
-          <p className="text-xs text-destructive">{fieldErrors.dayOfWeek}</p>
-        ) : null}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label htmlFor={dayId} className="text-xs">
+            Day of week
+          </Label>
+          <Select
+            value={schedule.dayOfWeek}
+            onValueChange={(v) => {
+              if (v) onScheduleChange({ dayOfWeek: v as Weekday });
+            }}
+          >
+            <SelectTrigger id={dayId}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {WEEKDAYS.map((d) => (
+                <SelectItem key={d.value} value={d.value}>
+                  {d.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {fieldErrors?.dayOfWeek ? (
+            <p className="text-xs text-destructive">{fieldErrors.dayOfWeek}</p>
+          ) : null}
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor={intervalModeId} className="text-xs">
+            How often
+          </Label>
+          <Select
+            value={mode}
+            onValueChange={(v) => {
+              const next = weeklyIntervalOfMode(
+                v as WeeklyIntervalMode,
+                schedule.interval ?? 1,
+              );
+              onScheduleChange({ interval: next });
+            }}
+          >
+            <SelectTrigger id={intervalModeId}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="weekly">Every week</SelectItem>
+              <SelectItem value="biweekly">Every other week</SelectItem>
+              <SelectItem value="triweekly">Every 3 weeks</SelectItem>
+              <SelectItem value="custom">Custom…</SelectItem>
+            </SelectContent>
+          </Select>
+          {mode === "custom" ? (
+            <div className="space-y-1.5">
+              <Label htmlFor={intervalNumId} className="sr-only">
+                Weeks between events
+              </Label>
+              <Input
+                id={intervalNumId}
+                type="number"
+                min={1}
+                max={MONTHLY_INTERVAL_MAX}
+                value={schedule.interval ?? 1}
+                onChange={(e) => {
+                  const n = Number(e.target.value);
+                  if (Number.isFinite(n)) onScheduleChange({ interval: n });
+                }}
+                aria-invalid={fieldErrors?.interval ? true : undefined}
+                aria-label="Weeks between events"
+              />
+              <p className="text-xs text-muted-foreground">
+                Weeks between events (1-{MONTHLY_INTERVAL_MAX})
+              </p>
+              {fieldErrors?.interval ? (
+                <p className="text-xs text-destructive">
+                  {fieldErrors.interval}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
       </div>
     );
   }
