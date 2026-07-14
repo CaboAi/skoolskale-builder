@@ -1,9 +1,11 @@
 import { describe, expect, test } from "vitest";
 import {
   DASHBOARD_MODULE_KEYS,
+  getMissingRequiredModules,
   MODULE_KEYS,
   MODULE_LABELS,
   MODULE_REGISTRY,
+  REQUIRED_FOR_EXPORT,
   type CardVariant,
   type GeneratorKind,
   type ModuleKey,
@@ -142,5 +144,40 @@ describe("first_post module config", () => {
     // Body-only caps from src/prompts/first-post.ts.
     expect(cfg.targetChars).toBe(1800);
     expect(cfg.maxChars).toBe(2500);
+  });
+});
+
+describe("getMissingRequiredModules", () => {
+  const approvedAll = REQUIRED_FOR_EXPORT.map((module) => ({
+    module,
+    approved: true,
+  }));
+
+  test("returns [] when every export-required module has an approved asset", () => {
+    expect(getMissingRequiredModules(approvedAll)).toEqual([]);
+  });
+
+  test("flags a required module that has no asset at all", () => {
+    const withoutWelcome = approvedAll.filter((a) => a.module !== "welcome_dm");
+    expect(getMissingRequiredModules(withoutWelcome)).toEqual(["welcome_dm"]);
+  });
+
+  test("flags a required module whose asset exists but is unapproved", () => {
+    const welcomeUnapproved = approvedAll.map((a) =>
+      a.module === "about_us" ? { ...a, approved: false } : a,
+    );
+    expect(getMissingRequiredModules(welcomeUnapproved)).toEqual(["about_us"]);
+  });
+
+  test("ignores non-required / unknown module rows", () => {
+    const withStray = [
+      ...approvedAll,
+      { module: "cover", approved: false },
+    ];
+    expect(getMissingRequiredModules(withStray)).toEqual([]);
+  });
+
+  test("empty asset list means every required module is missing", () => {
+    expect(getMissingRequiredModules([])).toEqual(REQUIRED_FOR_EXPORT);
   });
 });

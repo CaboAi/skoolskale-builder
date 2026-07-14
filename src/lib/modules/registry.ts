@@ -229,3 +229,28 @@ export const MODULE_LABELS: Record<string, string> = Object.fromEntries(
 export const DASHBOARD_MODULE_KEYS = MODULE_KEYS.filter(
   (k) => MODULE_REGISTRY[k].includedByDefault,
 ) as ModuleKey[];
+
+/**
+ * Modules that must have an approved asset before a package is
+ * export-ready. Registered-but-not-generating modules (includedByDefault:
+ * false) are excluded so they can't block export indefinitely — they never
+ * get an asset to approve.
+ */
+export const REQUIRED_FOR_EXPORT = MODULE_KEYS.filter(
+  (k) => MODULE_REGISTRY[k].includedByDefault,
+) as ModuleKey[];
+
+/**
+ * Which export-required modules still lack an approved asset. `[]` means the
+ * package is export-ready. Shared by the export page (redirect guard) and the
+ * Markdown download route (409 guard) so they agree on "ready". Pure — takes
+ * the minimal asset shape rather than the full row.
+ */
+export function getMissingRequiredModules(
+  assets: { module: string; approved: boolean }[],
+): ModuleKey[] {
+  const approved = new Set(
+    assets.filter((a) => a.approved).map((a) => a.module),
+  );
+  return REQUIRED_FOR_EXPORT.filter((m) => !approved.has(m));
+}
