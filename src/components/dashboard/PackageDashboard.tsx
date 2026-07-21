@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -121,16 +121,34 @@ function DraftEmptyState({ packageId }: { packageId: string }) {
 /* PackageDashboard                                                            */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * A regeneration that fails inside Inngest never writes a new asset row, so
+ * the "did the id change?" check below would never fire and the card would
+ * sit on its skeleton — polling forever — with nothing telling the VA that
+ * anything went wrong. Give up after 3 minutes: a module normally lands in
+ * ~3s, and Inngest's 3 retries are done well inside this window.
+ */
+const REGENERATE_TIMEOUT_MS = 180_000;
+
+type RegenerationState = { startId: string | null; startedAt: number };
+
 export function PackageDashboard(initial: PackageDashboardProps) {
   const queryClient = useQueryClient();
   const queryKey = ["package", initial.package.id] as const;
 
-  // Track per-module "regenerating" state. Value = the asset id that was
-  // latest at the moment regeneration started. When a NEW row arrives for
+  // Track per-module "regenerating" state. startId = the asset id that was
+  // latest at the moment regeneration started; when a NEW row arrives for
   // that module (different id), regeneration is considered complete.
+  // startedAt drives the give-up timer below.
   const [regenerating, setRegenerating] = useState<
-    Record<string, string | null>
+    Record<string, RegenerationState>
   >({});
+  // Read inside the timeout callback, which would otherwise close over a
+  // stale map (the effect only re-runs when the earliest deadline moves).
+  const regeneratingRef = useRef(regenerating);
+  useEffect(() => {
+    regeneratingRef.current = regenerating;
+  }, [regenerating]);
 
   const { data } = useQuery<PackageWithDetails>({
     queryKey,
@@ -167,7 +185,7 @@ export function PackageDashboard(initial: PackageDashboardProps) {
   ).length;
 
   // When an asset's id changes for a module we're regenerating, we're done.
-  for (const [mod, startId] of Object.entries(regenerating)) {
+  for (const [mod, { startId }] of Object.entries(regenerating)) {
     const asset = byModule.get(mod);
     if (asset && asset.id !== startId) {
       // Schedule removal after render (setState in render is a no-op if
@@ -183,6 +201,39 @@ export function PackageDashboard(initial: PackageDashboardProps) {
       });
     }
   }
+
+  // Give-up timer. Deadlines are absolute (startedAt + timeout) rather than
+  // a per-render setTimeout, so a second module entering or leaving the map
+  // never extends an already-running module's window.
+  const deadlines = Object.values(regenerating).map(
+    (r) => r.startedAt + REGENERATE_TIMEOUT_MS,
+  );
+  const nextDeadline = deadlines.length ? Math.min(...deadlines) : null;
+
+  useEffect(() => {
+    if (nextDeadline === null) return;
+    const timer = setTimeout(
+      () => {
+        const now = Date.now();
+        const expired = Object.entries(regeneratingRef.current)
+          .filter(([, r]) => now >= r.startedAt + REGENERATE_TIMEOUT_MS)
+          .map(([mod]) => mod);
+        if (expired.length === 0) return;
+        setRegenerating((prev) => {
+          const next = { ...prev };
+          for (const mod of expired) delete next[mod];
+          return next;
+        });
+        for (const mod of expired) {
+          toast.error(
+            `${MODULE_LABELS[mod]} did not come back. Check the run, then try regenerating again.`,
+          );
+        }
+      },
+      Math.max(0, nextDeadline - Date.now()),
+    );
+    return () => clearTimeout(timer);
+  }, [nextDeadline]);
 
   /* ---------- Dialog state ---------- */
 
@@ -250,7 +301,10 @@ export function PackageDashboard(initial: PackageDashboardProps) {
     },
     onSuccess: (module) => {
       const currentId = byModule.get(module)?.id ?? null;
-      setRegenerating((prev) => ({ ...prev, [module]: currentId }));
+      setRegenerating((prev) => ({
+        ...prev,
+        [module]: { startId: currentId, startedAt: Date.now() },
+      }));
       setRegenDialog({ module: null });
       toast.info(`Regenerating ${MODULE_LABELS[module]}…`);
     },
@@ -292,7 +346,10 @@ export function PackageDashboard(initial: PackageDashboardProps) {
     },
     onSuccess: (module) => {
       const currentId = byModule.get(module)?.id ?? null;
-      setRegenerating((prev) => ({ ...prev, [module]: currentId }));
+      setRegenerating((prev) => ({
+        ...prev,
+        [module]: { startId: currentId, startedAt: Date.now() },
+      }));
       toast.info(`Regenerating ${MODULE_LABELS[module]} with edited prompt…`);
     },
     onError: (err, { module }) => {
