@@ -55,6 +55,8 @@ const { fetchPatternExamplesMock, generateMock, dbMock } = vi.hoisted(() => {
         from: () => ({
           where: () => ({
             limit: dbSelectLimit,
+            // nextAssetVersion(): max(version) lookup before each asset insert.
+            orderBy: () => ({ limit: async () => [] }),
           }),
         }),
       }),
