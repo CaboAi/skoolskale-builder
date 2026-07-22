@@ -1,5 +1,5 @@
 import 'server-only';
-import { eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
   creators,
@@ -58,6 +58,26 @@ export type ModuleResult = {
   jobId: string;
   assetId: string;
 };
+
+/**
+ * Next version number for a module within a package. Regeneration inserts a
+ * new row rather than updating in place, so without this every row landed on
+ * version 1 and "latest" was decided by createdAt alone.
+ */
+async function nextAssetVersion(packageId: string, module: ModuleName) {
+  const [row] = await db
+    .select({ version: generatedAssets.version })
+    .from(generatedAssets)
+    .where(
+      and(
+        eq(generatedAssets.packageId, packageId),
+        eq(generatedAssets.module, module),
+      ),
+    )
+    .orderBy(desc(generatedAssets.version))
+    .limit(1);
+  return (row?.version ?? 0) + 1;
+}
 
 export async function createJobRow(params: {
   packageId: string;
@@ -170,7 +190,7 @@ export async function runModule<T>(params: {
             .values({
               packageId: params.packageId,
               module: params.module,
-              version: 1,
+              version: await nextAssetVersion(params.packageId, params.module),
               content: e.emptyContent,
               approved: false,
               editHistory: [],
@@ -243,7 +263,7 @@ export async function runModule<T>(params: {
       .values({
         packageId: params.packageId,
         module: params.module,
-        version: 1,
+        version: await nextAssetVersion(params.packageId, params.module),
         content: parsed as object,
         approved: false,
         editHistory: [],
