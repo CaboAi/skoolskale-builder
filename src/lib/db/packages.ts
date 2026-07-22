@@ -62,12 +62,34 @@ export async function getPackageWithDetailsRaw(
     .limit(1);
   if (!creator) return null;
 
-  const assets = await db
+  // Regeneration inserts a NEW row per module rather than updating in place,
+  // so a package can hold several rows for the same module. Order newest-first
+  // and keep one row per module — same "latest" definition the PATCH/approve
+  // routes use. Without the ordering, Postgres returns rows in physical scan
+  // order and the dashboard's `new Map(assets.map(...))` last-wins lookup can
+  // land on a stale row, leaving the card stuck on its regenerating skeleton.
+  const assetRows = await db
     .select()
     .from(generatedAssets)
-    .where(eq(generatedAssets.packageId, pkg.id));
+    .where(eq(generatedAssets.packageId, pkg.id))
+    .orderBy(desc(generatedAssets.version), desc(generatedAssets.createdAt));
 
-  return { package: pkg, creator, assets };
+  return { package: pkg, creator, assets: pickLatestPerModule(assetRows) };
+}
+
+/**
+ * Collapse rows already ordered newest-first to one row per module.
+ * Exported for unit tests — the DB ordering is what makes "first wins"
+ * mean "latest wins".
+ */
+export function pickLatestPerModule(
+  rows: GeneratedAsset[],
+): GeneratedAsset[] {
+  const latest = new Map<string, GeneratedAsset>();
+  for (const row of rows) {
+    if (!latest.has(row.module)) latest.set(row.module, row);
+  }
+  return [...latest.values()];
 }
 
 export type PackageListItem = {
