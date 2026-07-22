@@ -64,7 +64,7 @@ export type ModuleResult = {
  * new row rather than updating in place, so without this every row landed on
  * version 1 and "latest" was decided by createdAt alone.
  */
-async function nextAssetVersion(packageId: string, module: ModuleName) {
+export async function nextAssetVersion(packageId: string, module: ModuleName) {
   const [row] = await db
     .select({ version: generatedAssets.version })
     .from(generatedAssets)

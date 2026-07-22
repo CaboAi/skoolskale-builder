@@ -11,6 +11,7 @@ import {
   buildCapRetryInstruction,
 } from '@/lib/inngest/cap-violation';
 import { resolveIntroCategory } from '@/lib/inngest/resolve-intro-category';
+import { nextAssetVersion } from '@/lib/inngest/functions/_shared';
 import {
   systemPrompt,
   buildUserMessage,
@@ -175,7 +176,13 @@ export const generateFirstPost = inngest.createFunction(
         .values({
           packageId: data.packageId,
           module: 'first_post',
-          version: 1,
+          // Regeneration appends a new row. Hardcoding version 1 let an
+          // edited row (bumped past 1 by the PATCH route) keep winning the
+          // version-DESC ordering in getPackageWithDetails, so the dashboard
+          // never saw the id change — stuck skeleton + stale export/approve.
+          // This bespoke generator bypasses runModule, so it has to compute
+          // the next version itself, same as the factory path.
+          version: await nextAssetVersion(data.packageId, 'first_post'),
           content: parsed,
           approved: false,
           editHistory: [],
