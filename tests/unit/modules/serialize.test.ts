@@ -73,7 +73,13 @@ function makeAsset(
 const WEEKLY_EVENT: CalendarEvent = {
   title: "Live Q&A",
   description: "Bring your toughest objections.",
-  schedule: { type: "weekly", dayOfWeek: "mon", time: "09:00", timezone: "UTC" },
+  schedule: {
+    type: "weekly",
+    dayOfWeek: "mon",
+    interval: 1,
+    time: "09:00",
+    timezone: "UTC",
+  },
 };
 
 /* -------------------------------------------------------------------------- */
