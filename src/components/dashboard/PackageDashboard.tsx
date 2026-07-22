@@ -125,10 +125,16 @@ function DraftEmptyState({ packageId }: { packageId: string }) {
  * A regeneration that fails inside Inngest never writes a new asset row, so
  * the "did the id change?" check below would never fire and the card would
  * sit on its skeleton — polling forever — with nothing telling the VA that
- * anything went wrong. Give up after 3 minutes: a module normally lands in
- * ~3s, and Inngest's 3 retries are done well inside this window.
+ * anything went wrong. The timer is the backstop for that dead-run case.
+ *
+ * Must sit ABOVE the Inngest per-invocation ceiling (300s — see
+ * app/api/inngest/route.ts). A slow-but-valid Claude call can legitimately
+ * run close to that ceiling; at 180s the timer would fire on a run that then
+ * succeeds, and because giving up also stops the poll (refetchInterval),
+ * the late asset would never be picked up until a manual refresh. 6 minutes
+ * clears the ceiling with margin while still bounding a genuinely dead run.
  */
-const REGENERATE_TIMEOUT_MS = 180_000;
+const REGENERATE_TIMEOUT_MS = 360_000;
 
 type RegenerationState = { startId: string | null; startedAt: number };
 

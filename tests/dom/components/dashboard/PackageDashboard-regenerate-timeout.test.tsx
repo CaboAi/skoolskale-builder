@@ -32,7 +32,9 @@ vi.mock("sonner", () => ({
   },
 }));
 
-const TIMEOUT_MS = 180_000;
+// Mirror of REGENERATE_TIMEOUT_MS in PackageDashboard.tsx. Kept above the
+// 300s Inngest per-invocation ceiling so the timer only fires on a dead run.
+const TIMEOUT_MS = 360_000;
 
 /**
  * Date must be faked — the give-up timer compares Date.now() against an
