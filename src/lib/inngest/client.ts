@@ -33,4 +33,5 @@ export const Events = {
   ImageCompositeRequested: "image.composite.requested",
   CanvaPushRequested: "canva.push.requested",
   GenerateCoverRequested: "generate.cover.requested",
+  HandoverGenerateRequested: "handover.generate.requested",
 } as const;
