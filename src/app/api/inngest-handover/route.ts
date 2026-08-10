@@ -18,10 +18,12 @@ import { handoverFunctions } from "@/lib/inngest/functions";
  * higher value ("maxDuration between 1 and 300 for plan hobby"), so this
  * is not a knob to tune upward without a plan change. Pro/Fluid allows 800.
  *
- * A deliverable that outruns 300s gets killed mid-stream; Inngest retries
- * the step (3x) and each retry re-reads the prompt cache, but a chronically
- * slow doc would need either the plan bump or a lower `effort` in
- * generate-handover.ts. Watch step wall-clock on the first prod run.
+ * Measured against the real API: the longest deliverable (dm_sequences,
+ * ~1.7k words out) completes in ~56s at effort:high — 244s of headroom, so
+ * 300 is comfortable rather than merely legal. A deliverable that did
+ * outrun it would be killed mid-stream; Inngest retries the step (3x) and
+ * each retry re-reads the prompt cache, but a chronically slow doc would
+ * need either the plan bump or a lower `effort` in generate-handover.ts.
  */
 export const maxDuration = 300;
 
