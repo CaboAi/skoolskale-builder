@@ -38,6 +38,8 @@ type BucketConfig = {
    * is migrated.
    */
   public: boolean;
+  /** Per-bucket size cap; falls back to MAX_BYTES (5 MB). */
+  maxBytes?: number;
 };
 
 const BUCKETS: BucketConfig[] = [
@@ -59,6 +61,15 @@ const BUCKETS: BucketConfig[] = [
     allowedMimeTypes: ["image/png"],
     public: false,
   },
+  {
+    // Handover deliverable PDFs, subpathed `${packageId}/${runId}/`.
+    // PRIVATE — downloads go through signed URLs with a download filename.
+    name: "handover-docs",
+    policyPrefix: "handover_docs",
+    allowedMimeTypes: ["application/pdf"],
+    public: false,
+    maxBytes: 20 * 1024 * 1024,
+  },
 ];
 
 async function ensureBucket(cfg: BucketConfig) {
@@ -72,7 +83,7 @@ async function ensureBucket(cfg: BucketConfig) {
 
   const opts = {
     public: cfg.public,
-    fileSizeLimit: MAX_BYTES,
+    fileSizeLimit: cfg.maxBytes ?? MAX_BYTES,
     allowedMimeTypes: cfg.allowedMimeTypes,
   };
 

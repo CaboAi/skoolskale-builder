@@ -76,6 +76,18 @@ export const generationJobStatusEnum = pgEnum('generation_job_status', [
   'cancelled',
 ]);
 
+// Handover deliverables are deliberately NOT module enum values: they'd leak
+// into REQUIRED_FOR_EXPORT gating, module API route validation, and dashboard
+// ordering. Keys mirror src/prompts/handover/deliverables.ts.
+export const handoverDocKeyEnum = pgEnum('handover_doc_key', [
+  'readme', // 00-README.md — deterministic, no Claude call
+  'vsl_and_cancellation', // 01
+  'pre_launch_emails', // 02
+  'post_launch_emails', // 03
+  'docuseries_full_script', // 04
+  'dm_sequences', // 05
+]);
+
 // ---------- RLS shorthand ----------
 //
 // Owner-scoped tables all use the same predicate: "the row belongs to the
@@ -323,6 +335,118 @@ export const generationJobs = pgTable(
   ],
 ).enableRLS();
 
+// ---------- handover_runs ----------
+// One row per handover generation attempt for a package. The UI polls this
+// row; per-doc progress is derived from handover_documents rows so parallel
+// Inngest steps never contend on a shared jsonb column.
+
+export const handoverRuns = pgTable(
+  'handover_runs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    packageId: uuid('package_id')
+      .notNull()
+      .references(() => launchPackages.id, { onDelete: 'cascade' }),
+    status: generationJobStatusEnum('status').notNull().default('queued'),
+    // Guest launch emails require the VA's explicit confirmation (the DFY
+    // recurring-defect rule) — guest_sessions=true alone never enables them.
+    includeGuestEmails: boolean('include_guest_emails').notNull().default(false),
+    inngestRunId: text('inngest_run_id'),
+    // Aggregate: { model, inputTokens, outputTokens, cacheReadTokens,
+    //              cacheWriteTokens, costUsd, durationMs }
+    claudeUsage: jsonb('claude_usage'),
+    error: text('error'),
+    createdBy: uuid('created_by').notNull(),
+    startedAt: timestamp('started_at', { withTimezone: true }),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index('handover_runs_package_id_idx').on(t.packageId),
+    index('handover_runs_status_idx').on(t.status),
+    pgPolicy('handover_runs_select_authed', {
+      for: 'select',
+      to: 'authenticated',
+      using: sql.raw('true'),
+    }),
+    pgPolicy('handover_runs_insert_self_or_admin', {
+      for: 'insert',
+      to: 'authenticated',
+      withCheck: ownerOrAdmin('created_by'),
+    }),
+    pgPolicy('handover_runs_update_authed', {
+      for: 'update',
+      to: 'authenticated',
+      using: sql.raw('true'),
+      withCheck: sql.raw('true'),
+    }),
+    pgPolicy('handover_runs_delete_authed', {
+      for: 'delete',
+      to: 'authenticated',
+      using: sql.raw('true'),
+    }),
+  ],
+).enableRLS();
+
+// ---------- handover_documents ----------
+// One row per generated deliverable per run. packageId is denormalized so
+// "latest doc per docKey for a package" doesn't need a runs join. version is
+// per (packageId, docKey), mirroring generated_assets semantics.
+
+export const handoverDocuments = pgTable(
+  'handover_documents',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    runId: uuid('run_id')
+      .notNull()
+      .references(() => handoverRuns.id, { onDelete: 'cascade' }),
+    packageId: uuid('package_id')
+      .notNull()
+      .references(() => launchPackages.id, { onDelete: 'cascade' }),
+    docKey: handoverDocKeyEnum('doc_key').notNull(),
+    version: integer('version').notNull().default(1),
+    contentMd: text('content_md').notNull(),
+    // Bucket-relative path in handover-docs; null until the PDF render step.
+    pdfPath: text('pdf_path'),
+    wordCount: integer('word_count').notNull().default(0),
+    placeholderCount: integer('placeholder_count').notNull().default(0),
+    // Per-doc: { inputTokens, outputTokens, cacheReadTokens,
+    //            cacheWriteTokens, durationMs, costUsd }; null for readme.
+    claudeUsage: jsonb('claude_usage'),
+    createdBy: uuid('created_by').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index('handover_documents_run_id_idx').on(t.runId),
+    index('handover_documents_package_doc_idx').on(t.packageId, t.docKey),
+    pgPolicy('handover_documents_select_authed', {
+      for: 'select',
+      to: 'authenticated',
+      using: sql.raw('true'),
+    }),
+    pgPolicy('handover_documents_insert_self_or_admin', {
+      for: 'insert',
+      to: 'authenticated',
+      withCheck: ownerOrAdmin('created_by'),
+    }),
+    pgPolicy('handover_documents_update_authed', {
+      for: 'update',
+      to: 'authenticated',
+      using: sql.raw('true'),
+      withCheck: sql.raw('true'),
+    }),
+    pgPolicy('handover_documents_delete_authed', {
+      for: 'delete',
+      to: 'authenticated',
+      using: sql.raw('true'),
+    }),
+  ],
+).enableRLS();
+
 // ---------- pattern_library ----------
 // SELECT open to all authed users, writes admin-only.
 
@@ -432,6 +556,11 @@ export type GeneratedAsset = typeof generatedAssets.$inferSelect;
 export type NewGeneratedAsset = typeof generatedAssets.$inferInsert;
 export type GenerationJob = typeof generationJobs.$inferSelect;
 export type NewGenerationJob = typeof generationJobs.$inferInsert;
+export type HandoverRun = typeof handoverRuns.$inferSelect;
+export type NewHandoverRun = typeof handoverRuns.$inferInsert;
+export type HandoverDocument = typeof handoverDocuments.$inferSelect;
+export type NewHandoverDocument = typeof handoverDocuments.$inferInsert;
+export type HandoverDocKey = (typeof handoverDocKeyEnum.enumValues)[number];
 export type PatternLibraryEntry = typeof patternLibrary.$inferSelect;
 export type NewPatternLibraryEntry = typeof patternLibrary.$inferInsert;
 export type AuditLogEntry = typeof auditLog.$inferSelect;
