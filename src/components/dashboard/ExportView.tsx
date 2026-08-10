@@ -27,6 +27,7 @@ import {
   renderStep3Text,
   renderStep4Text,
 } from "@/lib/modules/serialize";
+import { HandoverSection } from "@/components/dashboard/HandoverSection";
 import { cn } from "@/lib/utils";
 
 /* -------------------------------------------------------------------------- */
@@ -667,6 +668,8 @@ export function ExportView({ package: pkg, creator, assets }: ExportViewProps) {
       {leaderboard && <LeaderboardSection asset={leaderboard} />}
       {categories && <CategoriesSection asset={categories} />}
       {discoverySeo && <DiscoverySeoSection asset={discoverySeo} />}
+
+      <HandoverSection packageId={pkg.id} />
 
       <DeploymentChecklist
         checked={checked}

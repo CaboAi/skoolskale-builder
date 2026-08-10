@@ -24,6 +24,23 @@ export const inngest = new Inngest({
 });
 
 /**
+ * Separate Inngest app for the handover pipeline, served at
+ * /api/inngest-handover with its own (higher) Vercel maxDuration — a 16K
+ * token Opus call can legitimately outlive the module route's 300s cap.
+ * A distinct app id keeps the two serve URLs from fighting over one app
+ * registration; events route across apps within the same Inngest env, so
+ * `inngest.send(...)` from the main client still triggers its functions.
+ *
+ * Dev: point the dev server at both endpoints —
+ *   npx inngest-cli dev -u http://localhost:3000/api/inngest -u http://localhost:3000/api/inngest-handover
+ */
+export const inngestHandover = new Inngest({
+  id: "skoolskale-builder-handover",
+  eventKey: process.env.INNGEST_EVENT_KEY,
+  isDev,
+});
+
+/**
  * Typed event names — add new events here as we build.
  * Keeps event names discoverable and avoids string typos.
  */
@@ -33,4 +50,5 @@ export const Events = {
   ImageCompositeRequested: "image.composite.requested",
   CanvaPushRequested: "canva.push.requested",
   GenerateCoverRequested: "generate.cover.requested",
+  HandoverGenerateRequested: "handover.generate.requested",
 } as const;
