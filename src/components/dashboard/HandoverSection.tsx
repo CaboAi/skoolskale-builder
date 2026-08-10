@@ -41,6 +41,12 @@ type HandoverDocSummary = {
   docKey: HandoverDocKey;
   version: number;
   pdfPath: string | null;
+  /**
+   * True when ANY version of this doc has a rendered PDF — the download
+   * route serves the newest one, so the link stays valid even while a
+   * regeneration's fresh row hasn't rendered yet.
+   */
+  pdfAvailable: boolean;
   wordCount: number;
   placeholderCount: number;
   createdAt: string;
@@ -160,14 +166,17 @@ export function HandoverSection({ packageId }: { packageId: string }) {
           </label>
           <Button
             onClick={() => generateMutation.mutate()}
-            disabled={active || generateMutation.isPending}
+            // A timed-out run re-enables the button: the POST route fails
+            // over any active run past the same 20-min cutoff, so the VA
+            // can recover a stranded run without manual SQL.
+            disabled={(active && !timedOut) || generateMutation.isPending}
           >
-            {(active || generateMutation.isPending) && (
+            {((active && !timedOut) || generateMutation.isPending) && (
               <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
             )}
-            {active
+            {active && !timedOut
               ? "Generating…"
-              : hasDocs
+              : hasDocs || timedOut
                 ? "Regenerate Handover"
                 : "Generate Handover"}
           </Button>
@@ -180,8 +189,9 @@ export function HandoverSection({ packageId }: { packageId: string }) {
         )}
         {timedOut && (
           <p className="text-sm text-muted-foreground">
-            Still working after 20 minutes — refresh the page to check again,
-            or regenerate if this run died.
+            No response after 20 minutes — this run is presumed dead.
+            Regenerate to start fresh (the stuck run is failed over
+            automatically), or refresh in case it finished late.
           </p>
         )}
 
@@ -211,7 +221,7 @@ export function HandoverSection({ packageId }: { packageId: string }) {
                   )}
                 </div>
                 <div className="flex items-center gap-1.5">
-                  {doc.pdfPath && (
+                  {doc.pdfAvailable && (
                     <a
                       href={`/api/packages/${packageId}/handover/documents/${doc.docKey}/pdf`}
                       className={cn(

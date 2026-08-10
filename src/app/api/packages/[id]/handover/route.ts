@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, lt } from "drizzle-orm";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -9,6 +9,7 @@ import {
   handoverRuns,
   handoverDocuments,
 } from "@/lib/db/schema";
+import { pickLatestPerModule } from "@/lib/db/packages";
 import { getMissingRequiredModules } from "@/lib/modules/registry";
 import { inngest, Events } from "@/lib/inngest/client";
 import { logAudit } from "@/lib/audit";
@@ -23,6 +24,14 @@ import type { ApiError } from "@/lib/validation";
  */
 
 const UuidParam = z.string().uuid();
+
+/**
+ * Active runs older than this are presumed dead and get failed over by the
+ * next POST. Must exceed the /api/inngest-handover maxDuration (800s) plus
+ * queue slack; the UI's polling give-up (20 min) matches it. Not exported —
+ * route files may only export handlers/config.
+ */
+const STALE_RUN_CUTOFF_MS = 20 * 60_000;
 
 const PostBody = z.object({
   // Guest launch emails require explicit VA confirmation — never inferred
@@ -68,14 +77,15 @@ export async function POST(req: NextRequest, { params }: RouteCtx) {
     );
   }
 
-  const assets = await db
-    .select({
-      module: generatedAssets.module,
-      approved: generatedAssets.approved,
-    })
+  // Latest-per-module, same "ready" definition as the export routes and
+  // the orchestrator's load-source guard — a stale approved version must
+  // not satisfy the check after a regeneration.
+  const assetRows = await db
+    .select()
     .from(generatedAssets)
-    .where(eq(generatedAssets.packageId, packageId));
-  const missing = getMissingRequiredModules(assets);
+    .where(eq(generatedAssets.packageId, packageId))
+    .orderBy(desc(generatedAssets.version), desc(generatedAssets.createdAt));
+  const missing = getMissingRequiredModules(pickLatestPerModule(assetRows));
   if (missing.length > 0) {
     return NextResponse.json<ApiError>(
       {
@@ -85,6 +95,28 @@ export async function POST(req: NextRequest, { params }: RouteCtx) {
       { status: 409 },
     );
   }
+
+  // A run that has been queued/running past the stale cutoff is treated as
+  // dead: mark it failed and let this request proceed. Without this, a
+  // dropped event or killed invocation that never reached onFailure
+  // deadlocks the package (the exact stranded-state class PRs #47/#48
+  // fixed for module regeneration). Cutoff sits above the handover serve
+  // route's 800s maxDuration so a slow-but-live step can't be usurped.
+  const staleBefore = new Date(Date.now() - STALE_RUN_CUTOFF_MS);
+  await db
+    .update(handoverRuns)
+    .set({
+      status: "failed",
+      error: "run went unresponsive — superseded by a new generation request",
+      completedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(handoverRuns.packageId, packageId),
+        inArray(handoverRuns.status, ["queued", "running"]),
+        lt(handoverRuns.createdAt, staleBefore),
+      ),
+    );
 
   const [activeRun] = await db
     .select({ id: handoverRuns.id })
@@ -173,8 +205,19 @@ export async function GET(_req: NextRequest, { params }: RouteCtx) {
     if (!latestByDocKey.has(row.docKey)) latestByDocKey.set(row.docKey, row);
   }
 
+  // A regeneration inserts new rows (pdfPath null) before its render step,
+  // so the latest row alone would hide PDF links mid-run — but the PDF
+  // download route serves the newest row that HAS a pdfPath. pdfAvailable
+  // mirrors that route's behavior so the UI never hides a downloadable PDF.
+  const docKeysWithPdf = new Set(
+    docRows.filter((r) => r.pdfPath !== null).map((r) => r.docKey),
+  );
+
   return NextResponse.json({
     run: run ?? null,
-    documents: [...latestByDocKey.values()],
+    documents: [...latestByDocKey.values()].map((doc) => ({
+      ...doc,
+      pdfAvailable: docKeysWithPdf.has(doc.docKey),
+    })),
   });
 }

@@ -23,6 +23,11 @@ const { state, holder, requireUserMock, logAuditMock, inngestSendMock, dbMock } 
       runs: [] as Row[],
       docs: [] as Row[],
       inserted: [] as Row[],
+      updates: [] as { table: unknown; payload: Row }[],
+      // Per-test hook simulating the stale-run failover's WHERE clause:
+      // the mock can't evaluate lt(createdAt, cutoff), so tests that model
+      // a stale run make this remove it from the active set.
+      onRunsUpdate: undefined as ((payload: Row) => void) | undefined,
     };
     const holder: {
       launchPackages?: unknown;
@@ -90,6 +95,14 @@ const { state, holder, requireUserMock, logAuditMock, inngestSendMock, dbMock } 
             };
           },
         }),
+        update: (table: unknown) => ({
+          set: (payload: Row) => ({
+            where: async () => {
+              state.updates.push({ table, payload });
+              state.onRunsUpdate?.(payload);
+            },
+          }),
+        }),
       },
     };
   });
@@ -148,6 +161,8 @@ beforeEach(() => {
   requireUserMock.mockResolvedValue({ id: USER_ID, email: "t@e.com" });
   inngestSendMock.mockResolvedValue({ ids: ["evt-1"] });
   state.inserted.length = 0;
+  state.updates.length = 0;
+  state.onRunsUpdate = undefined;
   state.packages = [{ id: PKG_ID, creatorId: "cr-1" }];
   state.assets = REQUIRED_FOR_EXPORT.map((module) => ({
     module,
@@ -184,13 +199,31 @@ describe("POST /api/packages/[id]/handover", () => {
     expect(inngestSendMock).not.toHaveBeenCalled();
   });
 
-  test("409 already_running when an active run exists", async () => {
+  test("409 already_running when a fresh active run exists", async () => {
     state.runs = [{ id: "run-active" }];
     const res = await POST(jsonRequest("POST", {}), ctx());
     expect(res.status).toBe(409);
     expect(await res.json()).toMatchObject({ code: "already_running" });
     expect(state.inserted).toHaveLength(0);
     expect(inngestSendMock).not.toHaveBeenCalled();
+  });
+
+  test("stale active run is failed over and the new request proceeds", async () => {
+    // The mock can't evaluate the lt(createdAt, cutoff) predicate, so the
+    // hook models its effect: the stale run stops matching queued/running.
+    state.runs = [{ id: "run-stale", status: "running" }];
+    state.onRunsUpdate = (payload) => {
+      if (payload.status === "failed") state.runs = [];
+    };
+
+    const res = await POST(jsonRequest("POST", {}), ctx());
+    expect(res.status).toBe(202);
+
+    const failover = state.updates.find((u) => u.payload.status === "failed");
+    expect(failover).toBeDefined();
+    expect(failover?.payload.error).toMatch(/unresponsive/);
+    expect(state.inserted).toHaveLength(1);
+    expect(inngestSendMock).toHaveBeenCalledTimes(1);
   });
 
   test("202 happy path: inserts the run, emits the Inngest event, audits", async () => {
@@ -257,10 +290,17 @@ describe("GET /api/packages/[id]/handover", () => {
       createdAt: "2026-08-01T00:00:00.000Z",
     };
     state.runs = [run];
-    // Rows arrive DB-ordered newest-first; the route keeps the first per key.
+    // Rows arrive DB-ordered newest-first; the route keeps the first per
+    // key. v2 hasn't rendered its PDF yet, but v1 did — pdfAvailable must
+    // stay true (the download route serves the newest row WITH a pdfPath).
     state.docs = [
       docRow({ id: "doc-v2", docKey: "vsl_and_cancellation", version: 2 }),
-      docRow({ id: "doc-v1", docKey: "vsl_and_cancellation", version: 1 }),
+      docRow({
+        id: "doc-v1",
+        docKey: "vsl_and_cancellation",
+        version: 1,
+        pdfPath: "pkg/run/01-vsl-and-cancellation.pdf",
+      }),
       docRow({ id: "doc-readme", docKey: "readme", version: 1 }),
     ];
 
@@ -275,7 +315,9 @@ describe("GET /api/packages/[id]/handover", () => {
     const vsl = body.documents.find(
       (d) => d.docKey === "vsl_and_cancellation",
     );
-    expect(vsl).toMatchObject({ id: "doc-v2", version: 2 });
+    expect(vsl).toMatchObject({ id: "doc-v2", version: 2, pdfAvailable: true });
+    const readme = body.documents.find((d) => d.docKey === "readme");
+    expect(readme).toMatchObject({ pdfAvailable: false });
   });
 
   test("returns run: null and empty documents when nothing exists yet", async () => {

@@ -4,9 +4,9 @@ const nextConfig: NextConfig = {
   // The handover generator reads its framework references + gold examples
   // from disk at runtime (src/prompts/handover/load-assets.ts). Vercel's
   // bundler can't see fs.readFileSync paths, so trace them explicitly into
-  // the Inngest function's output.
+  // the handover Inngest function's output.
   outputFileTracingIncludes: {
-    "/api/inngest": ["./src/prompts/handover/assets/**/*"],
+    "/api/inngest-handover": ["./src/prompts/handover/assets/**/*"],
   },
   images: {
     // Supabase Storage URLs for cover-variants, image-variants, creator-photos.

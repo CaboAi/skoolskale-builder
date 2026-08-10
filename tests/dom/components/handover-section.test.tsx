@@ -57,6 +57,7 @@ function docFixture(docKey: HandoverDocKey, pdfPath: string | null) {
     docKey,
     version: 1,
     pdfPath,
+    pdfAvailable: pdfPath !== null,
     wordCount: 1200,
     placeholderCount: docKey === "readme" ? 0 : 3,
     createdAt: new Date().toISOString(),
@@ -139,7 +140,7 @@ describe("HandoverSection", () => {
     );
   });
 
-  test("done run with 6 documents: labelled rows, PDF link only when pdfPath set, .md always", async () => {
+  test("done run with 6 documents: labelled rows, PDF link only when pdfAvailable, .md always", async () => {
     // Every doc has a PDF except dm_sequences (its render step not done).
     stubFetch({
       run: runFixture("done", { completedAt: new Date().toISOString() }),
@@ -168,6 +169,25 @@ describe("HandoverSection", () => {
     );
 
     // Docs exist → the CTA flips to regenerate wording and stays enabled.
+    expect(
+      screen.getByRole("button", { name: "Regenerate Handover" }),
+    ).toBeEnabled();
+  });
+
+  test("timed-out run: give-up notice shown and the button re-enabled for failover", async () => {
+    // Active run created 21 minutes ago — past HANDOVER_POLL_GIVE_UP_MS.
+    // The POST route fails over stale runs, so the button must come back.
+    stubFetch({
+      run: runFixture("running", {
+        createdAt: new Date(Date.now() - 21 * 60_000).toISOString(),
+      }),
+      documents: [],
+    });
+    renderSection();
+
+    expect(
+      await screen.findByText(/presumed dead/),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Regenerate Handover" }),
     ).toBeEnabled();

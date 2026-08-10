@@ -1,6 +1,6 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import { NonRetriableError } from "inngest";
-import { inngest, Events } from "@/lib/inngest/client";
+import { inngestHandover, Events } from "@/lib/inngest/client";
 import { db } from "@/lib/db";
 import {
   creators,
@@ -127,7 +127,7 @@ async function loadRunDocuments(runId: string): Promise<HandoverDocument[]> {
  * then the remaining 4 fire concurrently as cache reads. Doc content flows
  * through the DB, not step results, keeping Inngest state small.
  */
-export const generateHandover = inngest.createFunction(
+export const generateHandover = inngestHandover.createFunction(
   {
     id: "generate-handover",
     name: "Generate handover package",
@@ -271,23 +271,34 @@ export const generateHandover = inngest.createFunction(
         costUsd: Number(sum("costUsd").toFixed(6)),
       };
 
-      await db
+      // Gate the done-transition so a step retry that already committed
+      // can't double-add the cost: only the invocation that flips the run
+      // to 'done' performs the increment.
+      const [transitioned] = await db
         .update(handoverRuns)
         .set({
           status: "done",
           completedAt: new Date(),
           claudeUsage: aggregate,
         })
-        .where(eq(handoverRuns.id, data.runId));
+        .where(
+          and(
+            eq(handoverRuns.id, data.runId),
+            sql`${handoverRuns.status} <> 'done'`,
+          ),
+        )
+        .returning({ id: handoverRuns.id });
 
-      // First writer of launch_packages.totalCostUsd — the module pipeline
-      // records per-job usage but never rolled it up.
-      await db
-        .update(launchPackages)
-        .set({
-          totalCostUsd: sql`${launchPackages.totalCostUsd} + ${aggregate.costUsd}`,
-        })
-        .where(eq(launchPackages.id, data.packageId));
+      if (transitioned) {
+        // First writer of launch_packages.totalCostUsd — the module
+        // pipeline records per-job usage but never rolled it up.
+        await db
+          .update(launchPackages)
+          .set({
+            totalCostUsd: sql`${launchPackages.totalCostUsd} + ${aggregate.costUsd}`,
+          })
+          .where(eq(launchPackages.id, data.packageId));
+      }
 
       await logAudit(
         data.userId,

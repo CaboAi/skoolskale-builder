@@ -88,8 +88,14 @@ const { state, holder, generateHandoverDocMock, renderPdfsMock, logAuditMock, db
       }),
       update: (table: unknown) => ({
         set: (payload: Row) => ({
-          where: async () => {
+          // Push once, synchronously — the chain ends either awaited
+          // directly or via .returning() (finalize's gated done-transition),
+          // never both.
+          where: () => {
             state.updates.push({ table, payload });
+            return Object.assign(Promise.resolve(), {
+              returning: async () => [{ id: "run-transitioned" }],
+            });
           },
         }),
       }),

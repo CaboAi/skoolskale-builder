@@ -28,6 +28,11 @@ import { generateHandover } from "./generate-handover";
  * Registered functions for the Inngest serve handler at /api/inngest.
  * Add new functions to this list when they're created.
  *
+ * generateHandover is NOT here — it belongs to the separate
+ * skoolskale-builder-handover app served at /api/inngest-handover (see
+ * handoverFunctions below), which carries a higher maxDuration for the
+ * long Opus steps.
+ *
  * Image generators (generate-cover / generate-icon / generate-classroom-cover
  * / generate-calendar-cover) were removed in the chore/remove-image-generation
  * cut — VAs handle community visuals externally now.
@@ -44,5 +49,7 @@ export const functions = [
   generateCategories,
   generateDiscoverySeo,
   generatePackage,
-  generateHandover,
 ];
+
+/** Functions for the /api/inngest-handover serve handler. */
+export const handoverFunctions = [generateHandover];
