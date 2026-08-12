@@ -11,12 +11,26 @@ const nextConfig: NextConfig = {
    * puppeteer-core rides along for the same reason (it shims native deps).
    */
   serverExternalPackages: ["@sparticuz/chromium", "puppeteer-core"],
-  // The handover generator reads its framework references + gold examples
-  // from disk at runtime (src/prompts/handover/load-assets.ts). Vercel's
-  // bundler can't see fs.readFileSync paths, so trace them explicitly into
-  // the handover Inngest function's output.
+  /**
+   * Two payloads the tracer cannot discover on its own, both loaded by path
+   * at runtime rather than imported:
+   *
+   * 1. The handover framework references + gold examples, read via
+   *    fs.readFileSync (src/prompts/handover/load-assets.ts).
+   * 2. @sparticuz/chromium's `bin/` archives (~70MB of .br, chromium.br
+   *    alone is 64MB). `serverExternalPackages` keeps the package OUT of the
+   *    bundle so its own `__dirname`-relative path math still works, but
+   *    externalizing does not copy data files — nothing `require`s them, so
+   *    nft never sees them and the deployed package ships with an empty
+   *    bin/, which fails as: 'The input directory ".../chromium/bin" does
+   *    not exist'. The glob is version- and layout-agnostic so a pnpm
+   *    upgrade doesn't silently drop the binary again.
+   */
   outputFileTracingIncludes: {
-    "/api/inngest-handover": ["./src/prompts/handover/assets/**/*"],
+    "/api/inngest-handover": [
+      "./src/prompts/handover/assets/**/*",
+      "./node_modules/.pnpm/**/@sparticuz/chromium/bin/**",
+    ],
   },
   images: {
     // Supabase Storage URLs for cover-variants, image-variants, creator-photos.
