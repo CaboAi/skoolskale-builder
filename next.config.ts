@@ -1,6 +1,16 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  /**
+   * Chromium ships a real binary inside its own package directory and
+   * resolves it via a path relative to that directory at runtime. Bundling
+   * relocates the JS without the `bin/` payload, so the first PDF render
+   * dies with: 'The input directory ".../@sparticuz/chromium/bin" does not
+   * exist ... you must externalize @sparticuz/chromium'. Externalizing
+   * leaves both packages in node_modules where their own path math holds.
+   * puppeteer-core rides along for the same reason (it shims native deps).
+   */
+  serverExternalPackages: ["@sparticuz/chromium", "puppeteer-core"],
   // The handover generator reads its framework references + gold examples
   // from disk at runtime (src/prompts/handover/load-assets.ts). Vercel's
   // bundler can't see fs.readFileSync paths, so trace them explicitly into
