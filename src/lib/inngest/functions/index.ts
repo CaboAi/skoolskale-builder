@@ -10,6 +10,7 @@ export { generateCategories } from "./generate-categories";
 export { generateDiscoverySeo } from "./generate-discovery-seo";
 export { generatePackage } from "./generate-package";
 export { generateHandover } from "./generate-handover";
+export { renderHandoverPdfs } from "./render-handover-pdfs";
 
 import { generateWelcomeDm } from "./generate-welcome-dm";
 import { generateTransformation } from "./generate-transformation";
@@ -23,6 +24,7 @@ import { generateCategories } from "./generate-categories";
 import { generateDiscoverySeo } from "./generate-discovery-seo";
 import { generatePackage } from "./generate-package";
 import { generateHandover } from "./generate-handover";
+import { renderHandoverPdfs } from "./render-handover-pdfs";
 
 /**
  * Registered functions for the Inngest serve handler at /api/inngest.
@@ -52,4 +54,4 @@ export const functions = [
 ];
 
 /** Functions for the /api/inngest-handover serve handler. */
-export const handoverFunctions = [generateHandover];
+export const handoverFunctions = [generateHandover, renderHandoverPdfs];

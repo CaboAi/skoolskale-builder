@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { NonRetriableError } from "inngest";
 import { inngestHandover, Events } from "@/lib/inngest/client";
 import { db } from "@/lib/db";
@@ -31,6 +31,10 @@ import {
   assertHandoverAssets,
 } from "@/prompts/handover/load-assets";
 import { renderHandoverDocPdfs } from "@/lib/handover/pdf-step";
+import {
+  finalizeHandoverRun,
+  loadRunDocuments,
+} from "@/lib/handover/finalize";
 
 export type HandoverEventData = {
   packageId: string;
@@ -110,13 +114,6 @@ async function generateDeliverable(params: {
     })
     .returning({ id: handoverDocuments.id });
   return { docId: doc.id };
-}
-
-async function loadRunDocuments(runId: string): Promise<HandoverDocument[]> {
-  return db
-    .select()
-    .from(handoverDocuments)
-    .where(eq(handoverDocuments.runId, runId));
 }
 
 /**
@@ -254,66 +251,14 @@ export const generateHandover = inngestHandover.createFunction(
       });
     });
 
-    const totals = await step.run("finalize", async () => {
-      const docs = await loadRunDocuments(data.runId);
-      const usages = docs
-        .map((d) => d.claudeUsage as Record<string, number> | null)
-        .filter((u): u is Record<string, number> => u !== null);
-      const sum = (key: string) =>
-        usages.reduce((acc, u) => acc + (u[key] ?? 0), 0);
-      const aggregate = {
-        model: usages[0]?.model ?? null,
-        inputTokens: sum("inputTokens"),
-        outputTokens: sum("outputTokens"),
-        cacheReadTokens: sum("cacheReadTokens"),
-        cacheWriteTokens: sum("cacheWriteTokens"),
-        durationMs: sum("durationMs"),
-        costUsd: Number(sum("costUsd").toFixed(6)),
-      };
-
-      // Gate the done-transition so a step retry that already committed
-      // can't double-add the cost: only the invocation that flips the run
-      // to 'done' performs the increment.
-      const [transitioned] = await db
-        .update(handoverRuns)
-        .set({
-          status: "done",
-          completedAt: new Date(),
-          claudeUsage: aggregate,
-        })
-        .where(
-          and(
-            eq(handoverRuns.id, data.runId),
-            sql`${handoverRuns.status} <> 'done'`,
-          ),
-        )
-        .returning({ id: handoverRuns.id });
-
-      if (transitioned) {
-        // First writer of launch_packages.totalCostUsd — the module
-        // pipeline records per-job usage but never rolled it up.
-        await db
-          .update(launchPackages)
-          .set({
-            totalCostUsd: sql`${launchPackages.totalCostUsd} + ${aggregate.costUsd}`,
-          })
-          .where(eq(launchPackages.id, data.packageId));
-      }
-
-      await logAudit(
-        data.userId,
-        "handover.generate.completed",
-        "handover_run",
-        data.runId,
-        {
-          packageId: data.packageId,
-          docCount: docs.length,
-          costUsd: aggregate.costUsd,
-          cacheReadTokens: aggregate.cacheReadTokens,
-        },
-      );
-      return aggregate;
-    });
+    const totals = await step.run("finalize", () =>
+      finalizeHandoverRun({
+        runId: data.runId,
+        packageId: data.packageId,
+        userId: data.userId,
+        action: "handover.generate.completed",
+      }),
+    );
 
     return { runId: data.runId, packageId: data.packageId, usage: totals };
   },

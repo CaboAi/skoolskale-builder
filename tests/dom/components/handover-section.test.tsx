@@ -241,3 +241,93 @@ describe("HandoverSection", () => {
     expect(init?.body).toBe('{"includeGuestEmails":true}');
   });
 });
+
+/* -------------------------------------------------------------------------- */
+/* PDF-only retry                                                             */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * `missingPdfs` is documents-exist AND at-least-one-doc-without-a-PDF, which
+ * is the shape a run leaves behind when its copy generated but the render
+ * step died. docFixture derives pdfAvailable from pdfPath, so a null path is
+ * how a doc says "never rendered".
+ */
+function docsWithPdfs(renderedKeys: HandoverDocKey[]) {
+  return DOC_KEYS.map((key) =>
+    docFixture(
+      key,
+      renderedKeys.includes(key) ? `${PKG_ID}/run-1/${key}.pdf` : null,
+    ),
+  );
+}
+
+const RENDER_PDFS_URL = `/api/packages/${PKG_ID}/handover/render-pdfs`;
+
+describe("HandoverSection — Render PDFs retry", () => {
+  test("docs exist with a missing PDF and no active run: button and the no-AI-cost note show", async () => {
+    stubFetch({
+      run: runFixture("failed", { error: "chromium not found" }),
+      documents: docsWithPdfs(DOC_KEYS.filter((k) => k !== "dm_sequences")),
+    });
+    renderSection();
+
+    expect(
+      await screen.findByRole("button", { name: "Render PDFs" }),
+    ).toBeEnabled();
+    expect(
+      screen.getByText(/rebuilds them from the existing copy at no AI cost/),
+    ).toBeInTheDocument();
+  });
+
+  test("clicking Render PDFs POSTs only to the render-pdfs route", async () => {
+    const user = userEvent.setup();
+    const fetchMock = stubFetch({
+      run: runFixture("failed", { error: "chromium not found" }),
+      documents: docsWithPdfs([]),
+    });
+    renderSection();
+
+    await user.click(
+      await screen.findByRole("button", { name: "Render PDFs" }),
+    );
+
+    await waitFor(() => expect(postCalls(fetchMock)).toHaveLength(1));
+    const [url, init] = postCalls(fetchMock)[0];
+    expect(url).toBe(RENDER_PDFS_URL);
+    expect(init?.method).toBe("POST");
+    // The plain /handover POST is the paid path — it must not fire.
+    expect(
+      postCalls(fetchMock).some(
+        ([u]) => u === `/api/packages/${PKG_ID}/handover`,
+      ),
+    ).toBe(false);
+  });
+
+  test("every doc rendered: no Render PDFs button", async () => {
+    stubFetch({
+      run: runFixture("done", { completedAt: new Date().toISOString() }),
+      documents: docsWithPdfs(DOC_KEYS),
+    });
+    renderSection();
+
+    // Wait for the loaded state before asserting an absence.
+    expect(
+      await screen.findByRole("button", { name: "Regenerate Handover" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Render PDFs" }),
+    ).not.toBeInTheDocument();
+  });
+
+  test("no documents at all: no Render PDFs button", async () => {
+    stubFetch({ run: null, documents: [] });
+    renderSection();
+
+    expect(
+      await screen.findByRole("button", { name: "Generate Handover" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Render PDFs" }),
+    ).not.toBeInTheDocument();
+  });
+});
