@@ -102,6 +102,29 @@ export function HandoverSection({ packageId }: { packageId: string }) {
   const active = isActive(run);
   const timedOut = active && !isPollable(run);
 
+  const renderPdfsMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(
+        `/api/packages/${packageId}/handover/render-pdfs`,
+        { method: "POST" },
+      );
+      if (!res.ok) {
+        const err = await res
+          .json()
+          .catch(() => ({ error: "Could not start PDF rendering." }));
+        throw new Error(err.error ?? "Could not start PDF rendering.");
+      }
+      return (await res.json()) as { runId: string };
+    },
+    onSuccess: () => {
+      toast.success("Rendering PDFs from the existing documents");
+      queryClient.invalidateQueries({ queryKey });
+    },
+    onError: (err) => {
+      toast.error(err.message);
+    },
+  });
+
   const generateMutation = useMutation({
     mutationFn: async () => {
       const res = await fetch(`/api/packages/${packageId}/handover`, {
@@ -130,6 +153,9 @@ export function HandoverSection({ packageId }: { packageId: string }) {
   const orderedDocs = DOC_ORDER.map((key) =>
     documents.find((d) => d.docKey === key),
   ).filter((d): d is HandoverDocSummary => d !== undefined);
+  // Documents exist but some never rendered — offer the free retry instead
+  // of making the VA pay for a full regeneration to recover PDFs.
+  const missingPdfs = hasDocs && orderedDocs.some((d) => !d.pdfAvailable);
 
   return (
     <Card>
@@ -164,23 +190,45 @@ export function HandoverSection({ packageId }: { packageId: string }) {
               </span>
             </span>
           </label>
-          <Button
-            onClick={() => generateMutation.mutate()}
-            // A timed-out run re-enables the button: the POST route fails
-            // over any active run past the same 20-min cutoff, so the VA
-            // can recover a stranded run without manual SQL.
-            disabled={(active && !timedOut) || generateMutation.isPending}
-          >
-            {((active && !timedOut) || generateMutation.isPending) && (
-              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+          <div className="flex shrink-0 items-center gap-2">
+            {missingPdfs && (
+              <Button
+                variant="outline"
+                onClick={() => renderPdfsMutation.mutate()}
+                disabled={(active && !timedOut) || renderPdfsMutation.isPending}
+                title="Re-render PDFs from the documents already generated — no AI cost"
+              >
+                {renderPdfsMutation.isPending && (
+                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                )}
+                Render PDFs
+              </Button>
             )}
-            {active && !timedOut
-              ? "Generating…"
-              : hasDocs || timedOut
-                ? "Regenerate Handover"
-                : "Generate Handover"}
-          </Button>
+            <Button
+              onClick={() => generateMutation.mutate()}
+              // A timed-out run re-enables the button: the POST route fails
+              // over any active run past the same 20-min cutoff, so the VA
+              // can recover a stranded run without manual SQL.
+              disabled={(active && !timedOut) || generateMutation.isPending}
+            >
+              {((active && !timedOut) || generateMutation.isPending) && (
+                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+              )}
+              {active && !timedOut
+                ? "Generating…"
+                : hasDocs || timedOut
+                  ? "Regenerate Handover"
+                  : "Generate Handover"}
+            </Button>
+          </div>
         </div>
+        {missingPdfs && !active && (
+          <p className="text-sm text-muted-foreground">
+            Documents are generated but some PDFs are missing.{" "}
+            <strong>Render PDFs</strong> rebuilds them from the existing copy
+            at no AI cost — regenerating would re-run the writing step.
+          </p>
+        )}
 
         {run?.status === "failed" && run.error && (
           <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">

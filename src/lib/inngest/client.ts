@@ -51,4 +51,5 @@ export const Events = {
   CanvaPushRequested: "canva.push.requested",
   GenerateCoverRequested: "generate.cover.requested",
   HandoverGenerateRequested: "handover.generate.requested",
+  HandoverPdfsRequested: "handover.pdfs.requested",
 } as const;
