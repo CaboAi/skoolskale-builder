@@ -28,6 +28,10 @@ export const renderHandoverPdfs = inngestHandover.createFunction(
     id: "render-handover-pdfs",
     name: "Render handover PDFs",
     retries: 2,
+    // Steps here are inherently sequential (one Chromium launch renders all
+    // six docs inside a single step), so a limit of 1 costs nothing and
+    // bounds peak memory. Note this limits STEPS, not runs — see the
+    // generate-handover comment; the route guards run-level exclusivity.
     concurrency: [{ limit: 1, key: "event.data.packageId" }],
     triggers: [{ event: Events.HandoverPdfsRequested }],
     onFailure: async ({ event, error }) => {

@@ -24,6 +24,11 @@ const { state, holder, requireUserMock, logAuditMock, inngestSendMock, dbMock } 
     const state = {
       runs: [] as Row[],
       docs: [] as Row[],
+      updates: [] as { table: unknown; payload: Row }[],
+      // Order matters for the stale-UI regression: the run must be flipped
+      // to queued BEFORE the event goes out, or the client's post-response
+      // refetch sees a non-active run and never starts polling.
+      calls: [] as string[],
     };
     const holder: {
       handoverRuns?: unknown;
@@ -72,10 +77,21 @@ const { state, holder, requireUserMock, logAuditMock, inngestSendMock, dbMock } 
           name: string;
           data: Record<string, unknown>;
         }) => Promise<{ ids: string[] }>
-      >(async () => ({ ids: ["evt-1"] })),
+      >(async () => {
+        state.calls.push("send");
+        return { ids: ["evt-1"] };
+      }),
       dbMock: {
         select: () => ({
           from: (table: unknown) => ({ where: () => whereChain(table) }),
+        }),
+        update: (table: unknown) => ({
+          set: (payload: Row) => ({
+            where: async () => {
+              state.updates.push({ table, payload });
+              state.calls.push("update");
+            },
+          }),
         }),
       },
     };
@@ -106,9 +122,16 @@ function ctx(id: string = PKG_ID) {
 beforeEach(() => {
   vi.clearAllMocks();
   requireUserMock.mockResolvedValue({ id: USER_ID, email: "t@e.com" });
-  inngestSendMock.mockResolvedValue({ ids: ["evt-1"] });
+  // Keep the call-order recording — a bare mockResolvedValue would replace
+  // the implementation and silently defeat the ordering assertion below.
+  inngestSendMock.mockImplementation(async () => {
+    state.calls.push("send");
+    return { ids: ["evt-1"] };
+  });
   state.runs = [];
   state.docs = [{ runId: NEWEST_RUN_ID }];
+  state.updates.length = 0;
+  state.calls.length = 0;
 });
 
 describe("POST /api/packages/[id]/handover/render-pdfs", () => {
@@ -180,5 +203,25 @@ describe("POST /api/packages/[id]/handover/render-pdfs", () => {
     expect(audit[2]).toBe("handover_run");
     expect(audit[3]).toBe(NEWEST_RUN_ID);
     expect(audit[4]).toMatchObject({ packageId: PKG_ID });
+  });
+
+  test("202 flips the run to queued and clears the stale error", async () => {
+    await POST(postRequest(), ctx());
+
+    const runUpdate = state.updates.find((u) => u.table === handoverRuns);
+    expect(runUpdate?.payload).toMatchObject({
+      status: "queued",
+      error: null,
+    });
+  });
+
+  test("202 marks the run queued BEFORE emitting the event", async () => {
+    // Regression: the client refetches as soon as this responds. If the run
+    // were still 'failed' at that moment the UI would see a non-active run,
+    // never begin polling, and sit on the stale error while the render was
+    // already running — which is exactly what happened in production.
+    await POST(postRequest(), ctx());
+
+    expect(state.calls).toEqual(["update", "send"]);
   });
 });
