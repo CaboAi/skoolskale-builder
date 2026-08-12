@@ -17,12 +17,16 @@ export const HANDOVER_MODEL = "claude-opus-4-8";
 export const HANDOVER_MAX_TOKENS = 16000;
 
 /**
- * Same base-URL pinning rationale as generate.ts: the SDK reads
- * `ANTHROPIC_BASE_URL` when unset, and some environments inject a malformed
- * value that 404s every request.
+ * Same base-URL pinning rationale as generate.ts — the SDK reads
+ * `ANTHROPIC_BASE_URL` when unset and some environments inject a malformed
+ * value — but note the DIFFERENT value: the raw SDK appends the full
+ * `/v1/messages` path itself, so the origin must NOT carry `/v1`. The AI
+ * SDK provider in generate.ts appends only `/messages`, which is why that
+ * one is pinned to `.../v1`. Passing `/v1` here yields `/v1/v1/messages`
+ * and a 404 on every call.
  */
 function client(): Anthropic {
-  return new Anthropic({ baseURL: "https://api.anthropic.com/v1" });
+  return new Anthropic({ baseURL: "https://api.anthropic.com" });
 }
 
 export type HandoverClaudeUsage = {
