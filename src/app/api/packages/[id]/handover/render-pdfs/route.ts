@@ -72,6 +72,18 @@ export async function POST(_req: NextRequest, { params }: RouteCtx) {
     );
   }
 
+  // Flip the run to queued BEFORE returning, mirroring what the generate
+  // route gets for free by inserting its row as 'queued'. The client
+  // refetches the moment this responds; if the run were still 'failed' at
+  // that instant the UI would see a non-active run, never start polling,
+  // and sit on the stale error until a manual reload — even though the
+  // render was already under way. Clearing the error here also stops a
+  // superseded message from being shown against a run that is now working.
+  await db
+    .update(handoverRuns)
+    .set({ status: "queued", error: null })
+    .where(eq(handoverRuns.id, target.runId));
+
   await inngest.send({
     name: Events.HandoverPdfsRequested,
     data: { packageId, runId: target.runId, userId: user.id },

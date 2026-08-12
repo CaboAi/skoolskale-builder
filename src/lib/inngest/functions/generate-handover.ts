@@ -129,7 +129,19 @@ export const generateHandover = inngestHandover.createFunction(
     id: "generate-handover",
     name: "Generate handover package",
     retries: 3,
-    concurrency: [{ limit: 1, key: "event.data.packageId" }],
+    /**
+     * Inngest concurrency limits STEPS in flight, not runs — a limit of 1
+     * silently serialized the four post-prime deliverables that
+     * `Promise.all` fans out, turning a ~170s package into ~330s. 5 admits
+     * the full fan-out (prime + 4) for one package while still keeping two
+     * packages from competing for the same budget.
+     *
+     * Run-level exclusivity is NOT this setting's job: the POST route's
+     * already_running check is what stops a second run for a package.
+     * (Inngest's `singleton` config is the native primitive if that ever
+     * needs to move into the function definition.)
+     */
+    concurrency: [{ limit: 5, key: "event.data.packageId" }],
     triggers: [{ event: Events.HandoverGenerateRequested }],
     onFailure: async ({ event, error }) => {
       const data = (event.data as { event?: { data?: HandoverEventData } })

@@ -400,4 +400,19 @@ describe("generateHandover orchestrator", () => {
       /not ready for handover — missing modules/,
     );
   });
+
+  test("(f) concurrency admits the whole fan-out, not one step at a time", () => {
+    // Inngest concurrency limits STEPS in flight, not runs. A limit of 1
+    // silently serialized the four post-prime deliverables that Promise.all
+    // fans out — the package still succeeded, but took ~330s instead of
+    // ~170s and pushed the tail toward the 5-minute prompt-cache TTL. The
+    // limit must cover the prime plus every parallel deliverable.
+    const opts = (
+      generateHandover as unknown as {
+        opts: { concurrency?: { limit: number; key?: string }[] };
+      }
+    ).opts;
+    const limit = opts.concurrency?.[0]?.limit ?? 1;
+    expect(limit).toBeGreaterThanOrEqual(HANDOVER_GENERATED_DOC_KEYS.length);
+  });
 });
