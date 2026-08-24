@@ -134,16 +134,13 @@ function baseSource(overrides: Record<string, unknown> = {}) {
   };
 }
 
-const params = (extra: Record<string, string> = {}) =>
-  Promise.resolve({ id: PKG_ID, ...extra });
-
 const post = (body: unknown = {}) =>
   POST(
     new NextRequest("http://localhost/api/packages/x/images", {
       method: "POST",
       body: JSON.stringify(body),
     }),
-    { params: params() },
+    { params: Promise.resolve({ id: PKG_ID }) },
   );
 
 const regenerate = (
@@ -156,7 +153,7 @@ const regenerate = (
       method: "POST",
       body: JSON.stringify(body),
     }),
-    { params: params({ slotKind, slotIndex }) },
+    { params: Promise.resolve({ id: PKG_ID, slotKind, slotIndex }) },
   );
 
 beforeEach(() => {
