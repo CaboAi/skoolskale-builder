@@ -832,8 +832,8 @@ export type ImageRun = typeof imageRuns.$inferSelect;
 export type NewImageRun = typeof imageRuns.$inferInsert;
 export type ImageAsset = typeof imageAssets.$inferSelect;
 export type NewImageAsset = typeof imageAssets.$inferInsert;
-export type ImageSlotKindValue = (typeof imageSlotKindEnum.enumValues)[number];
-export type ImageReferenceKindValue =
+export type ImageSlotKind = (typeof imageSlotKindEnum.enumValues)[number];
+export type ImageReferenceKind =
   (typeof imageReferenceKindEnum.enumValues)[number];
 export type PatternLibraryEntry = typeof patternLibrary.$inferSelect;
 export type NewPatternLibraryEntry = typeof patternLibrary.$inferInsert;
