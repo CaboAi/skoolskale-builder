@@ -10,7 +10,14 @@ const nextConfig: NextConfig = {
    * leaves both packages in node_modules where their own path math holds.
    * puppeteer-core rides along for the same reason (it shims native deps).
    */
-  serverExternalPackages: ["@sparticuz/chromium", "puppeteer-core"],
+  /**
+   * sharp ships prebuilt native .node binaries per platform and resolves
+   * them relative to its own package directory. Bundling relocates the JS
+   * away from the binaries and the first resize throws
+   * 'Could not load the "sharp" module using the <platform> runtime'.
+   * Same failure class as chromium above — externalize, don't bundle.
+   */
+  serverExternalPackages: ["@sparticuz/chromium", "puppeteer-core", "sharp"],
   /**
    * Two payloads the tracer cannot discover on its own, both loaded by path
    * at runtime rather than imported:
@@ -30,6 +37,18 @@ const nextConfig: NextConfig = {
     "/api/inngest-handover": [
       "./src/prompts/handover/assets/**/*",
       "./node_modules/.pnpm/**/@sparticuz/chromium/bin/**",
+    ],
+    /**
+     * 3. sharp's Linux binary. `serverExternalPackages` keeps sharp out of
+     *    the bundle, but externalizing does not copy the platform-optional
+     *    @img/sharp-linux-x64 payload — nothing statically requires it, so
+     *    nft never traces it and the deployed function resizes into a
+     *    "Could not load the sharp module" error. Same shape as the
+     *    chromium bin/ problem, same version-agnostic glob.
+     */
+    "/api/inngest-images": [
+      "./node_modules/.pnpm/**/@img/sharp-linux-x64/**",
+      "./node_modules/.pnpm/**/@img/sharp-libvips-linux-x64/**",
     ],
   },
   images: {

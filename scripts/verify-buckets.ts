@@ -31,6 +31,8 @@ const EXPECTED: ExpectedBucket[] = [
   { name: "cover-variants", policyPrefix: "cover_variants", public: false },
   { name: "image-variants", policyPrefix: "image_variants", public: false },
   { name: "handover-docs", policyPrefix: "handover_docs", public: false },
+  { name: "image-slots", policyPrefix: "image_slots", public: false },
+  { name: "image-references", policyPrefix: "image_references", public: false },
 ];
 
 const POLICY_SUFFIXES = ["authed_insert", "authed_update", "authed_delete"];

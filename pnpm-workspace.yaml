@@ -1,3 +1,9 @@
-ignoredBuiltDependencies:
-  - sharp
-  - unrs-resolver
+# sharp must run its install script: it fetches/links the platform libvips
+# binary. Left unbuilt, every resize throws "Could not load the sharp module".
+# The rest are build scripts we deliberately skip — none are used at runtime.
+allowBuilds:
+  sharp: true
+  esbuild: false
+  msw: false
+  protobufjs: false
+  unrs-resolver: false

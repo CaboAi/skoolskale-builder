@@ -70,6 +70,29 @@ const BUCKETS: BucketConfig[] = [
     public: false,
     maxBytes: 20 * 1024 * 1024,
   },
+  {
+    // Images phase: final, spec-sized PNGs, subpathed
+    // `${packageId}/${slotKey}/v${version}.png`. Deliberately NOT the
+    // legacy `image-variants` bucket — that one still holds pre-#39
+    // Gemini objects under `${packageId}/classroom_cover/`, and the new
+    // path scheme would interleave with them.
+    name: "image-slots",
+    policyPrefix: "image_slots",
+    allowedMimeTypes: ["image/png"],
+    public: false,
+    maxBytes: 10 * 1024 * 1024,
+  },
+  {
+    // Images phase: VA-uploaded creator headshot + brand-kit reference,
+    // subpathed `${packageId}/`. PRIVATE — the Images page previews them
+    // through signed URLs, and the provider reads them service-role via
+    // storage.download() rather than over the network.
+    name: "image-references",
+    policyPrefix: "image_references",
+    allowedMimeTypes: ["image/jpeg", "image/png", "image/webp"],
+    public: false,
+    maxBytes: 10 * 1024 * 1024,
+  },
 ];
 
 async function ensureBucket(cfg: BucketConfig) {
