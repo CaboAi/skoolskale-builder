@@ -56,7 +56,7 @@ type ResponsesApiPayload = {
  * rejects — so the schema is derived and then tightened here rather than
  * hand-maintained in parallel with the Zod source of truth.
  */
-function buildJsonSchema(): Record<string, unknown> {
+export function buildStyleSpecJsonSchema(): Record<string, unknown> {
   const jsonSchema = z.toJSONSchema(ImageStyleSpecSchema, {
     target: "draft-2020-12",
     io: "input",
@@ -149,7 +149,7 @@ export async function generateStyleSpec(params: {
           type: "json_schema",
           name: "image_style_spec",
           strict: true,
-          schema: buildJsonSchema(),
+          schema: buildStyleSpecJsonSchema(),
         },
       },
     }),
