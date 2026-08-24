@@ -23,6 +23,8 @@ import { generateLeaderboard } from "./generate-leaderboard";
 import { generateCategories } from "./generate-categories";
 import { generateDiscoverySeo } from "./generate-discovery-seo";
 import { generatePackage } from "./generate-package";
+import { generateImages } from "./generate-images";
+import { pinImageStyle } from "./pin-image-style";
 import { generateHandover } from "./generate-handover";
 import { renderHandoverPdfs } from "./render-handover-pdfs";
 
@@ -55,3 +57,10 @@ export const functions = [
 
 /** Functions for the /api/inngest-handover serve handler. */
 export const handoverFunctions = [generateHandover, renderHandoverPdfs];
+
+/**
+ * Functions for the /api/inngest-images serve handler (app id
+ * skoolskale-builder-images). Split out so sharp'''s native binaries stay out
+ * of the module pipeline'''s bundle.
+ */
+export const imagesFunctions = [generateImages, pinImageStyle];
