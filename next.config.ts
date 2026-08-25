@@ -16,6 +16,17 @@ const nextConfig: NextConfig = {
    * away from the binaries and the first resize throws
    * 'Could not load the "sharp" module using the <platform> runtime'.
    * Same failure class as chromium above — externalize, don't bundle.
+   *
+   * Do NOT add an outputFileTracingIncludes glob for @img/sharp-* to go with
+   * this. It looks like the chromium bin/ fix but behaves differently: the
+   * platform package contains a NESTED node_modules symlink to
+   * @img/sharp-libvips-<platform>, which pnpm resolves into the store. A
+   * trailing /** glob follows that symlink and Vercel rejects the result at
+   * packaging time with "The framework produced an invalid deployment
+   * package for a Serverless Function ... files in symlinked directories"
+   * (dpl_DCJN2TuEG3vFvQGGd, build green, deploy failed). Externalizing alone
+   * is sufficient: sharp's loader statically requires its platform package,
+   * so nft traces it without help.
    */
   serverExternalPackages: ["@sparticuz/chromium", "puppeteer-core", "sharp"],
   /**
@@ -37,18 +48,6 @@ const nextConfig: NextConfig = {
     "/api/inngest-handover": [
       "./src/prompts/handover/assets/**/*",
       "./node_modules/.pnpm/**/@sparticuz/chromium/bin/**",
-    ],
-    /**
-     * 3. sharp's Linux binary. `serverExternalPackages` keeps sharp out of
-     *    the bundle, but externalizing does not copy the platform-optional
-     *    @img/sharp-linux-x64 payload — nothing statically requires it, so
-     *    nft never traces it and the deployed function resizes into a
-     *    "Could not load the sharp module" error. Same shape as the
-     *    chromium bin/ problem, same version-agnostic glob.
-     */
-    "/api/inngest-images": [
-      "./node_modules/.pnpm/**/@img/sharp-linux-x64/**",
-      "./node_modules/.pnpm/**/@img/sharp-libvips-linux-x64/**",
     ],
   },
   images: {
