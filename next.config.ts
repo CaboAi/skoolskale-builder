@@ -49,6 +49,25 @@ const nextConfig: NextConfig = {
       "./src/prompts/handover/assets/**/*",
       "./node_modules/.pnpm/**/@sparticuz/chromium/bin/**",
     ],
+    /**
+     * 3. sharp's Linux native payload. Installing the @img packages is not
+     *    enough — they reach the build machine but the tracer does not copy
+     *    the .so/.node into the function, so the deployed route dies with
+     *    'ERR_DLOPEN_FAILED: libvips-cpp.so.8.18.3: cannot open shared
+     *    object file' (dpl_AWzTjrGX, where the install log shows both
+     *    packages added and the runtime still could not load them).
+     *
+     *    These globs stop at `lib/`, which holds ONLY the binaries. An
+     *    earlier version globbed the package root, which also matched its
+     *    nested node_modules symlink into the pnpm store and made Vercel
+     *    reject the bundle: "The framework produced an invalid deployment
+     *    package ... files in symlinked directories" (dpl_DCJN2TuE). Do not
+     *    widen these past lib/.
+     */
+    "/api/inngest-images": [
+      "./node_modules/.pnpm/@img+sharp-linux-x64@*/node_modules/@img/sharp-linux-x64/lib/**",
+      "./node_modules/.pnpm/@img+sharp-libvips-linux-x64@*/node_modules/@img/sharp-libvips-linux-x64/lib/**",
+    ],
   },
   images: {
     // Supabase Storage URLs for cover-variants, image-variants, creator-photos.

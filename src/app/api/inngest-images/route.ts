@@ -1,6 +1,6 @@
 import { serve } from "inngest/next";
 import { inngestImages } from "@/lib/inngest/client";
-import { imagesFunctions } from "@/lib/inngest/functions";
+import { imagesFunctions } from "@/lib/inngest/functions/images";
 
 /**
  * Dedicated Inngest serve endpoint for the images pipeline (app id
