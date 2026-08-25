@@ -488,7 +488,16 @@ export function PackageDashboard(initial: PackageDashboardProps) {
       )}
 
       {approvedCount === totalModules && (
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-3">
+          <Link
+            href={`/packages/${pkg.id}/images`}
+            className={cn(
+              buttonVariants({ size: "lg", variant: "outline" }),
+              "px-6 text-base font-semibold",
+            )}
+          >
+            Images →
+          </Link>
           <Link
             href={`/packages/${pkg.id}/export`}
             className={cn(

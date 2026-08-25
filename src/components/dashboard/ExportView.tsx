@@ -633,6 +633,12 @@ export function ExportView({ package: pkg, creator, assets }: ExportViewProps) {
         </div>
         <div className="flex items-center gap-2">
           <a
+            href={`/packages/${pkg.id}/images`}
+            className={cn(buttonVariants({ variant: "outline" }))}
+          >
+            Images
+          </a>
+          <a
             href={`/api/packages/${pkg.id}/export/document`}
             download
             className={cn(buttonVariants({ variant: "outline" }))}

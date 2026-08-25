@@ -55,3 +55,9 @@ export const functions = [
 
 /** Functions for the /api/inngest-handover serve handler. */
 export const handoverFunctions = [generateHandover, renderHandoverPdfs];
+
+// imagesFunctions lives in ./images.ts, NOT here. Importing it from this
+// barrel would put sharp in the module graph of /api/inngest and
+// /api/inngest-handover as well, so a sharp load failure would take down the
+// module and handover pipelines too — which is exactly what happened on
+// deploy dpl_AWzTjrGX before the split.

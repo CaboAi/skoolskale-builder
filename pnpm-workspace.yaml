@@ -1,3 +1,26 @@
-ignoredBuiltDependencies:
+# Two spellings of the same policy ON PURPOSE.
+#
+# pnpm 11 (local dev) reads `allowBuilds` and ignores the older keys; pnpm 10
+# (what Vercel pins for this project — "Using pnpm@10.x based on project
+# creation date") reads the older keys and silently ignores `allowBuilds`.
+#
+# Writing only the pnpm 11 form is what broke deploy dpl_FP6ZgbeZ: pnpm 10
+# saw no build policy, blocked sharp's install script by default, and every
+# Inngest route 500'd at import with
+#   ERR_DLOPEN_FAILED: libvips-cpp.so.8.18.3: cannot open shared object file
+# sharp's script is what links that libvips binary. Keep BOTH forms in sync.
+allowBuilds:
+  sharp: true
+  esbuild: false
+  msw: false
+  protobufjs: false
+  unrs-resolver: false
+
+onlyBuiltDependencies:
   - sharp
+
+ignoredBuiltDependencies:
+  - esbuild
+  - msw
+  - protobufjs
   - unrs-resolver

@@ -41,6 +41,23 @@ export const inngestHandover = new Inngest({
 });
 
 /**
+ * Separate Inngest app for the images pipeline, served at /api/inngest-images.
+ * Split for the same two reasons the handover app was: it keeps sharp's
+ * native binaries out of the module pipeline'''s function bundle, and it lets
+ * this route'''s duration ceiling move independently. A full run is ~12 serial
+ * provider calls, but each one is its own step invocation, so the 300s cap
+ * applies per image rather than per run.
+ *
+ * Dev: add a third -u flag —
+ *   npx inngest-cli dev -u http://localhost:3000/api/inngest -u http://localhost:3000/api/inngest-handover -u http://localhost:3000/api/inngest-images
+ */
+export const inngestImages = new Inngest({
+  id: "skoolskale-builder-images",
+  eventKey: process.env.INNGEST_EVENT_KEY,
+  isDev,
+});
+
+/**
  * Typed event names — add new events here as we build.
  * Keeps event names discoverable and avoids string typos.
  */
@@ -52,4 +69,6 @@ export const Events = {
   GenerateCoverRequested: "generate.cover.requested",
   HandoverGenerateRequested: "handover.generate.requested",
   HandoverPdfsRequested: "handover.pdfs.requested",
+  ImagesGenerateRequested: "images.generate.requested",
+  ImagesStyleRequested: "images.style.requested",
 } as const;

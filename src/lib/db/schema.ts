@@ -88,6 +88,36 @@ export const handoverDocKeyEnum = pgEnum('handover_doc_key', [
   'dm_sequences', // 05
 ]);
 
+// ---------- Images phase enums ----------
+//
+// Image slots are deliberately NOT module enum values, for the same reason
+// handover doc keys aren't: they'd leak into REQUIRED_FOR_EXPORT gating,
+// module route validation, and dashboard ordering. The legacy image values
+// still sitting in `module` ('cover', 'icon', 'classroom_cover', ...) are
+// pre-#39 orphans and are unrelated to these.
+export const imageSlotKindEnum = pgEnum('image_slot_kind', [
+  'icon',
+  'classroom_cover',
+  'calendar_cover',
+  'about_us',
+  'start_here_thumb',
+  'join_now_banner',
+]);
+
+export const imageReferenceKindEnum = pgEnum('image_reference_kind', [
+  'headshot',
+  'brand_kit',
+]);
+
+// How a pinned style spec came to be. 'fallback' means the model output
+// failed schema validation and the deterministic niche/tone base was kept —
+// recorded rather than silently swallowed.
+export const imageStyleSpecSourceEnum = pgEnum('image_style_spec_source', [
+  'generated',
+  'edited',
+  'fallback',
+]);
+
 // ---------- RLS shorthand ----------
 //
 // Owner-scoped tables all use the same predicate: "the row belongs to the
@@ -447,6 +477,239 @@ export const handoverDocuments = pgTable(
   ],
 ).enableRLS();
 
+// ---------- image_style_specs ----------
+// The consistency contract for the images phase. One row per pinned art
+// direction, versioned per package. Every image records which spec produced
+// it, so "why does this cover not match?" is always answerable. Never
+// updated in place — a VA edit inserts a new version.
+
+export const imageStyleSpecs = pgTable(
+  'image_style_specs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    packageId: uuid('package_id')
+      .notNull()
+      .references(() => launchPackages.id, { onDelete: 'cascade' }),
+    version: integer('version').notNull().default(1),
+    // ImageStyleSpec (src/lib/images/style-spec.ts). Validated by Zod on the
+    // way in — both from the model (Structured Outputs) and from VA edits.
+    spec: jsonb('spec').notNull(),
+    source: imageStyleSpecSourceEnum('source').notNull(),
+    model: text('model'),
+    // { inputTokens, outputTokens, costUsd, durationMs }; null for VA edits.
+    usage: jsonb('usage'),
+    createdBy: uuid('created_by').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index('image_style_specs_package_version_idx').on(t.packageId, t.version),
+    pgPolicy('image_style_specs_select_authed', {
+      for: 'select',
+      to: 'authenticated',
+      using: sql.raw('true'),
+    }),
+    pgPolicy('image_style_specs_insert_self_or_admin', {
+      for: 'insert',
+      to: 'authenticated',
+      withCheck: ownerOrAdmin('created_by'),
+    }),
+    pgPolicy('image_style_specs_update_authed', {
+      for: 'update',
+      to: 'authenticated',
+      using: sql.raw('true'),
+      withCheck: sql.raw('true'),
+    }),
+    pgPolicy('image_style_specs_delete_authed', {
+      for: 'delete',
+      to: 'authenticated',
+      using: sql.raw('true'),
+    }),
+  ],
+).enableRLS();
+
+// ---------- image_references ----------
+// VA-uploaded reference images (creator headshot, brand kit). Latest row per
+// (package, kind) wins; replacing a reference inserts, never updates, so the
+// prompt archaeology stays intact.
+
+export const imageReferences = pgTable(
+  'image_references',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    packageId: uuid('package_id')
+      .notNull()
+      .references(() => launchPackages.id, { onDelete: 'cascade' }),
+    kind: imageReferenceKindEnum('kind').notNull(),
+    bucket: text('bucket').notNull(),
+    path: text('path').notNull(),
+    mime: text('mime').notNull(),
+    createdBy: uuid('created_by').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index('image_references_package_kind_idx').on(t.packageId, t.kind),
+    pgPolicy('image_references_select_authed', {
+      for: 'select',
+      to: 'authenticated',
+      using: sql.raw('true'),
+    }),
+    pgPolicy('image_references_insert_self_or_admin', {
+      for: 'insert',
+      to: 'authenticated',
+      withCheck: ownerOrAdmin('created_by'),
+    }),
+    pgPolicy('image_references_update_authed', {
+      for: 'update',
+      to: 'authenticated',
+      using: sql.raw('true'),
+      withCheck: sql.raw('true'),
+    }),
+    pgPolicy('image_references_delete_authed', {
+      for: 'delete',
+      to: 'authenticated',
+      using: sql.raw('true'),
+    }),
+  ],
+).enableRLS();
+
+// ---------- image_runs ----------
+// One row per generation attempt. `plannedSlotKeys` makes a full 12-slot run
+// and a single-slot regenerate the same row shape, so the UI gets N-of-M
+// progress without recomputing the plan. Status reuses generation_job_status.
+
+export const imageRuns = pgTable(
+  'image_runs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    packageId: uuid('package_id')
+      .notNull()
+      .references(() => launchPackages.id, { onDelete: 'cascade' }),
+    styleSpecId: uuid('style_spec_id').references(() => imageStyleSpecs.id, {
+      onDelete: 'set null',
+    }),
+    status: generationJobStatusEnum('status').notNull().default('queued'),
+    plannedSlotKeys: text('planned_slot_keys').array().notNull(),
+    inngestRunId: text('inngest_run_id'),
+    // Aggregate: { imageCount, doneCount, failedCount, costUsd, durationMs }
+    imageUsage: jsonb('image_usage'),
+    error: text('error'),
+    createdBy: uuid('created_by').notNull(),
+    startedAt: timestamp('started_at', { withTimezone: true }),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index('image_runs_package_id_idx').on(t.packageId),
+    index('image_runs_status_idx').on(t.status),
+    pgPolicy('image_runs_select_authed', {
+      for: 'select',
+      to: 'authenticated',
+      using: sql.raw('true'),
+    }),
+    pgPolicy('image_runs_insert_self_or_admin', {
+      for: 'insert',
+      to: 'authenticated',
+      withCheck: ownerOrAdmin('created_by'),
+    }),
+    pgPolicy('image_runs_update_authed', {
+      for: 'update',
+      to: 'authenticated',
+      using: sql.raw('true'),
+      withCheck: sql.raw('true'),
+    }),
+    pgPolicy('image_runs_delete_authed', {
+      for: 'delete',
+      to: 'authenticated',
+      using: sql.raw('true'),
+    }),
+  ],
+).enableRLS();
+
+// ---------- image_assets ----------
+// One row per generated image. packageId is denormalized so "latest image per
+// slot for a package" needs no runs join (same call as handover_documents).
+// `prompt` stores the exact string sent to the provider — the only way to
+// answer "why did this one come out different?" after the fact.
+
+export const imageAssets = pgTable(
+  'image_assets',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    runId: uuid('run_id')
+      .notNull()
+      .references(() => imageRuns.id, { onDelete: 'cascade' }),
+    packageId: uuid('package_id')
+      .notNull()
+      .references(() => launchPackages.id, { onDelete: 'cascade' }),
+    // `${slotKind}:${slotIndex}` — ordinal, not slugified, so retitling a
+    // classroom module doesn't orphan its image.
+    slotKey: text('slot_key').notNull(),
+    slotKind: imageSlotKindEnum('slot_kind').notNull(),
+    slotIndex: integer('slot_index').notNull().default(0),
+    // The title as it was at generation time. Drift from the live plan is
+    // what drives the "title changed — regenerate" chip.
+    slotTitle: text('slot_title'),
+    version: integer('version').notNull().default(1),
+    status: generationJobStatusEnum('status').notNull().default('queued'),
+    // Bucket-relative path in image-slots; null while queued or on failure.
+    storagePath: text('storage_path'),
+    width: integer('width'),
+    height: integer('height'),
+    mime: text('mime').notNull().default('image/png'),
+    prompt: text('prompt'),
+    styleSpecId: uuid('style_spec_id').references(() => imageStyleSpecs.id, {
+      onDelete: 'set null',
+    }),
+    provider: text('provider'),
+    model: text('model'),
+    costUsd: numeric('cost_usd', { precision: 10, scale: 4 })
+      .notNull()
+      .default('0'),
+    durationMs: integer('duration_ms'),
+    error: text('error'),
+    regenerateNote: text('regenerate_note'),
+    createdBy: uuid('created_by').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index('image_assets_run_id_idx').on(t.runId),
+    index('image_assets_package_slot_idx').on(
+      t.packageId,
+      t.slotKey,
+      t.version,
+    ),
+    pgPolicy('image_assets_select_authed', {
+      for: 'select',
+      to: 'authenticated',
+      using: sql.raw('true'),
+    }),
+    pgPolicy('image_assets_insert_self_or_admin', {
+      for: 'insert',
+      to: 'authenticated',
+      withCheck: ownerOrAdmin('created_by'),
+    }),
+    pgPolicy('image_assets_update_authed', {
+      for: 'update',
+      to: 'authenticated',
+      using: sql.raw('true'),
+      withCheck: sql.raw('true'),
+    }),
+    pgPolicy('image_assets_delete_authed', {
+      for: 'delete',
+      to: 'authenticated',
+      using: sql.raw('true'),
+    }),
+  ],
+).enableRLS();
+
 // ---------- pattern_library ----------
 // SELECT open to all authed users, writes admin-only.
 
@@ -561,6 +824,17 @@ export type NewHandoverRun = typeof handoverRuns.$inferInsert;
 export type HandoverDocument = typeof handoverDocuments.$inferSelect;
 export type NewHandoverDocument = typeof handoverDocuments.$inferInsert;
 export type HandoverDocKey = (typeof handoverDocKeyEnum.enumValues)[number];
+export type ImageStyleSpecRow = typeof imageStyleSpecs.$inferSelect;
+export type NewImageStyleSpecRow = typeof imageStyleSpecs.$inferInsert;
+export type ImageReference = typeof imageReferences.$inferSelect;
+export type NewImageReference = typeof imageReferences.$inferInsert;
+export type ImageRun = typeof imageRuns.$inferSelect;
+export type NewImageRun = typeof imageRuns.$inferInsert;
+export type ImageAsset = typeof imageAssets.$inferSelect;
+export type NewImageAsset = typeof imageAssets.$inferInsert;
+export type ImageSlotKind = (typeof imageSlotKindEnum.enumValues)[number];
+export type ImageReferenceKind =
+  (typeof imageReferenceKindEnum.enumValues)[number];
 export type PatternLibraryEntry = typeof patternLibrary.$inferSelect;
 export type NewPatternLibraryEntry = typeof patternLibrary.$inferInsert;
 export type AuditLogEntry = typeof auditLog.$inferSelect;
