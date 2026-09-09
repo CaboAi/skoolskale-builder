@@ -271,6 +271,15 @@ beforeEach(() => {
   // which is how each mocked Claude call identifies itself. Begin/end pairs
   // land in state.calls; the microtask+timer delay makes overlap observable.
   generateHandoverDocMock.mockImplementation(async ({ userMessage }) => {
+    // The same wrapper serves both passes. The humanizer's prompt carries the
+    // finished doc after a `---` fence; echoing it back is the "clean rewrite"
+    // case, since preserving every placeholder is what the guard checks.
+    if (userMessage.startsWith(HUMANIZE_PROMPT_OPENER)) {
+      return {
+        text: originalFromHumanizePrompt(userMessage),
+        usage: humanizeUsage(),
+      };
+    }
     const num = /deliverable (\d{2})/.exec(userMessage)?.[1] ?? "??";
     state.calls.push(`begin:${num}`);
     await new Promise((resolve) => setTimeout(resolve, 2));
@@ -292,13 +301,40 @@ beforeEach(() => {
   });
 });
 
+/** First words of buildHumanizeUserPrompt — how the mock tells the passes apart. */
+const HUMANIZE_PROMPT_OPENER = "Rewrite this asset";
+
+/** The generated doc the humanizer was handed, recovered from its prompt. */
+function originalFromHumanizePrompt(userMessage: string): string {
+  const parts = userMessage.split("\n---\n\n");
+  return parts[parts.length - 1];
+}
+
+/**
+ * Distinct cost from the generation call so the aggregate proves BOTH passes
+ * were counted rather than one being double-counted. Zero cache tokens keeps
+ * the cache-prime assertions reading the generation calls only.
+ */
+function humanizeUsage() {
+  return {
+    model: "claude-opus-4-8",
+    inputTokens: 500,
+    outputTokens: 800,
+    cacheReadTokens: 0,
+    cacheWriteTokens: 0,
+    durationMs: 400,
+    costUsd: 0.2,
+  };
+}
+
 /* -------------------------------- tests ---------------------------------- */
 
 describe("generateHandover orchestrator", () => {
   test("(a) doc 01 completes before any of 02–05 begin; 02–05 run concurrently", async () => {
     await invoke();
 
-    expect(generateHandoverDocMock).toHaveBeenCalledTimes(5);
+    // 5 generation calls + 1 humanizer pass each.
+    expect(generateHandoverDocMock).toHaveBeenCalledTimes(10);
     // Cache prime: the very first two events are 01's begin and end — nothing
     // else may interleave.
     expect(state.calls.slice(0, 2)).toEqual(["begin:01", "end:01"]);
@@ -313,6 +349,65 @@ describe("generateHandover orchestrator", () => {
       .map((c) => c.slice("begin:".length))
       .sort();
     expect(begun).toEqual(["01", "02", "03", "04", "05"]);
+  });
+
+  test("humanizer rewrite replaces the stored content when it passes the guard", async () => {
+    generateHandoverDocMock.mockImplementation(async ({ userMessage }) => {
+      if (userMessage.startsWith(HUMANIZE_PROMPT_OPENER)) {
+        const original = originalFromHumanizePrompt(userMessage);
+        return {
+          text: original.replace(FILLER, `edited by hand ${FILLER}`),
+          usage: humanizeUsage(),
+        };
+      }
+      return {
+        text: `# Doc x\n\n${FILLER}`,
+        usage: { ...humanizeUsage(), costUsd: 0.5 },
+      };
+    });
+
+    await invoke();
+
+    const generated = state.inserted.filter((r) => r.docKey !== "readme");
+    expect(generated).toHaveLength(5);
+    for (const row of generated) {
+      expect(row.contentMd).toContain("edited by hand");
+    }
+  });
+
+  test("a humanizer pass that drops a placeholder keeps the original document", async () => {
+    // Doc 04 is the only one carrying a placeholder, so a rewrite that omits
+    // every token damages 04 alone. The run must still finish, 04 must keep
+    // its token (the client checklist depends on it), and the discarded pass
+    // must not be billed.
+    generateHandoverDocMock.mockImplementation(async ({ userMessage }) => {
+      if (userMessage.startsWith(HUMANIZE_PROMPT_OPENER)) {
+        return { text: `# Rewritten\n\n${FILLER}`, usage: humanizeUsage() };
+      }
+      const num = /deliverable (\d{2})/.exec(userMessage)?.[1] ?? "??";
+      const placeholder =
+        num === "04" ? "[[CREATOR STORY: the real turning point]]\n\n" : "";
+      return {
+        text: `# Doc ${num}\n\n${placeholder}${FILLER}`,
+        usage: { ...humanizeUsage(), costUsd: 0.5 },
+      };
+    });
+
+    await invoke();
+
+    const doc04 = state.inserted.find((r) => r.docKey === "docuseries_full_script");
+    expect(doc04?.contentMd).toContain("[[CREATOR STORY: the real turning point]]");
+    expect(doc04?.contentMd).toContain("# Doc 04");
+    expect((doc04?.claudeUsage as { costUsd: number }).costUsd).toBe(0.5);
+
+    // The other four had no placeholder to lose, so their rewrites stand.
+    const doc01 = state.inserted.find((r) => r.docKey === "vsl_and_cancellation");
+    expect(doc01?.contentMd).toContain("# Rewritten");
+    expect((doc01?.claudeUsage as { costUsd: number }).costUsd).toBe(0.7);
+
+    // The readme still finds the label, because 04 kept its token.
+    const readme = state.inserted.find((r) => r.docKey === "readme");
+    expect(readme?.contentMd).toContain("[[CREATOR STORY]]");
   });
 
   test("(b) inserts 5 generated documents plus 1 readme", async () => {
@@ -365,8 +460,9 @@ describe("generateHandover orchestrator", () => {
       cacheReadTokens: number;
       cacheWriteTokens: number;
     };
-    // 5 generated docs at $0.50 each; the readme row has no usage.
-    expect(aggregate.costUsd).toBe(2.5);
+    // 5 generated docs at $0.50 plus a $0.20 humanizer pass each; the readme
+    // row has no usage.
+    expect(aggregate.costUsd).toBe(5 * (0.5 + 0.2));
     expect(aggregate.model).toBe("claude-opus-4-8");
     expect(aggregate.cacheWriteTokens).toBe(50_000);
     expect(aggregate.cacheReadTokens).toBe(4 * 50_000);
@@ -377,7 +473,7 @@ describe("generateHandover orchestrator", () => {
     expect(pkgUpdate?.payload.totalCostUsd).toBeDefined();
 
     expect(result).toMatchObject({ runId: RUN_ID, packageId: PKG_ID });
-    expect(result.usage.costUsd).toBe(2.5);
+    expect(result.usage.costUsd).toBe(5 * (0.5 + 0.2));
 
     const completedAudit = logAuditMock.mock.calls.find(
       (call) => call[1] === "handover.generate.completed",

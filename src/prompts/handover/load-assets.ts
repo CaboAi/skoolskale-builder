@@ -38,7 +38,13 @@ export function loadHandoverAsset(name: string): string {
  * as a clean error instead of a mid-run failure.
  */
 export function assertHandoverAssets(): void {
-  const names = new Set<string>(["voice-and-guardrails.md", "handover-structure.md"]);
+  const names = new Set<string>([
+    "voice-and-guardrails.md",
+    "handover-structure.md",
+    // Loaded by the humanizer pass, not by any deliverable's own prompt, so
+    // it has to be listed here or a tracing miss surfaces mid-run.
+    "humanizer.md",
+  ]);
   for (const d of HANDOVER_DELIVERABLES) {
     names.add(d.referenceAsset);
     for (const t of d.templateAssets(true)) names.add(t);
