@@ -5,16 +5,26 @@
  *
  * Pure module.
  */
-import type { HandoverDeliverable } from "./deliverables";
+import type {
+  HandoverDeliverable,
+  HandoverTaskContext,
+} from "./deliverables";
 
 export function buildHandoverUserPrompt(params: {
   deliverable: HandoverDeliverable;
   referenceText: string;
   templateTexts: string[];
   includeGuestEmails: boolean;
+  freeCommunity: boolean;
 }): string {
-  const { deliverable, referenceText, templateTexts, includeGuestEmails } =
-    params;
+  const {
+    deliverable,
+    referenceText,
+    templateTexts,
+    includeGuestEmails,
+    freeCommunity,
+  } = params;
+  const taskContext: HandoverTaskContext = { includeGuestEmails, freeCommunity };
   const templateBlock = templateTexts
     .map(
       (t, i) =>
@@ -34,7 +44,7 @@ ${templateBlock}
 
 (Use the community facts and DNA already given above in the system prompt.)
 
-${deliverable.buildTask(includeGuestEmails)}
+${deliverable.buildTask(taskContext)}
 
 Output ONLY the finished Markdown for this deliverable. No preamble, no sign-off from you,
 no surrounding code fences.`;

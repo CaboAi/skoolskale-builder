@@ -76,14 +76,20 @@ describe("pre_launch_emails guest gating", () => {
     ]);
   });
 
-  test("buildTask(false) forbids the guest sequence and never confirms guests", () => {
-    const task = preLaunch.buildTask(false);
+  test("buildTask forbids the guest sequence and never confirms guests when guests are off", () => {
+    const task = preLaunch.buildTask({
+      includeGuestEmails: false,
+      freeCommunity: false,
+    });
     expect(task).toContain("Do NOT produce a guest-speaker");
     expect(task).not.toContain("CONFIRMED launch guests");
   });
 
-  test("buildTask(true) confirms guests and drops the prohibition", () => {
-    const task = preLaunch.buildTask(true);
+  test("buildTask confirms guests and drops the prohibition when guests are on", () => {
+    const task = preLaunch.buildTask({
+      includeGuestEmails: true,
+      freeCommunity: false,
+    });
     expect(task).toContain("CONFIRMED launch guests");
     expect(task).not.toContain("Do NOT produce a guest-speaker");
   });

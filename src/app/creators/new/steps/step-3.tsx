@@ -147,6 +147,24 @@ export function Step3Pricing({ form }: Props) {
         ) : null}
       </div>
 
+      {/* Free community tier — deliberately next to the trial, because the
+          two get conflated. Leaving this off is the common case. */}
+      <div className="space-y-1">
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            {...register('pricing.free_community')}
+            className="size-4"
+          />
+          Runs a permanently free community tier
+        </label>
+        <p className="text-xs text-muted-foreground">
+          {pricing.free_community
+            ? 'Handover copy may invite people into the free tier and offer it as a cancellation downgrade.'
+            : 'Leave off for trial-then-pay. A 7-day trial is not a free tier — handover copy will never mention a free community.'}
+        </p>
+      </div>
+
       {/* Refund policy */}
       <div className="space-y-1.5">
         <Label htmlFor="refund_policy">Refund policy</Label>

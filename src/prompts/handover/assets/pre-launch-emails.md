@@ -6,12 +6,12 @@ Purpose: warm the creator's existing list (YouTube subs / email) toward the docu
 
 | # | Timing | Job | Subject energy |
 |---|---|---|---|
-| 1 | ~Day -9 | "Something big is coming" — tease the event, no details yet. Point to the free community for updates. | curiosity |
+| 1 | ~Day -9 | "Something big is coming" — tease the event, no details yet. Point to the free community for updates (paid-only: point to event signup). | curiosity |
 | 2 | ~Day -8 | Agitate the core problem — paint the trap the audience is in (mirrors docuseries Ep1). | pain-recognition |
 | 3 | ~Day -6 | The dream/after — what life looks like on the other side; hint a new model exists. | aspiration |
 | 4 | ~Day -4 | The uncomfortable truth / "why the old way is dying" — reframe; announce the event date `[[EVENT DATE]]`. | provocation |
-| 5 | ~Day -2 | "It's almost time" — what the event covers, how to watch (channel + free community). | logistics |
-| 6 | ~Day -1 | "2 days out / tomorrow" — final anticipation + exclusive assets waiting in the free community. | countdown |
+| 5 | ~Day -2 | "It's almost time" — what the event covers, how to watch (channel + free community; paid-only: channel + event signup). | logistics |
+| 6 | ~Day -1 | "2 days out / tomorrow" — final anticipation + exclusive assets waiting in the free community (paid-only: assets sent to registrants). | countdown |
 | 7 | Day 0 | "It's LIVE" — Episode 1 link `[[EPISODE 1 LINK]]`, watch now. | launch |
 
 Scale to 5 (merge 2+3 and 5+6) or 8 (split the truth email) based on how much runway the creator has.
@@ -42,7 +42,7 @@ Reference: `templates/example-pre-launch-emails.md` (Nuno, event build-up) and `
 ## Output shape
 ```
 # <Community> — Pre-Launch Email Sequence
-> Merge tag: {{firstName}} · from <creator_first> · drives to <free community> then episode
+> Merge tag: {{firstName}} · from <creator_first> · drives to <free community, or event signup if paid-only> then episode
 ### Email #1 — Day -9
 **Subject:** …
 …

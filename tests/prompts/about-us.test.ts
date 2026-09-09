@@ -46,7 +46,7 @@ const MINIMAL_INPUT: GeneratorInput = {
     transformation: 'reclaim power',
     tone: 'warm',
     offer_breakdown: { perks: [], guest_sessions: false },
-    pricing: { additional_tiers: [] },
+    pricing: { free_community: false, additional_tiers: [] },
     trial_terms: { has_trial: true, duration_days: 7 },
     refund_policy: '14-day refund.',
     support_contact: 'Ramsha A.',

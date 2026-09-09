@@ -42,6 +42,21 @@ export const HANDOVER_DOC_FILENAMES: Record<HandoverDocKey, string> = {
   dm_sequences: "05-dm-sequences.md",
 };
 
+/**
+ * Per-run facts that change what a deliverable is asked to produce, as
+ * opposed to how it's written (that lives in the framework assets).
+ */
+export type HandoverTaskContext = {
+  /** Operator confirmed real launch guests — unlocks the guest email sequence. */
+  includeGuestEmails: boolean;
+  /**
+   * A permanently free community tier exists. NOT the free trial: most
+   * communities are trial-then-pay, and asking for free-tier copy there
+   * produces an offer the creator cannot honour.
+   */
+  freeCommunity: boolean;
+};
+
 export type HandoverDeliverable = {
   docKey: HandoverGeneratedDocKey;
   num: string;
@@ -51,7 +66,7 @@ export type HandoverDeliverable = {
   /** Gold example file(s) in assets/. Guest-email example joins only when confirmed. */
   templateAssets: (includeGuestEmails: boolean) => string[];
   /** Short task instruction; framework detail lives in the reference file. */
-  buildTask: (includeGuestEmails: boolean) => string;
+  buildTask: (ctx: HandoverTaskContext) => string;
 };
 
 export const HANDOVER_DELIVERABLES: HandoverDeliverable[] = [
@@ -61,14 +76,25 @@ export const HANDOVER_DELIVERABLES: HandoverDeliverable[] = [
     title: "VSL + Cancellation",
     referenceAsset: "vsl-long-and-cancellation.md",
     templateAssets: () => ["example-vsl-cancellation.md"],
-    buildTask: () =>
+    buildTask: ({ freeCommunity }) =>
       "Write TWO first-person scripts in one file: (A) the long VSL (~3–5 min) and (B) the " +
-      "cancellation/retention video (~2–3 min). The VSL walks all tiers (free = feel it out, " +
-      "entry paid = the system, top = all-in), names real modules + calls, lands 'the real " +
+      "cancellation/retention video (~2–3 min). The VSL walks all tiers " +
+      (freeCommunity
+        ? "(free = feel it out, entry paid = the system, top = all-in)"
+        : "(entry paid = the system, top = all-in)") +
+      ", names real modules + calls, lands 'the real " +
       "transformation is the room', states the founder-rate offer once. This VSL is ALSO the " +
       "About-Us page script — it must stand alone there. The cancellation offers the downgrade " +
-      "LADDER that fits this community (top→entry→free→pause) — money-back ONLY if the refund " +
+      "LADDER that fits this community " +
+      (freeCommunity ? "(top→entry→free→pause)" : "(top→entry→pause)") +
+      " — money-back ONLY if the refund " +
       "policy allows it — and names the real losses. Include CTA button rows.\n" +
+      (freeCommunity
+        ? ""
+        : "This community is PAID-ONLY: there is no free community and no free tier. Do NOT " +
+          "offer one as an entry point, a CTA, or a cancellation downgrade. The free trial is " +
+          "NOT a free tier — describe it only as a trial of the paid membership that converts " +
+          "to billing, never as free access or a way to stay for free.\n") +
       "Structure: `# <Community> — VSL + Cancellation Video Scripts`, then " +
       "`## VSL Script (~3–5 min · first person)`, then `## Cancellation Video Script (~2–3 min · first person)`.",
   },
@@ -81,10 +107,15 @@ export const HANDOVER_DELIVERABLES: HandoverDeliverable[] = [
       includeGuestEmails
         ? ["example-pre-launch-emails.md", "example-pre-launch-guest-emails.md"]
         : ["example-pre-launch-emails.md"],
-    buildTask: (includeGuestEmails) =>
+    buildTask: ({ includeGuestEmails, freeCommunity }) =>
       "Write the pre-launch email sequence: 7 host emails (from the creator) building to the " +
-      "2-part docuseries event, each driving to the free community pre-event and to Episode 1 " +
-      "at launch. Reuse the docuseries Ep1 problem beats so emails + film feel like one story. " +
+      "2-part docuseries event, each driving to " +
+      (freeCommunity
+        ? "the free community pre-event and to Episode 1 at launch"
+        : "the event registration pre-event and to Episode 1 at launch — this community is " +
+          "PAID-ONLY, so never send anyone to a free community or free tier; the pre-event " +
+          "destination is the event/waitlist signup, not a free membership") +
+      ". Reuse the docuseries Ep1 problem beats so emails + film feel like one story. " +
       "Merge tag `{{firstName}}`.\n" +
       (includeGuestEmails
         ? "The operator CONFIRMED launch guests: ALSO produce a 5-email guest-speaker sequence " +
@@ -135,15 +166,24 @@ export const HANDOVER_DELIVERABLES: HandoverDeliverable[] = [
     title: "DM Sequences",
     referenceAsset: "dm-sequences.md",
     templateAssets: () => ["example-dm-sequences.md"],
-    buildTask: () =>
+    buildTask: ({ freeCommunity }) =>
       "Produce the full Skoot DM lifecycle with `#NAME#` / `#GROUPNAME#` merge tags, grouped by " +
       "flow then tier, using the real calls/modules/prices/upgrade steps: Welcome per paid tier " +
       "(add calls to calendar, start Classroom, upgrade path to the higher tier leading annual); " +
-      "Free-tier nurture (~6 DMs, honest, value-first, soft upgrade — don't over-DM); Declined " +
+      (freeCommunity
+        ? "Free-tier nurture (~6 DMs, honest, value-first, soft upgrade — don't over-DM); "
+        : "") +
+      "Declined " +
       "card (2 DMs, retry window `[[N]]`, no shaming); Cancellation per paid tier (3 DMs each, " +
       "raw + honest, reframe what's really lost = the room/current info/calls, off-ramp down a " +
-      "tier or to free). Anchor tone to the DNA Welcome DM. No fabricated results.\n" +
+      (freeCommunity ? "tier or to free" : "tier or to a pause") +
+      "). Anchor tone to the DNA Welcome DM. No fabricated results.\n" +
+      (freeCommunity
+        ? ""
+        : "This community is PAID-ONLY: produce NO free-tier nurture sequence and never offer " +
+          "a free tier as a cancellation off-ramp. The free trial is not a free tier.\n") +
       "Structure: `# <Community> — Skoot DM Sequences` then `## Welcome — <Tier>` sections, " +
-      "`## Free-Tier Nurture`, `## Declined Card`, `## Cancellation — <Tier>`. Label each DM with timing.",
+      (freeCommunity ? "`## Free-Tier Nurture`, " : "") +
+      "`## Declined Card`, `## Cancellation — <Tier>`. Label each DM with timing.",
   },
 ];

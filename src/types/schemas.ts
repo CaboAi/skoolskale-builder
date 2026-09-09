@@ -269,6 +269,16 @@ export const CreatorIntakeSchema = z.object({
     monthly: z.number().optional(),
     annual: z.number().optional(),
     /**
+     * Whether a permanently free community tier runs alongside the paid
+     * ones. This is NOT `trial_terms` — most communities are trial-then-pay,
+     * where the member must convert to keep access; that is not a free tier.
+     *
+     * Defaults to FALSE: the handover generator states the tier list to
+     * Claude as fact, so an unset flag must never assert an offer the
+     * creator never made. Opt in explicitly on step 3.
+     */
+    free_community: z.boolean().default(false),
+    /**
      * Skool supports two "additional" tiers beyond monthly/annual: Premium
      * and VIP, in that order. Names are locked because Skool's UI renders
      * them with fixed labels; only the price is creator-supplied. The
@@ -451,6 +461,7 @@ export const CreatorDraftSchema = z.preprocess(
         .object({
           monthly: z.number().optional(),
           annual: z.number().optional(),
+          free_community: z.boolean().optional(),
           additional_tiers: z
             .array(
               z
