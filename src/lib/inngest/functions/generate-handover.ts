@@ -14,7 +14,10 @@ import { serializePackageMarkdown } from "@/lib/modules/serialize";
 import { pickLatestPerModule } from "@/lib/db/packages";
 import { generatedAssets } from "@/lib/inngest/functions/_shared";
 import { logAudit } from "@/lib/audit";
-import { generateHandoverDoc } from "@/lib/claude/generate-handover";
+import {
+  generateHandoverDoc,
+  type HandoverClaudeUsage,
+} from "@/lib/claude/generate-handover";
 import {
   HANDOVER_DELIVERABLES,
   HANDOVER_DOC_FILENAMES,
@@ -23,7 +26,15 @@ import {
 import { buildHandoverBrief, type HandoverBrief } from "@/prompts/handover/brief";
 import { buildHandoverSystemBlocks } from "@/prompts/handover/system-blocks";
 import { buildHandoverUserPrompt } from "@/prompts/handover/user-prompt";
-import { parseHandoverDoc } from "@/prompts/handover/parse";
+import {
+  parseHandoverDoc,
+  type ParsedHandoverDoc,
+} from "@/prompts/handover/parse";
+import {
+  buildHumanizeSystemBlocks,
+  buildHumanizeUserPrompt,
+  checkHumanizedDoc,
+} from "@/prompts/handover/humanize";
 import { scanPlaceholders } from "@/prompts/handover/scan-placeholders";
 import { buildHandoverReadme } from "@/prompts/handover/readme";
 import {
@@ -100,6 +111,12 @@ async function generateDeliverable(params: {
   });
   const parsed = parseHandoverDoc(text);
 
+  const humanized = await humanizeDeliverable({
+    deliverable,
+    source,
+    contentMd: parsed.contentMd,
+  });
+
   const [doc] = await db
     .insert(handoverDocuments)
     .values({
@@ -107,14 +124,80 @@ async function generateDeliverable(params: {
       packageId: data.packageId,
       docKey: deliverable.docKey,
       version: await nextHandoverDocVersion(data.packageId, deliverable.docKey),
-      contentMd: parsed.contentMd,
-      wordCount: parsed.wordCount,
-      placeholderCount: parsed.placeholderCount,
-      claudeUsage: usage,
+      contentMd: humanized.parsed.contentMd,
+      wordCount: humanized.parsed.wordCount,
+      placeholderCount: humanized.parsed.placeholderCount,
+      claudeUsage: humanized.usage
+        ? mergeHandoverUsage(usage, humanized.usage)
+        : usage,
       createdBy: data.userId,
     })
     .returning({ id: handoverDocuments.id });
   return { docId: doc.id };
+}
+
+/** Sum the generation call and the humanizer call into one usage row. */
+function mergeHandoverUsage(
+  gen: HandoverClaudeUsage,
+  pass: HandoverClaudeUsage,
+): HandoverClaudeUsage {
+  return {
+    model: gen.model,
+    inputTokens: gen.inputTokens + pass.inputTokens,
+    outputTokens: gen.outputTokens + pass.outputTokens,
+    cacheReadTokens: gen.cacheReadTokens + pass.cacheReadTokens,
+    cacheWriteTokens: gen.cacheWriteTokens + pass.cacheWriteTokens,
+    durationMs: gen.durationMs + pass.durationMs,
+    costUsd: gen.costUsd + pass.costUsd,
+  };
+}
+
+/**
+ * Second Claude call: rewrite the finished doc to strip AI writing tells.
+ *
+ * Always best-effort. A rewrite that fails the preservation contract, fails
+ * the parser, or throws outright leaves the original document in place and
+ * logs why — losing a good 15-minute Opus generation to an over-eager
+ * editor is a worse outcome than shipping prose that still reads a little
+ * synthetic.
+ */
+async function humanizeDeliverable(params: {
+  deliverable: HandoverDeliverable;
+  source: HandoverSource;
+  contentMd: string;
+}): Promise<{
+  parsed: ParsedHandoverDoc;
+  usage: HandoverClaudeUsage | null;
+}> {
+  const { deliverable, source, contentMd } = params;
+  const original = parseHandoverDoc(contentMd);
+
+  const keepOriginal = (reason: string) => {
+    console.warn(
+      `[handover] humanizer pass skipped for ${deliverable.docKey}: ${reason}`,
+    );
+    return { parsed: original, usage: null };
+  };
+
+  try {
+    const { text, usage } = await generateHandoverDoc({
+      systemBlocks: buildHumanizeSystemBlocks({
+        humanizerSkill: loadHandoverAsset("humanizer.md"),
+        dnaMarkdown: source.dnaMarkdown,
+      }),
+      userMessage: buildHumanizeUserPrompt({
+        docTitle: deliverable.title,
+        contentMd,
+      }),
+    });
+
+    const check = checkHumanizedDoc(contentMd, text);
+    if (!check.ok) return keepOriginal(check.reason);
+
+    return { parsed: parseHandoverDoc(text), usage };
+  } catch (err) {
+    return keepOriginal(err instanceof Error ? err.message : String(err));
+  }
 }
 
 /**
