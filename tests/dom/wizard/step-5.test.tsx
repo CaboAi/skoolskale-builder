@@ -23,7 +23,7 @@ const DEFAULTS: CreatorIntake = {
   transformation: "x",
   tone: "warm",
   offer_breakdown: { perks: [], guest_sessions: false },
-  pricing: { additional_tiers: [] },
+  pricing: { free_community: false, additional_tiers: [] },
   trial_terms: { has_trial: false, duration_days: 7 },
   refund_policy: "",
   support_contact: "x",

@@ -48,7 +48,12 @@ const DEFAULTS: CreatorIntake = {
     perks: [],
     guest_sessions: false,
   },
-  pricing: { monthly: undefined, annual: undefined, additional_tiers: [] },
+  pricing: {
+    monthly: undefined,
+    annual: undefined,
+    free_community: false,
+    additional_tiers: [],
+  },
   trial_terms: { has_trial: false, duration_days: 7 },
   refund_policy: "",
   support_contact: "",

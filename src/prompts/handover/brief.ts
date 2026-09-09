@@ -42,8 +42,18 @@ export type HandoverBrief = {
   pricing: {
     tiers: HandoverTier[];
     hasAnnual: boolean;
-    /** Skool default: a free entry tier exists unless the DNA says paid-only. */
-    freeTier: boolean;
+    /**
+     * Whether a permanently free community tier runs alongside the paid
+     * ones. NOT the free trial — a trial is a paid tier you haven't been
+     * billed for yet, and `brief.trial` already carries that separately.
+     *
+     * Read from the intake's `pricing.free_community`, never assumed: this
+     * value is stated to Claude as fact under "use ONLY these facts", so a
+     * wrong `true` makes the VSL sell a free community that does not exist
+     * and makes the cancellation script offer a downgrade nobody can take.
+     * Most Skool communities are trial-then-pay with no free tier at all.
+     */
+    freeCommunity: boolean;
   };
   modules: string[];
   calls: { name: string; when: string | null; blurb: string | null }[];
@@ -131,6 +141,7 @@ type OfferBreakdown = { perks?: string[]; guest_sessions?: boolean };
 type Pricing = {
   monthly?: number;
   annual?: number;
+  free_community?: boolean;
   additional_tiers?: { name: string; price: string }[];
 };
 type TrialTerms = { has_trial?: boolean; duration_days?: number };
@@ -191,7 +202,7 @@ export function buildHandoverBrief(
     pricing: {
       tiers,
       hasAnnual: tiers.some((t) => t.annual !== null),
-      freeTier: true,
+      freeCommunity: pricing.free_community === true,
     },
     modules: classroom?.items.map((i) => i.title) ?? [],
     calls:
@@ -214,7 +225,7 @@ function tierPriceLabel(t: HandoverTier): string {
 
 function tierLine(pricing: HandoverBrief["pricing"]): string {
   const parts: string[] = [];
-  if (pricing.freeTier) parts.push("Free");
+  if (pricing.freeCommunity) parts.push("Free community");
   for (const t of pricing.tiers) {
     const price = tierPriceLabel(t);
     parts.push(price ? `${t.name} (${price})` : t.name);
@@ -248,6 +259,18 @@ export function formatBrief(brief: HandoverBrief): string {
 - Guest sessions: ${brief.guestSessions ? "YES" : "NO"}
 - Trial: ${brief.trial} · Refund: ${brief.refund ?? "not specified"}
 - Pricing tiers (use these names + prices consistently everywhere): ${tierLine(brief.pricing)}
+- Free community tier: ${
+    brief.pricing.freeCommunity
+      ? "YES — a permanently free tier runs alongside the paid ones. Valid entry point, " +
+        "valid cancellation downgrade. This is separate from the trial above."
+      : "NO — this community is PAID-ONLY. There is no free tier, no free community, no free " +
+        "entry point. Never mention, offer, link, or route anyone to one, and never present " +
+        "'staying free' as a way to remain in the community. The cancellation downgrade ladder " +
+        "must skip the free step entirely.\n" +
+        "  IMPORTANT: the trial above is NOT a free community. A trial is the paid tier before " +
+        "billing starts — the member must convert to a paid plan to stay. Describe it only as " +
+        "a trial of the paid membership, never as free access or a free tier."
+  }
 - Annual pricing exists: ${brief.pricing.hasAnnual ? "YES — founding-member urgency ON, lead annual" : "no"}
 - Classroom modules: ${brief.modules.length > 0 ? brief.modules.join(" · ") : "none listed"}
 - Live calls (Calendar): ${calls}

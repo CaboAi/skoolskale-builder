@@ -62,8 +62,23 @@ describe("buildHandoverBrief", () => {
         { name: "VIP", monthly: "$57/mo", annual: "$477/yr" },
       ],
       hasAnnual: true,
-      freeTier: true,
+      freeCommunity: false,
     });
+  });
+
+  test("freeCommunity is false unless the intake opts in — never assumed", () => {
+    const brief = buildHandoverBrief(makeCreator(), makeAssets());
+    expect(brief.pricing.freeCommunity).toBe(false);
+  });
+
+  test("freeCommunity is true only when pricing.free_community is set", () => {
+    const brief = buildHandoverBrief(
+      makeCreator({
+        pricing: { monthly: 27, annual: 227, free_community: true },
+      }),
+      makeAssets(),
+    );
+    expect(brief.pricing.freeCommunity).toBe(true);
   });
 
   test("offer, trial, refund, support, and brand fields map through", () => {
@@ -174,7 +189,8 @@ describe("formatBrief", () => {
 - Support contact: support@example.test
 - Guest sessions: YES
 - Trial: No trial · Refund: 14-day refund
-- Pricing tiers (use these names + prices consistently everywhere): Free · Standard ($27/mo or $227/yr) · VIP ($57/mo or $477/yr)
+- Pricing tiers (use these names + prices consistently everywhere): Free community · Standard ($27/mo or $227/yr) · VIP ($57/mo or $477/yr)
+- Free community tier: YES — a permanently free tier runs alongside the paid ones. Valid entry point, valid cancellation downgrade. This is separate from the trial above.
 - Annual pricing exists: YES — founding-member urgency ON, lead annual
 - Classroom modules: Foundations · Deep Work
 - Live calls (Calendar): "Weekly Q&A" (Every Monday at 9:00 AM PST) · "Breathwork"
@@ -195,7 +211,9 @@ describe("formatBrief", () => {
 - Support contact: not specified
 - Guest sessions: NO
 - Trial: 7-day trial · Refund: not specified
-- Pricing tiers (use these names + prices consistently everywhere): Free · Standard ($27/mo)
+- Pricing tiers (use these names + prices consistently everywhere): Standard ($27/mo)
+- Free community tier: NO — this community is PAID-ONLY. There is no free tier, no free community, no free entry point. Never mention, offer, link, or route anyone to one, and never present 'staying free' as a way to remain in the community. The cancellation downgrade ladder must skip the free step entirely.
+  IMPORTANT: the trial above is NOT a free community. A trial is the paid tier before billing starts — the member must convert to a paid plan to stay. Describe it only as a trial of the paid membership, never as free access or a free tier.
 - Annual pricing exists: no
 - Classroom modules: none listed
 - Live calls (Calendar): none listed

@@ -2,7 +2,7 @@
 
 Automated in-app Skool DMs, set up on **Skoot**. Merge tags `#NAME#` / `#GROUPNAME#`. Tone = the creator talking one-to-one, warm and real, light emoji OK (match DNA). These run the member lifecycle: onboard, upgrade, recover failed payments, save cancels.
 
-Generate the flows that the DNA's tier structure implies. For each paid tier in `tiers[]`, and for the free tier if it exists.
+Generate the flows that the DNA's tier structure implies. For each paid tier in `tiers[]`, and for the free community tier ONLY if the brief's "Free community tier" line says YES. A free trial is not a free tier: trial members are on the paid plan pre-billing, so they get the paid-tier welcome flow, never a free-tier nurture.
 
 ## Flows to produce
 
@@ -12,7 +12,7 @@ Generate the flows that the DNA's tier structure implies. For each paid tier in 
 - DM2 (Day ~2): "get into the Classroom" — name real `modules[]` / Start Here; where to ask questions.
 - DM3 (Day ~4, only if a higher tier exists): what the higher tier unlocks + how to upgrade (Skool: profile → group Settings → Change Plan). Lead annual if annual pricing exists.
 
-### 2. FREE-TIER NURTURE (if free entry exists)
+### 2. FREE-TIER NURTURE (ONLY if the brief says a free community tier exists - omit this whole section otherwise)
 5–7 DMs over ~3 weeks. Job: deliver a little real value, be honest that the live calls + core systems live in the paid tiers, invite up without being pushy. Each ends with the upgrade path. Rotate angles: welcome/lay-of-the-land, relate-to-the-struggle, a genuine free value drop, "the honest gap" (what free doesn't include), a live-call story, the serious-builder tier, honest close. (Mirror the 7-DM Standard sequence in the gold example.)
 
 ### 3. DECLINED CARD — per paid tier
@@ -23,7 +23,7 @@ Generate the flows that the DNA's tier structure implies. For each paid tier in 
 
 ### 4. CANCELLATION — per paid tier
 3 DMs. Tone = raw, honest, personal, NOT guilt-trip (this is what makes it convert). Job: reframe what they're really walking away from (the room / live current info / the calls — not the content library), offer the real off-ramp.
-- DM1: personal "saw you cancelled" — the content is the smallest part; what you lose is [the live edge / the room]. If a cheaper paid tier or free tier exists, offer to keep them there.
+- DM1: personal "saw you cancelled" — the content is the smallest part; what you lose is [the live edge / the room]. If a cheaper paid tier exists - or a free community tier, but only if the brief says one exists - offer to keep them there. Otherwise offer a pause.
 - DM2: name the specific things gone the moment it processes (real calls, vault, tier perks). "The ones who make it don't make it alone."
 - DM3: one honest question + "the door is open" close. Warmer sign-off.
 (If refund policy is "cancel any time," lean into the easy-return framing.)
@@ -43,7 +43,7 @@ Reference: `templates/example-dm-sequences.md` (Nuno/Automated Marketer — full
 ## Welcome — <Tier A>
 **DM 1 (Day 0)** …
 ## Welcome — <Tier B> …
-## Free-Tier Nurture …
+## Free-Tier Nurture (omit this heading entirely for paid-only communities) …
 ## Declined Card — <Tier> …
 ## Cancellation — <Tier> …
 ```

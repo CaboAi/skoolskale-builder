@@ -124,7 +124,7 @@ export const FULL_BRIEF: HandoverBrief = {
       { name: "VIP", monthly: "$57/mo", annual: "$477/yr" },
     ],
     hasAnnual: true,
-    freeTier: true,
+    freeCommunity: true,
   },
   modules: ["Foundations", "Deep Work"],
   calls: [
@@ -135,7 +135,7 @@ export const FULL_BRIEF: HandoverBrief = {
   categories: ["Wins", "Questions"],
 };
 
-/** Every optional field empty/null; no annual pricing. */
+/** Every optional field empty/null; no annual pricing; paid-only (trial-then-pay, no free community). */
 export const MINIMAL_BRIEF: HandoverBrief = {
   creator: "Bo Smith",
   creatorFirst: "Bo",
@@ -155,7 +155,7 @@ export const MINIMAL_BRIEF: HandoverBrief = {
   pricing: {
     tiers: [{ name: "Standard", monthly: "$27/mo", annual: null }],
     hasAnnual: false,
-    freeTier: true,
+    freeCommunity: false,
   },
   modules: [],
   calls: [],

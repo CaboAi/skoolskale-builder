@@ -30,7 +30,7 @@ _<Creator> · <niche> · <tone> · generated <DATE> from Pre-Skool DNA_
 | 02 | pre-launch-emails.md | List warm-up to the launch event (+ guest emails only if confirmed) |
 | 03 | post-launch-emails.md | Doors-open → founding-window conversion |
 | 04 | docuseries-full-script.md | The film/episodes, word-for-word |
-| 05 | dm-sequences.md | Skoot DMs: welcome / free nurture / declined / cancel |
+| 05 | dm-sequences.md | Skoot DMs: welcome / free nurture (only if a free community tier exists) / declined / cancel |
 
 ## ⚠️ Placeholders to fill before use
 Every `[[…]]` below needs a real value from the creator. Nothing here was fabricated.
@@ -44,7 +44,7 @@ Every `[[…]]` below needs a real value from the creator. Nothing here was fabr
   (auto-generate this list by scanning every emitted file for `[[…]]`)
 
 ## Suggested launch timeline
-- **T-10 → T-1 days:** send pre-launch emails (03); publish About-Us VSL (01) on the Skool About page; open the free community.
+- **T-10 → T-1 days:** send pre-launch emails (03); publish About-Us VSL (01) on the Skool About page; if (and only if) the brief says a free community tier exists, open it — paid-only communities skip this step and drive to event signup instead.
 - **T-0:** Episode 1 goes live. Send "it's live" email.
 - **T+1–2 days:** Episode 2 goes live (doors open, founding window starts). Start post-launch emails (04).
 - **Ongoing:** set up Skoot DM flows (07); publish the long VSL (02) on the paid-upgrade page.

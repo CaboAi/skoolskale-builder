@@ -91,6 +91,7 @@ async function generateDeliverable(params: {
       .templateAssets(data.includeGuestEmails)
       .map(loadHandoverAsset),
     includeGuestEmails: data.includeGuestEmails,
+    freeCommunity: source.brief.pricing.freeCommunity,
   });
 
   const { text, usage } = await generateHandoverDoc({

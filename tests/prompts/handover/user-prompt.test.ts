@@ -27,12 +27,14 @@ function build(
   docKey: HandoverGeneratedDocKey,
   templateTexts: string[],
   includeGuestEmails = false,
+  freeCommunity = false,
 ): string {
   return buildHandoverUserPrompt({
     deliverable: getDeliverable(docKey),
     referenceText: REFERENCE,
     templateTexts,
     includeGuestEmails,
+    freeCommunity,
   });
 }
 
@@ -65,7 +67,10 @@ describe("buildHandoverUserPrompt", () => {
     (flag) => {
       const out = build("pre_launch_emails", [TEMPLATE_ONE], flag);
       expect(out).toContain(
-        getDeliverable("pre_launch_emails").buildTask(flag),
+        getDeliverable("pre_launch_emails").buildTask({
+          includeGuestEmails: flag,
+          freeCommunity: false,
+        }),
       );
       if (flag) {
         expect(out).toContain("CONFIRMED launch guests");

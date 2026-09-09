@@ -9,7 +9,7 @@ _Jane Doe · spiritual · warm · generated 2026-08-10 (SkoolSkale builder)_
 
 **Transformation:** From burned out to grounded
 **Audience:** women 30-55
-**Offer:** Free · Standard ($27/mo or $227/yr) · VIP ($57/mo or $477/yr)
+**Offer:** Free community · Standard ($27/mo or $227/yr) · VIP ($57/mo or $477/yr)
 **Guest sessions:** Yes · **Trial:** No trial · **Refund:** 14-day refund
 **Support:** support@example.test
 
@@ -70,6 +70,6 @@ describe("buildHandoverReadme", () => {
 
   test("offer line reflects a monthly-only tier without annual", () => {
     const out = buildHandoverReadme(MINIMAL_BRIEF, [], GENERATED_DATE);
-    expect(out).toContain("**Offer:** Free · Standard ($27/mo)");
+    expect(out).toContain("**Offer:** Standard ($27/mo)");
   });
 });

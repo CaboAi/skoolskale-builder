@@ -26,7 +26,7 @@ function makeCreator(): CreatorContext {
     transformation: "tell the story-medicine you carry",
     tone: "warm",
     offer_breakdown: { perks: [], guest_sessions: false },
-    pricing: { additional_tiers: [] },
+    pricing: { free_community: false, additional_tiers: [] },
     trial_terms: { has_trial: false, duration_days: 7 as const },
     refund_policy: "",
     support_contact: "support@example.test",

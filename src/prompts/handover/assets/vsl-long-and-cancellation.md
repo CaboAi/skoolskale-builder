@@ -12,7 +12,7 @@ Fuller than the About-Us VSL — this is the primary sales video (used on a sale
 2. **Who I am / why me** — creator authority via lived experience, not credentials dump. `[[CREATOR STORY: …]]` where personal specifics belong.
 3. **The realization** — the truth the creator discovered (ties to `transformation`). The reframe that reorders everything.
 4. **Introduce the community** — what it is, the one belief it's built on. Name it.
-5. **The three ways to join / the tiers** — walk each tier from `tiers[]`. Free entry (if any) = "dip your toes." Entry paid tier = the core. Top tier = "all in." For each: what's inside (real module + call names), who it's for, the price. Stack value; push serious people up a tier.
+5. **The ways to join / the tiers** — walk each tier from `tiers[]`. Entry paid tier = the core. Top tier = "all in." A free community tier = "dip your toes," but ONLY if the brief's "Free community tier" line says YES. For paid-only communities there is no free door: the entry paid tier IS the way in, and a free trial is a trial of that paid tier, never free access. For each: what's inside (real module + call names), who it's for, the price. Stack value; push serious people up a tier.
 6. **The real transformation is the room** — the community/witness/accountability angle: results come from environment, not just content. (Every gold example lands here.)
 7. **Founder-rate offer** — pricing stated once, lead annual, the 72-hour founding-member mechanic (see voice-and-guardrails.md). Honest refund/trial terms.
 8. **Invitation + close** — one clear next step. Warm or bold per voice. CTA buttons.
@@ -29,15 +29,16 @@ Plays when a member clicks cancel. Goal: retain, or step them DOWN instead of OU
 2. **The gentle reframe** — people often quit right before the breakthrough. Name what's been shifting for them (tie to the community's actual value: the calls, the room, the witness).
 3. **The downgrade ladder** — offer, in order, the real off-ramps that exist for THIS community:
    - Step down to a lower paid tier (if one exists) — restate what they keep.
-   - Step down to the **free tier** (if Skool free entry exists) — "stay connected, come back anytime."
+   - Step down to the **free community tier** - ONLY if the brief's "Free community tier" line says YES; omit this rung entirely for paid-only communities and never invent it from the trial — "stay connected, come back anytime."
    - **Pause** the membership (if the platform allows) — 30 days, no charge.
    - Only then: if they truly need to cancel, respect it — door stays open.
-   (If `refund` == no refunds, do NOT offer money back — offer downgrade/pause/free instead. This is why the ladder matters.)
+   (If `refund` == no refunds, do NOT offer money back — offer a lower paid tier, a pause, or (only where one exists) the free community tier instead. This is why the ladder matters.)
 4. **What they lose** — name the specific things that vanish (the live calls, the current-info edge, the room) — concrete, from the DNA, not generic.
 5. **Close** — "I can't make you stay. But your <transformation> matters, and the door is always open." CTA buttons for each ladder option.
 
 CTA button row example:
 `[Downgrade to <lower tier>] [Try <Free tier> (Free)] [Pause Membership] [Keep My Subscription] [Cancel]`
+(Drop the `[Try <Free tier>]` button for paid-only communities — include only the rungs that really exist.)
 
 ---
 
