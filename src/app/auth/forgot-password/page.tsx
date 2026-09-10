@@ -1,4 +1,3 @@
-import { Suspense } from 'react';
 import {
   Card,
   CardContent,
@@ -6,22 +5,20 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { LoginForm } from './login-form';
+import { ForgotPasswordForm } from './forgot-password-form';
 
-export default function LoginPage() {
+export default function ForgotPasswordPage() {
   return (
     <main className="flex flex-1 items-center justify-center bg-muted/30 p-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle>Sign in</CardTitle>
+          <CardTitle>Reset your password</CardTitle>
           <CardDescription>
-            Team members only.
+            We&rsquo;ll email you a link to set a new one.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Suspense fallback={<div className="h-32" aria-hidden />}>
-            <LoginForm />
-          </Suspense>
+          <ForgotPasswordForm />
         </CardContent>
       </Card>
     </main>
