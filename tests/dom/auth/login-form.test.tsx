@@ -185,3 +185,53 @@ describe('LoginForm — magic link fallback', () => {
     expect(signInWithPasswordMock).not.toHaveBeenCalled();
   });
 });
+
+describe('LoginForm — failed email links', () => {
+  test('explains a failed link instead of showing a blank sign-in page', async () => {
+    searchParamsState.value = 'error=link_failed';
+    await renderForm();
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /may have expired or already been used/i,
+    );
+  });
+
+  test('explains an incomplete link', async () => {
+    searchParamsState.value = 'error=invalid_link';
+    await renderForm();
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/incomplete/i);
+  });
+
+  test('does not render text supplied in the error parameter', async () => {
+    searchParamsState.value =
+      'error=Your+account+was+suspended.+Call+555-0100.';
+    await renderForm();
+
+    const alert = screen.getByRole('alert');
+    expect(alert).not.toHaveTextContent(/suspended/i);
+    expect(alert).not.toHaveTextContent(/555-0100/);
+  });
+
+  test('shows no alert on a clean visit to the login page', async () => {
+    await renderForm();
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  test('replaces the link error once a sign-in attempt fails', async () => {
+    searchParamsState.value = 'error=link_failed';
+    signInWithPasswordMock.mockResolvedValue({
+      error: { message: 'Invalid login credentials' },
+    });
+    const user = userEvent.setup();
+    await renderForm();
+    await fillCredentials(user);
+
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Invalid login credentials',
+    );
+  });
+});
