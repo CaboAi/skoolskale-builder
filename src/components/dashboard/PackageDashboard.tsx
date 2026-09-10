@@ -463,7 +463,15 @@ export function PackageDashboard(initial: PackageDashboardProps) {
             {approvedCount} of {totalModules} modules approved
           </p>
         </div>
-        <StatusBadge status={pkg.status} />
+        <div className="flex shrink-0 items-center gap-3">
+          <Link
+            href={`/creators/${creator.id}/edit?from=/packages/${pkg.id}`}
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+          >
+            Edit intake
+          </Link>
+          <StatusBadge status={pkg.status} />
+        </div>
       </header>
 
       {pkg.status === "draft" && assets.length === 0 ? (
