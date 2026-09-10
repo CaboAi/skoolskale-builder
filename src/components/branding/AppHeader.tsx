@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { AccountMenu } from "./AccountMenu";
 import { PreSkoolWordmark } from "./PreSkoolWordmark";
 import { ThemeToggle } from "./ThemeToggle";
 
@@ -10,9 +11,10 @@ import { ThemeToggle } from "./ThemeToggle";
  * a translucent overlay of --background so content scrolling
  * underneath shows through faintly.
  *
- * The "Packages" link only renders for authenticated users — we
- * skip the redirecting requireUser() helper here because this
- * header also wraps the /auth/login page, which has no session.
+ * The "Packages" link and the account menu only render for
+ * authenticated users — we skip the redirecting requireUser() helper
+ * here because this header also wraps the /auth/login page, which has
+ * no session.
  */
 export async function AppHeader() {
   const supabase = await createClient();
@@ -41,7 +43,10 @@ export async function AppHeader() {
             </Link>
           )}
         </div>
-        <ThemeToggle />
+        <div className="flex items-center gap-1">
+          {isAuthed && user?.email ? <AccountMenu email={user.email} /> : null}
+          <ThemeToggle />
+        </div>
       </div>
     </header>
   );
