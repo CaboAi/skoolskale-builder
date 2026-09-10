@@ -21,7 +21,15 @@ import { mintDemoSession } from '@/lib/supabase/demo-session';
  * them out on their next request instead of only at next sign-in.
  */
 
-const PUBLIC_PATHS = ['/auth/login', '/auth/callback', '/auth/not-allowed'];
+// /auth/update-password is deliberately NOT public: a recovery link lands on
+// /auth/callback first, so by the time it is reached a session exists, and
+// gating it keeps anyone without one from opening the set-password form.
+const PUBLIC_PATHS = [
+  '/auth/login',
+  '/auth/callback',
+  '/auth/not-allowed',
+  '/auth/forgot-password',
+];
 
 function isPublic(pathname: string) {
   if (PUBLIC_PATHS.includes(pathname)) return true;
