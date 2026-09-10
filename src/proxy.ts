@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { env } from '@/lib/env';
+import { isAllowedEmail } from '@/lib/auth/allowlist';
 import { mintDemoSession } from '@/lib/supabase/demo-session';
 
 /**
@@ -10,10 +11,14 @@ import { mintDemoSession } from '@/lib/supabase/demo-session';
  *      real Supabase session for the configured demo user and continue.
  *   3. Otherwise redirects unauthenticated users to /auth/login (except
  *      for /auth/* and static assets).
+ *   4. Enforces the team allowlist on every authenticated request.
  *
- * Allowlist enforcement happens in /auth/callback (see route.ts) at the moment
- * the session is first established — if we did it here, every request would
- * have to re-fetch the user and re-validate, which is wasteful.
+ * /auth/callback also checks the allowlist when a magic-link session is first
+ * minted, but that is only one way a session can appear — password sign-in
+ * never touches that route. This is the request-boundary gate, and it costs
+ * nothing extra: getUser() has already run above for the session refresh, so
+ * the email is in hand. Removing someone from TEAM_EMAIL_ALLOWLIST now locks
+ * them out on their next request instead of only at next sign-in.
  */
 
 const PUBLIC_PATHS = ['/auth/login', '/auth/callback', '/auth/not-allowed'];
@@ -71,6 +76,23 @@ export async function proxy(request: NextRequest) {
     loginUrl.pathname = '/auth/login';
     loginUrl.searchParams.set('next', pathname);
     return NextResponse.redirect(loginUrl);
+  }
+
+  if (user && !isAllowedEmail(user.email) && !isPublic(pathname)) {
+    // Revoke the refresh token, then carry the cleared sb-* cookies that
+    // signOut wrote onto `response` over to the redirect — NextResponse.redirect
+    // starts with no headers, so without this copy the browser keeps a cookie
+    // for a session that no longer exists server-side.
+    await supabase.auth.signOut();
+
+    const notAllowedUrl = request.nextUrl.clone();
+    notAllowedUrl.pathname = '/auth/not-allowed';
+    notAllowedUrl.search = '';
+    const redirectResponse = NextResponse.redirect(notAllowedUrl);
+    response.cookies
+      .getAll()
+      .forEach((cookie) => redirectResponse.cookies.set(cookie));
+    return redirectResponse;
   }
 
   return response;

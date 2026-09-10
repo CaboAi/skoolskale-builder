@@ -2,7 +2,9 @@
  * Unit tests for src/proxy.ts middleware.
  *
  * The proxy gates DEMO_MODE: when on, unauthenticated requests are routed
- * through mintDemoSession; when off, they're redirected to /auth/login.
+ * through mintDemoSession; when off, they're redirected to /auth/login. It
+ * also enforces TEAM_EMAIL_ALLOWLIST on every authenticated request, which is
+ * the gate that password sign-in relies on (it never hits /auth/callback).
  *
  * @/lib/env, @/lib/supabase/demo-session, and @supabase/ssr are mocked at
  * module level so we can drive DEMO_MODE and the user-fetch result
@@ -13,11 +15,20 @@ import { NextRequest, NextResponse } from 'next/server';
 
 // All factory-captured state hoisted per-file. See CLAUDE.md
 // § "Mocking conventions".
-const { envState, getUserMock, mintDemoSessionMock } = vi.hoisted(() => ({
-  envState: { DEMO_MODE: false },
-  getUserMock: vi.fn(),
-  mintDemoSessionMock: vi.fn(),
-}));
+const TEAM_MEMBER_EMAIL = 'real@example.com';
+const OUTSIDER_EMAIL = 'stranger@example.com';
+
+const { envState, getUserMock, signOutMock, mintDemoSessionMock } = vi.hoisted(
+  () => ({
+    envState: {
+      DEMO_MODE: false,
+      TEAM_EMAIL_ALLOWLIST: ['real@example.com'] as string[],
+    },
+    getUserMock: vi.fn(),
+    signOutMock: vi.fn(),
+    mintDemoSessionMock: vi.fn(),
+  }),
+);
 
 vi.mock('@/lib/env', () => ({
   get env() {
@@ -25,6 +36,7 @@ vi.mock('@/lib/env', () => ({
       NEXT_PUBLIC_SUPABASE_URL: 'https://test.supabase.co',
       NEXT_PUBLIC_SUPABASE_ANON_KEY: 'test-anon',
       DEMO_MODE: envState.DEMO_MODE,
+      TEAM_EMAIL_ALLOWLIST: envState.TEAM_EMAIL_ALLOWLIST,
     };
   },
 }));
@@ -35,13 +47,16 @@ vi.mock('@/lib/supabase/demo-session', () => ({
 
 vi.mock('@supabase/ssr', () => ({
   createServerClient: () => ({
-    auth: { getUser: getUserMock },
+    auth: { getUser: getUserMock, signOut: signOutMock },
   }),
 }));
 
 beforeEach(() => {
   envState.DEMO_MODE = false;
+  envState.TEAM_EMAIL_ALLOWLIST = [TEAM_MEMBER_EMAIL];
   getUserMock.mockReset();
+  signOutMock.mockReset();
+  signOutMock.mockResolvedValue({ error: null });
   mintDemoSessionMock.mockReset();
 });
 
@@ -84,7 +99,7 @@ describe('proxy middleware — DEMO_MODE gating', () => {
   test('passes through authenticated request without invoking demo path', async () => {
     envState.DEMO_MODE = true;
     getUserMock.mockResolvedValue({
-      data: { user: { id: 'real-user', email: 'real@example.com' } },
+      data: { user: { id: 'real-user', email: TEAM_MEMBER_EMAIL } },
     });
 
     const { proxy } = await import('@/proxy');
@@ -92,5 +107,70 @@ describe('proxy middleware — DEMO_MODE gating', () => {
 
     expect(response.headers.get('location')).toBeNull();
     expect(mintDemoSessionMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('proxy middleware — allowlist enforcement', () => {
+  test('redirects an authenticated non-allowlisted user to /auth/not-allowed', async () => {
+    getUserMock.mockResolvedValue({
+      data: { user: { id: 'outsider', email: OUTSIDER_EMAIL } },
+    });
+
+    const { proxy } = await import('@/proxy');
+    const response = await proxy(makeRequest('/some-page'));
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toBe(
+      'http://localhost/auth/not-allowed',
+    );
+  });
+
+  test('revokes the session of an authenticated non-allowlisted user', async () => {
+    getUserMock.mockResolvedValue({
+      data: { user: { id: 'outsider', email: OUTSIDER_EMAIL } },
+    });
+
+    const { proxy } = await import('@/proxy');
+    await proxy(makeRequest('/some-page'));
+
+    expect(signOutMock).toHaveBeenCalledTimes(1);
+  });
+
+  test('lets a non-allowlisted user reach /auth/not-allowed without redirecting again', async () => {
+    getUserMock.mockResolvedValue({
+      data: { user: { id: 'outsider', email: OUTSIDER_EMAIL } },
+    });
+
+    const { proxy } = await import('@/proxy');
+    const response = await proxy(makeRequest('/auth/not-allowed'));
+
+    expect(response.headers.get('location')).toBeNull();
+    expect(signOutMock).not.toHaveBeenCalled();
+  });
+
+  test('matches allowlist entries case-insensitively', async () => {
+    getUserMock.mockResolvedValue({
+      data: { user: { id: 'real-user', email: TEAM_MEMBER_EMAIL.toUpperCase() } },
+    });
+
+    const { proxy } = await import('@/proxy');
+    const response = await proxy(makeRequest('/some-page'));
+
+    expect(response.headers.get('location')).toBeNull();
+    expect(signOutMock).not.toHaveBeenCalled();
+  });
+
+  test('locks out a user removed from the allowlist mid-session', async () => {
+    getUserMock.mockResolvedValue({
+      data: { user: { id: 'real-user', email: TEAM_MEMBER_EMAIL } },
+    });
+    envState.TEAM_EMAIL_ALLOWLIST = [];
+
+    const { proxy } = await import('@/proxy');
+    const response = await proxy(makeRequest('/some-page'));
+
+    expect(response.headers.get('location')).toBe(
+      'http://localhost/auth/not-allowed',
+    );
   });
 });
