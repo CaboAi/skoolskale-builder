@@ -27,6 +27,7 @@ import { mintDemoSession } from '@/lib/supabase/demo-session';
 const PUBLIC_PATHS = [
   '/auth/login',
   '/auth/callback',
+  '/auth/confirm',
   '/auth/not-allowed',
   '/auth/forgot-password',
 ];
