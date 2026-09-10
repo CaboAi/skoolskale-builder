@@ -98,27 +98,31 @@ describe('GET /auth/confirm', () => {
   test('rejects a link with no token hash', async () => {
     const response = await callRoute('type=recovery');
 
-    expect(response.headers.get('location')).toContain('/auth/login?error=');
+    expect(response.headers.get('location')).toBe(
+      'https://preskool.io/auth/login?error=invalid_link',
+    );
     expect(verifyOtpMock).not.toHaveBeenCalled();
   });
 
   test('rejects a link whose type is not an email OTP type', async () => {
     const response = await callRoute(`token_hash=${TOKEN}&type=not-a-real-type`);
 
-    expect(response.headers.get('location')).toContain('/auth/login?error=');
+    expect(response.headers.get('location')).toBe(
+      'https://preskool.io/auth/login?error=invalid_link',
+    );
     expect(verifyOtpMock).not.toHaveBeenCalled();
   });
 
-  test('surfaces an expired-link error back on the login page', async () => {
+  test('sends a code, not the provider wording, when verification fails', async () => {
     verifyOtpMock.mockResolvedValue({
       error: { message: 'Email link is invalid or has expired' },
     });
 
     const response = await callRoute(`token_hash=${TOKEN}&type=recovery`);
+    const location = response.headers.get('location') ?? '';
 
-    expect(response.headers.get('location')).toContain(
-      'error=Email+link+is+invalid+or+has+expired',
-    );
+    expect(location).toBe('https://preskool.io/auth/login?error=link_failed');
+    expect(location).not.toContain('expired');
   });
 
   test('turns away a verified user who is not on the allowlist', async () => {

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import type { EmailOtpType } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { isAllowedEmail } from '@/lib/auth/allowlist';
+import type { AuthErrorCode } from '@/lib/auth/auth-error';
 
 /**
  * Cross-device email link handler.
@@ -31,9 +32,9 @@ function isEmailOtpType(value: string | null): value is EmailOtpType {
   return value !== null && (ALLOWED_TYPES as string[]).includes(value);
 }
 
-function loginWithError(origin: string, message: string) {
+function loginWithError(origin: string, code: AuthErrorCode) {
   const redirect = new URL('/auth/login', origin);
-  redirect.searchParams.set('error', message);
+  redirect.searchParams.set('error', code);
   return NextResponse.redirect(redirect);
 }
 
@@ -44,7 +45,7 @@ export async function GET(request: NextRequest) {
   const next = url.searchParams.get('next') ?? '/';
 
   if (!tokenHash || !isEmailOtpType(type)) {
-    return loginWithError(url.origin, 'That link is not valid. Request a new one.');
+    return loginWithError(url.origin, 'invalid_link');
   }
 
   const supabase = await createClient();
@@ -54,7 +55,10 @@ export async function GET(request: NextRequest) {
   });
 
   if (error) {
-    return loginWithError(url.origin, error.message);
+    // The provider's own wording is not shown to the user; keep it in the
+    // server log so a genuine misconfiguration is still diagnosable.
+    console.error('[auth/confirm] verifyOtp failed:', error.message);
+    return loginWithError(url.origin, 'link_failed');
   }
 
   const {
