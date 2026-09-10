@@ -1,0 +1,1 @@
+ALTER TABLE "creators" ADD COLUMN "creator_photo_path" text;

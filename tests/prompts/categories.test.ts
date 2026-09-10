@@ -1,29 +1,38 @@
 import { describe, expect, test } from 'vitest';
 import { parseOutput } from '@/prompts/categories';
 
-function buildRaw(rows: { name: string; description: string }[]): string {
-  const inner = rows
+function buildRaw(names: string[]): string {
+  const inner = names
     .map(
-      (r, i) => `<category index="${i + 1}">
-<name>${r.name}</name>
-<description>${r.description}</description>
+      (n, i) => `<category index="${i + 1}">
+<name>${n}</name>
 </category>`,
     )
     .join('\n');
   return `<categories>\n${inner}\n</categories>`;
 }
 
-const THREE = [
-  { name: 'Plant your flag', description: 'Say hi and tell us why you joined.' },
-  { name: 'Wins of the week', description: 'Celebrate progress, big or small.' },
-  { name: 'Ask the host', description: 'Tips and answers from the creator.' },
-];
+const THREE = ['Plant your flag', 'Wins of the week', 'Ask the host'];
 
 describe('categories.parseOutput', () => {
-  test('parses exactly 3 categories', () => {
+  test('parses exactly 3 category names', () => {
     const out = parseOutput(buildRaw(THREE));
-    expect(out.categories).toHaveLength(3);
-    expect(out.categories[0].name).toBe('Plant your flag');
+    expect(out.categories).toEqual(THREE);
+  });
+
+  test('ignores any <description> tags the model emits despite the prompt forbidding them', () => {
+    // Forward-compatibility check: if Claude accidentally adds a description,
+    // the title-only parser regex matches name-only blocks. The raw string
+    // includes a description that should be discarded by the parser shape.
+    const raw = `<categories>
+<category index="1"><name>Hello</name><description>ignored</description></category>
+<category index="2"><name>Wins</name></category>
+<category index="3"><name>Q&A</name></category>
+</categories>`;
+    // Our regex requires </category> right after </name>, so a description
+    // between them means we'd parse 2 instead of 3 — assert the strict-mode
+    // behavior so the prompt and parser stay in lock-step.
+    expect(() => parseOutput(raw)).toThrow(/expected 3 categories, got 2/);
   });
 
   test('throws when <categories> wrapper is missing', () => {
@@ -37,36 +46,20 @@ describe('categories.parseOutput', () => {
   });
 
   test('throws when more than 3 categories returned', () => {
-    const four = [...THREE, { name: 'Off topic', description: 'misc' }];
-    expect(() => parseOutput(buildRaw(four))).toThrow(
+    expect(() => parseOutput(buildRaw([...THREE, 'Off topic']))).toThrow(
       /expected 3 categories, got 4/,
     );
   });
 
   test('throws on empty name', () => {
-    const bad = [
-      { name: '', description: 'x' },
-      THREE[1],
-      THREE[2],
-    ];
-    expect(() => parseOutput(buildRaw(bad))).toThrow(/name 1 is empty/);
-  });
-
-  test('throws on empty description', () => {
-    const bad = [
-      THREE[0],
-      { name: 'ok', description: '' },
-      THREE[2],
-    ];
-    expect(() => parseOutput(buildRaw(bad))).toThrow(/description 2 is empty/);
+    expect(() => parseOutput(buildRaw(['', 'b', 'c']))).toThrow(
+      /name 1 is empty/,
+    );
   });
 
   test('throws when name exceeds 60 chars', () => {
-    const bad = [
-      { name: 'a'.repeat(61), description: 'x' },
-      THREE[1],
-      THREE[2],
-    ];
-    expect(() => parseOutput(buildRaw(bad))).toThrow(/name 1 is 61 chars/);
+    expect(() => parseOutput(buildRaw(['a'.repeat(61), 'b', 'c']))).toThrow(
+      /name 1 is 61 chars/,
+    );
   });
 });

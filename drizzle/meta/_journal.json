@@ -43,6 +43,41 @@
       "when": 1778459384388,
       "tag": "0005_tone_refresh",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1778710800000,
+      "tag": "0006_workspace_wide_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1778624499882,
+      "tag": "0007_creator_photo_path",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1779236107793,
+      "tag": "0008_sturdy_human_torch",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1786384575265,
+      "tag": "0009_glorious_black_bolt",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1787611409537,
+      "tag": "0010_petite_invaders",
+      "breakpoints": true
     }
   ]
 }

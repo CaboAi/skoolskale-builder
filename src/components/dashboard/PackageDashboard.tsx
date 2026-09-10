@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -19,8 +19,6 @@ import type { Creator, GeneratedAsset, LaunchPackage } from "@/lib/db/schema";
 import {
   CARD_COMPONENTS,
   CopyModuleSkeleton,
-  ImageVariantsSkeleton,
-  ImageSingleSkeleton,
   type ModuleActionHandler,
 } from "./module-cards";
 import {
@@ -30,6 +28,7 @@ import {
   type ModuleKey,
 } from "@/lib/modules/registry";
 import { EditDialog, RegenerateDialog } from "./action-dialogs";
+import { DashboardContextProvider } from "./dashboard-context";
 
 export type PackageDashboardProps = {
   package: LaunchPackage;
@@ -49,10 +48,10 @@ type PackageWithDetails = {
 
 const STATUS_STYLES: Record<LaunchPackage["status"], string> = {
   draft: "bg-muted text-muted-foreground",
-  generating: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
-  review: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
-  ready: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
-  deployed: "bg-emerald-600 text-white",
+  generating: "bg-info/15 text-info",
+  review: "bg-warning/15 text-warning",
+  ready: "bg-success/15 text-success",
+  deployed: "bg-success text-success-foreground",
   archived: "bg-muted text-muted-foreground",
 };
 
@@ -122,16 +121,40 @@ function DraftEmptyState({ packageId }: { packageId: string }) {
 /* PackageDashboard                                                            */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * A regeneration that fails inside Inngest never writes a new asset row, so
+ * the "did the id change?" check below would never fire and the card would
+ * sit on its skeleton — polling forever — with nothing telling the VA that
+ * anything went wrong. The timer is the backstop for that dead-run case.
+ *
+ * Must sit ABOVE the Inngest per-invocation ceiling (300s — see
+ * app/api/inngest/route.ts). A slow-but-valid Claude call can legitimately
+ * run close to that ceiling; at 180s the timer would fire on a run that then
+ * succeeds, and because giving up also stops the poll (refetchInterval),
+ * the late asset would never be picked up until a manual refresh. 6 minutes
+ * clears the ceiling with margin while still bounding a genuinely dead run.
+ */
+const REGENERATE_TIMEOUT_MS = 360_000;
+
+type RegenerationState = { startId: string | null; startedAt: number };
+
 export function PackageDashboard(initial: PackageDashboardProps) {
   const queryClient = useQueryClient();
   const queryKey = ["package", initial.package.id] as const;
 
-  // Track per-module "regenerating" state. Value = the asset id that was
-  // latest at the moment regeneration started. When a NEW row arrives for
+  // Track per-module "regenerating" state. startId = the asset id that was
+  // latest at the moment regeneration started; when a NEW row arrives for
   // that module (different id), regeneration is considered complete.
+  // startedAt drives the give-up timer below.
   const [regenerating, setRegenerating] = useState<
-    Record<string, string | null>
+    Record<string, RegenerationState>
   >({});
+  // Read inside the timeout callback, which would otherwise close over a
+  // stale map (the effect only re-runs when the earliest deadline moves).
+  const regeneratingRef = useRef(regenerating);
+  useEffect(() => {
+    regeneratingRef.current = regenerating;
+  }, [regenerating]);
 
   const { data } = useQuery<PackageWithDetails>({
     queryKey,
@@ -168,7 +191,7 @@ export function PackageDashboard(initial: PackageDashboardProps) {
   ).length;
 
   // When an asset's id changes for a module we're regenerating, we're done.
-  for (const [mod, startId] of Object.entries(regenerating)) {
+  for (const [mod, { startId }] of Object.entries(regenerating)) {
     const asset = byModule.get(mod);
     if (asset && asset.id !== startId) {
       // Schedule removal after render (setState in render is a no-op if
@@ -184,6 +207,39 @@ export function PackageDashboard(initial: PackageDashboardProps) {
       });
     }
   }
+
+  // Give-up timer. Deadlines are absolute (startedAt + timeout) rather than
+  // a per-render setTimeout, so a second module entering or leaving the map
+  // never extends an already-running module's window.
+  const deadlines = Object.values(regenerating).map(
+    (r) => r.startedAt + REGENERATE_TIMEOUT_MS,
+  );
+  const nextDeadline = deadlines.length ? Math.min(...deadlines) : null;
+
+  useEffect(() => {
+    if (nextDeadline === null) return;
+    const timer = setTimeout(
+      () => {
+        const now = Date.now();
+        const expired = Object.entries(regeneratingRef.current)
+          .filter(([, r]) => now >= r.startedAt + REGENERATE_TIMEOUT_MS)
+          .map(([mod]) => mod);
+        if (expired.length === 0) return;
+        setRegenerating((prev) => {
+          const next = { ...prev };
+          for (const mod of expired) delete next[mod];
+          return next;
+        });
+        for (const mod of expired) {
+          toast.error(
+            `${MODULE_LABELS[mod]} did not come back. Check the run, then try regenerating again.`,
+          );
+        }
+      },
+      Math.max(0, nextDeadline - Date.now()),
+    );
+    return () => clearTimeout(timer);
+  }, [nextDeadline]);
 
   /* ---------- Dialog state ---------- */
 
@@ -251,9 +307,56 @@ export function PackageDashboard(initial: PackageDashboardProps) {
     },
     onSuccess: (module) => {
       const currentId = byModule.get(module)?.id ?? null;
-      setRegenerating((prev) => ({ ...prev, [module]: currentId }));
+      setRegenerating((prev) => ({
+        ...prev,
+        [module]: { startId: currentId, startedAt: Date.now() },
+      }));
       setRegenDialog({ module: null });
       toast.info(`Regenerating ${MODULE_LABELS[module]}…`);
+    },
+    onError: (err, { module }) => {
+      toast.error(
+        `Could not regenerate ${MODULE_LABELS[module]}: ${err.message}`,
+      );
+    },
+  });
+
+  // Phase 2 prompt-editor path. Posts the same /regenerate route but with
+  // `editedPrompt` instead of `note`; the Inngest function bypasses the
+  // builder when this is set. Same skeleton/poll behavior as the regular
+  // regenerate mutation — both flip the module into the regenerating map
+  // so the card swaps to a skeleton until a new asset id arrives.
+  const regenerateEditedMutation = useMutation({
+    mutationFn: async ({
+      module,
+      editedPrompt,
+    }: {
+      module: string;
+      editedPrompt: string;
+    }) => {
+      const res = await fetch(
+        `/api/packages/${pkg.id}/modules/${module}/regenerate`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ editedPrompt }),
+        },
+      );
+      if (!res.ok) {
+        const err = await res
+          .json()
+          .catch(() => ({ error: "Regenerate failed" }));
+        throw new Error(err.error ?? "Regenerate failed");
+      }
+      return module;
+    },
+    onSuccess: (module) => {
+      const currentId = byModule.get(module)?.id ?? null;
+      setRegenerating((prev) => ({
+        ...prev,
+        [module]: { startId: currentId, startedAt: Date.now() },
+      }));
+      toast.info(`Regenerating ${MODULE_LABELS[module]} with edited prompt…`);
     },
     onError: (err, { module }) => {
       toast.error(
@@ -298,54 +401,6 @@ export function PackageDashboard(initial: PackageDashboardProps) {
     },
   });
 
-  // Variant selection is a presentation choice, not a content edit, so it
-  // doesn't go through the PATCH endpoint. See /modules/[module]/select-variant.
-  const selectVariantMutation = useMutation({
-    mutationFn: async ({ module, index }: { module: string; index: number }) => {
-      const res = await fetch(
-        `/api/packages/${pkg.id}/modules/${module}/select-variant`,
-        {
-          method: "PUT",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ index }),
-        },
-      );
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Save failed" }));
-        throw new Error(err.error ?? "Save failed");
-      }
-      return (await res.json()) as GeneratedAsset;
-    },
-    onMutate: async ({ module, index }) => {
-      await queryClient.cancelQueries({ queryKey });
-      const prev = queryClient.getQueryData<PackageWithDetails>(queryKey);
-      if (prev) {
-        queryClient.setQueryData<PackageWithDetails>(queryKey, {
-          ...prev,
-          assets: prev.assets.map((a) => {
-            if (a.module !== module) return a;
-            const content = a.content as {
-              variants: unknown[];
-              selected_variant_index?: number;
-            };
-            return {
-              ...a,
-              content: { ...content, selected_variant_index: index },
-            };
-          }),
-        });
-      }
-      return { prev };
-    },
-    onSuccess: (_updated, { index }) => {
-      toast.success(`Variant ${index + 1} selected`);
-    },
-    onError: (err, _vars, ctx) => {
-      if (ctx?.prev) queryClient.setQueryData(queryKey, ctx.prev);
-      toast.error(`Could not select variant: ${err.message}`);
-    },
-  });
-
   /* ---------- Action dispatch ---------- */
 
   const handleAction: ModuleActionHandler = (module, action) => {
@@ -363,10 +418,6 @@ export function PackageDashboard(initial: PackageDashboardProps) {
     }
   };
 
-  const handleSelectVariant = (module: string, index: number) => {
-    selectVariantMutation.mutate({ module, index });
-  };
-
   /* ---------- Render ---------- */
 
   const editAsset = editDialog.module
@@ -381,47 +432,11 @@ export function PackageDashboard(initial: PackageDashboardProps) {
     return pendingApproveModule === module ? ("approve" as const) : null;
   }
 
-  // While a select-variant request is in flight, drive the spinner on the
-  // *specific* variant the user clicked. Scoped to a module key so that
-  // having one variant selection in flight doesn't dim variants of another
-  // image module.
-  const selectingVariant = selectVariantMutation.isPending
-    ? selectVariantMutation.variables
-    : null;
-  function selectingIndexFor(module: string): number | null {
-    return selectingVariant?.module === module ? selectingVariant.index : null;
-  }
-
   function renderModuleCard(module: ModuleKey) {
     const cfg = MODULE_REGISTRY[module];
     const asset = byModule.get(module);
     if (!asset || regenerating[module] !== undefined) {
-      // Pick the right skeleton shape based on the registered cardVariant.
-      if (cfg.cardVariant === "image-variants") {
-        return (
-          <ImageVariantsSkeleton
-            key={module}
-            module={module}
-            fullWidth={cfg.fullWidth}
-          />
-        );
-      }
-      if (cfg.cardVariant === "image-single") {
-        return (
-          <ImageSingleSkeleton
-            key={module}
-            module={module}
-            fullWidth={cfg.fullWidth}
-          />
-        );
-      }
-      return (
-        <CopyModuleSkeleton
-          key={module}
-          module={module}
-          fullWidth={cfg.fullWidth}
-        />
-      );
+      return <CopyModuleSkeleton key={module} module={module} />;
     }
     const Component = CARD_COMPONENTS[cfg.cardVariant];
     return (
@@ -430,8 +445,6 @@ export function PackageDashboard(initial: PackageDashboardProps) {
         asset={asset}
         onAction={handleAction}
         pendingAction={pendingActionFor(module)}
-        onSelectVariant={cfg.hasVariants ? handleSelectVariant : undefined}
-        selectingIndex={cfg.hasVariants ? selectingIndexFor(module) : null}
       />
     );
   }
@@ -450,19 +463,49 @@ export function PackageDashboard(initial: PackageDashboardProps) {
             {approvedCount} of {totalModules} modules approved
           </p>
         </div>
-        <StatusBadge status={pkg.status} />
+        <div className="flex shrink-0 items-center gap-3">
+          <Link
+            href={`/creators/${creator.id}/edit?from=/packages/${pkg.id}`}
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+          >
+            Edit intake
+          </Link>
+          <StatusBadge status={pkg.status} />
+        </div>
       </header>
 
       {pkg.status === "draft" && assets.length === 0 ? (
         <DraftEmptyState packageId={pkg.id} />
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {DASHBOARD_MODULE_KEYS.map(renderModuleCard)}
-        </div>
+        <DashboardContextProvider
+          value={{
+            packageId: pkg.id,
+            onRegenerateEditedPrompt: (module, editedPrompt) =>
+              regenerateEditedMutation.mutate({ module, editedPrompt }),
+            pendingEditedRegenerateModule:
+              regenerateEditedMutation.isPending &&
+              regenerateEditedMutation.variables
+                ? regenerateEditedMutation.variables.module
+                : null,
+          }}
+        >
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {DASHBOARD_MODULE_KEYS.map(renderModuleCard)}
+          </div>
+        </DashboardContextProvider>
       )}
 
       {approvedCount === totalModules && (
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-3">
+          <Link
+            href={`/packages/${pkg.id}/images`}
+            className={cn(
+              buttonVariants({ size: "lg", variant: "outline" }),
+              "px-6 text-base font-semibold",
+            )}
+          >
+            Images →
+          </Link>
           <Link
             href={`/packages/${pkg.id}/export`}
             className={cn(
@@ -476,6 +519,7 @@ export function PackageDashboard(initial: PackageDashboardProps) {
       )}
 
       <RegenerateDialog
+        key={regenDialog.module ?? "closed"}
         open={regenDialog.module !== null}
         module={regenDialog.module}
         onOpenChange={(open) =>

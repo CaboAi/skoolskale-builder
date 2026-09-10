@@ -19,7 +19,6 @@ const BASELINE: Record<string, string> = {
   SUPABASE_SERVICE_ROLE_KEY: 'test-service',
   DATABASE_URL: 'postgresql://test:test@localhost:5432/test',
   ANTHROPIC_API_KEY: 'test-anthropic',
-  GOOGLE_AI_API_KEY: 'test-google',
   INNGEST_EVENT_KEY: 'test-event',
   INNGEST_SIGNING_KEY: 'test-sign',
   NEXT_PUBLIC_APP_URL: 'http://localhost:3000',

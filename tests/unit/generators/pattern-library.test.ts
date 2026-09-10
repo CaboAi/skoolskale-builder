@@ -7,10 +7,18 @@
  */
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
-const queue: unknown[][] = [];
+// Hoisted via vi.hoisted so the factory captures a per-file stable
+// reference. A module-level `const queue = []` would also be per-file,
+// but vitest hoists `vi.mock(...)` calls above all imports — at the
+// moment the factory closure is *evaluated*, hoisted state is the only
+// kind guaranteed to be initialized. See CLAUDE.md § "Mocking
+// conventions" (PR #9 / parallel-worker leak audit).
+const { queue } = vi.hoisted(() => ({
+  queue: [] as unknown[][],
+}));
 
-vi.mock('@/lib/db', () => {
-  const db = {
+vi.mock('@/lib/db', () => ({
+  db: {
     select: () => ({
       from: () => ({
         where: () => ({
@@ -20,9 +28,8 @@ vi.mock('@/lib/db', () => {
         }),
       }),
     }),
-  };
-  return { db };
-});
+  },
+}));
 
 beforeEach(() => {
   queue.length = 0;

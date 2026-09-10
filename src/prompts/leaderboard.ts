@@ -3,6 +3,7 @@ import {
   type LeaderboardContent,
 } from '@/types/schemas';
 import type { GeneratorInput } from '@/types/generators';
+import { regenerateNoteSuffix } from './_shared';
 
 const NUM_LEVELS = 9;
 const LEVEL_MAX_CHARS = 30;
@@ -63,10 +64,10 @@ Transformation promise: ${input.creator.transformation}
 Tone: ${input.creator.tone}
 Brand prefs: ${input.creator.brand_prefs || '<!-- none -->'}
 </creator_context>
-${input.regenerateNote ? `\n<regenerate_note>${input.regenerateNote}</regenerate_note>\n` : ''}
+
 <task>
 Name the 9 leaderboard levels for this community in a ${input.creator.tone} tone. Pick one coherent metaphor; progress from least- to most-advanced.
-</task>`;
+</task>${regenerateNoteSuffix(input.regenerateNote)}`;
 }
 
 export function parseOutput(raw: string): LeaderboardContent {

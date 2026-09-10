@@ -1,14 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ArrowLeft, Copy, Download, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -18,7 +17,18 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import type { Creator, GeneratedAsset, LaunchPackage } from "@/lib/db/schema";
+import type { CalendarEvent } from "@/types/schemas";
+import { formatSchedule } from "@/lib/calendar/format-schedule";
 import { MODULE_KEYS, type ModuleKey } from "@/lib/modules/registry";
+import { renderAboutUsText } from "@/lib/modules/render";
+import {
+  renderStep1Text,
+  renderStep2Text,
+  renderStep3Text,
+  renderStep4Text,
+} from "@/lib/modules/serialize";
+import { HandoverSection } from "@/components/dashboard/HandoverSection";
+import { cn } from "@/lib/utils";
 
 /* -------------------------------------------------------------------------- */
 /* Content type aliases (mirror what the parsers produce)                     */
@@ -42,12 +52,6 @@ type StartHereContent = {
   step_3_faqs: { question: string; answer_template: string }[];
   step_4_need_assistance: { title: string; template: string };
 };
-type CoverVariant = { url: string; index: number };
-type CoverContent = {
-  variants: CoverVariant[];
-  selected_variant_index?: number;
-};
-
 /* -------------------------------------------------------------------------- */
 /* CopyButton                                                                  */
 /* -------------------------------------------------------------------------- */
@@ -77,54 +81,57 @@ function CopyButton({
 
 /* -------------------------------------------------------------------------- */
 /* Render helpers — JSON → formatted-text the VA pastes into Skool            */
+/*                                                                            */
+/* `renderAboutUsText` and the Start-Here step renderers live in              */
+/* @/lib/modules — the prompt parser + Zod cap refinement and the Markdown    */
+/* export share them, so they're a single source of truth rather than         */
+/* duplicated per consumer.                                                    */
 /* -------------------------------------------------------------------------- */
 
-function renderAboutUsText(c: AboutUsContent): string {
-  const buckets = c.value_buckets
-    .map((b) => {
-      const items = b.items.map((i) => `- ${i}`).join("\n");
-      return `${b.emoji} ${b.header}\n${items}`;
-    })
-    .join("\n\n");
-  return [
-    c.hero,
-    "",
-    c.trial_callout,
-    "",
-    buckets,
-    "",
-    c.pricing,
-    "",
-    c.refund_policy,
-  ]
-    .join("\n")
-    .trim();
-}
+/* -------------------------------------------------------------------------- */
+/* Section: First Post — title + body with separate copy buttons              */
+/*                                                                            */
+/* Skool's pinned-post editor has independent title and body fields, so the   */
+/* VA needs two distinct copy targets (not a single combined blob).           */
+/* -------------------------------------------------------------------------- */
 
-function renderStep1Text(s: StartHereContent["step_1_how_to_use"]): string {
-  const sections = s.sections
-    .map((sec) => `${sec.name}\n${sec.description}`)
-    .join("\n\n");
-  return `${s.title}\n\n${sections}`;
-}
+type FirstPostContent = { title: string; body: string };
 
-function renderStep2Text(
-  s: StartHereContent["step_2_community_rules"],
-): string {
-  const rules = s.rules.map((r, i) => `${i + 1}. ${r}`).join("\n");
-  return `${s.title}\n\n${rules}`;
-}
-
-function renderStep3Text(faqs: StartHereContent["step_3_faqs"]): string {
-  return faqs
-    .map((f) => `Q: ${f.question}\nA: ${f.answer_template}`)
-    .join("\n\n");
-}
-
-function renderStep4Text(
-  s: StartHereContent["step_4_need_assistance"],
-): string {
-  return `${s.title}\n\n${s.template}`;
+function FirstPostSection({ asset }: { asset: GeneratedAsset }) {
+  const c = asset.content as FirstPostContent;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>First Post (pinned welcome)</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="space-y-1">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+              Title
+            </p>
+            <CopyButton text={c.title} label="Copy title" />
+          </div>
+          <p className="font-semibold">{c.title}</p>
+        </div>
+        <div className="space-y-1">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+              Body
+            </p>
+            <CopyButton text={c.body} label="Copy body" />
+          </div>
+          <pre className="whitespace-pre-wrap rounded-md bg-muted p-3 font-mono text-xs leading-relaxed">
+            {c.body}
+          </pre>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Paste into Skool &gt; New post &gt; pin to the community feed. Use
+          the title for the post title field and the body for the post body.
+        </p>
+      </CardContent>
+    </Card>
+  );
 }
 
 /* -------------------------------------------------------------------------- */
@@ -283,287 +290,49 @@ function StartHereSection({ asset }: { asset: GeneratedAsset }) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Section: Cover                                                              */
-/* -------------------------------------------------------------------------- */
-
-async function downloadImage(url: string, filename: string) {
-  try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const blob = await res.blob();
-    const objectUrl = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = objectUrl;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(objectUrl);
-  } catch (err) {
-    toast.error(
-      `Download failed: ${err instanceof Error ? err.message : "unknown error"}`,
-    );
-  }
-}
-
-function DownloadButton({
-  url,
-  filename,
-  label = "Download",
-}: {
-  url: string;
-  filename: string;
-  label?: string;
-}) {
-  return (
-    <Button
-      variant="outline"
-      size="sm"
-      onClick={() => void downloadImage(url, filename)}
-    >
-      <Download className="mr-1.5 h-4 w-4" />
-      {label}
-    </Button>
-  );
-}
-
-function CoverSection({ asset }: { asset: GeneratedAsset }) {
-  const c = asset.content as CoverContent;
-  const selectedIdx = c.selected_variant_index ?? 0;
-  const selected =
-    c.variants.find((v) => v.index === selectedIdx) ?? c.variants[0];
-  const others = c.variants.filter((v) => v.index !== selected.index);
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Community Cover</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <div className="overflow-hidden rounded-md border">
-            <Image
-              src={selected.url}
-              alt="Selected community cover"
-              width={1456}
-              height={816}
-              className="h-auto w-full"
-              priority
-            />
-          </div>
-          <DownloadButton
-            url={selected.url}
-            filename={`cover-variant-${selected.index + 1}.png`}
-            label="Download cover"
-          />
-        </div>
-        {others.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Other variants</p>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {others.map((v) => (
-                <div key={v.index} className="space-y-2">
-                  <div className="overflow-hidden rounded-md border">
-                    <Image
-                      src={v.url}
-                      alt={`Cover variant ${v.index + 1}`}
-                      width={728}
-                      height={408}
-                      className="h-auto w-full"
-                    />
-                  </div>
-                  <DownloadButton
-                    url={v.url}
-                    filename={`cover-variant-${v.index + 1}.png`}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-        <p className="text-xs text-muted-foreground">
-          Upload to Skool &gt; Settings &gt; Branding &gt; Cover image.
-        </p>
-      </CardContent>
-    </Card>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/* Section: Icon (3 variant grid, mirrors CoverSection)                       */
-/* -------------------------------------------------------------------------- */
-
-function IconSection({ asset }: { asset: GeneratedAsset }) {
-  const c = asset.content as CoverContent;
-  const selectedIdx = c.selected_variant_index ?? 0;
-  const selected =
-    c.variants.find((v) => v.index === selectedIdx) ?? c.variants[0];
-  const others = c.variants.filter((v) => v.index !== selected.index);
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Community Icon</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <div className="overflow-hidden rounded-md border bg-muted/30 p-4">
-            <Image
-              src={selected.url}
-              alt="Selected community icon"
-              width={512}
-              height={512}
-              className="mx-auto h-auto max-w-[256px]"
-            />
-          </div>
-          <DownloadButton
-            url={selected.url}
-            filename={`icon-variant-${selected.index + 1}.png`}
-            label="Download icon"
-          />
-        </div>
-        {others.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Other variants</p>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {others.map((v) => (
-                <div key={v.index} className="space-y-2">
-                  <div className="overflow-hidden rounded-md border bg-muted/30 p-3">
-                    <Image
-                      src={v.url}
-                      alt={`Icon variant ${v.index + 1}`}
-                      width={512}
-                      height={512}
-                      className="mx-auto h-auto max-w-[160px]"
-                    />
-                  </div>
-                  <DownloadButton
-                    url={v.url}
-                    filename={`icon-variant-${v.index + 1}.png`}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-        <p className="text-xs text-muted-foreground">
-          Upload to Skool &gt; Settings &gt; Branding &gt; Community icon.
-        </p>
-      </CardContent>
-    </Card>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/* Section: Classroom Cover (single banner image)                             */
-/* -------------------------------------------------------------------------- */
-
-function ClassroomCoverSection({ asset }: { asset: GeneratedAsset }) {
-  const c = asset.content as CoverContent;
-  const variant = c.variants[0];
-  if (!variant) return null;
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Classroom Cover</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-2">
-        <div className="overflow-hidden rounded-md border">
-          <Image
-            src={variant.url}
-            alt="Classroom cover banner"
-            width={1456}
-            height={816}
-            className="h-auto w-full"
-          />
-        </div>
-        <DownloadButton
-          url={variant.url}
-          filename="classroom-cover.png"
-          label="Download classroom cover"
-        />
-        <p className="text-xs text-muted-foreground">
-          Upload to Skool &gt; Classroom &gt; Settings (cover image).
-        </p>
-      </CardContent>
-    </Card>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/* Section: Calendar Cover (single banner image)                              */
-/* -------------------------------------------------------------------------- */
-
-function CalendarCoverSection({ asset }: { asset: GeneratedAsset }) {
-  const c = asset.content as CoverContent;
-  const variant = c.variants[0];
-  if (!variant) return null;
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Calendar Cover</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-2">
-        <div className="overflow-hidden rounded-md border">
-          <Image
-            src={variant.url}
-            alt="Calendar cover banner"
-            width={1456}
-            height={816}
-            className="h-auto w-full"
-          />
-        </div>
-        <DownloadButton
-          url={variant.url}
-          filename="calendar-cover.png"
-          label="Download calendar cover"
-        />
-        <p className="text-xs text-muted-foreground">
-          Upload to Skool &gt; Calendar &gt; Settings (cover image).
-        </p>
-      </CardContent>
-    </Card>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/* Deployment checklist                                                        */
+/* Image module sections (cover, icon, classroom_cover, calendar_cover) were  */
+/* removed in chore/remove-image-generation. VAs handle community visuals     */
+/* externally in Canva using client photography. Old packages with image-    */
+/* module assets in the DB are intentionally orphaned — the registry no       */
+/* longer surfaces them so the export view simply ignores them.               */
 /* -------------------------------------------------------------------------- */
 
 /* -------------------------------------------------------------------------- */
-/* Section: Classroom (title + description)                                   */
+/* Section: Classroom (list of title + description items)                     */
 /* -------------------------------------------------------------------------- */
 
 type TitleDescriptionContent = { title: string; description: string };
+type ClassroomExportContent = { items: TitleDescriptionContent[] };
 
 export function ClassroomSection({ asset }: { asset: GeneratedAsset }) {
-  const c = asset.content as TitleDescriptionContent;
+  const c = asset.content as ClassroomExportContent;
   return (
     <Card>
       <CardHeader>
         <CardTitle>Classroom</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-2">
-        <div className="space-y-1 rounded-md border p-3">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">
-              Title
-            </p>
-            <CopyButton text={c.title} label="Copy title" />
+      <CardContent className="space-y-3">
+        {c.items.map((item, i) => (
+          <div key={i} className="space-y-2 rounded-md border p-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                Classroom {i + 1}
+              </p>
+              <CopyButton text={item.title} label="Copy title" />
+            </div>
+            <p className="font-semibold">{item.title}</p>
+            <div className="flex items-center justify-between gap-2 pt-1">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                Description
+              </p>
+              <CopyButton text={item.description} label="Copy description" />
+            </div>
+            <p className="whitespace-pre-wrap text-sm">{item.description}</p>
           </div>
-          <p className="font-semibold">{c.title}</p>
-        </div>
-        <div className="space-y-1 rounded-md border p-3">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">
-              Description
-            </p>
-            <CopyButton text={c.description} label="Copy description" />
-          </div>
-          <p className="whitespace-pre-wrap text-sm">{c.description}</p>
-        </div>
+        ))}
         <p className="text-xs text-muted-foreground">
-          Paste these into Skool &gt; Classroom &gt; Settings (separate fields).
+          Paste each title + description into Skool &gt; Classroom &gt; the
+          matching course.
         </p>
       </CardContent>
     </Card>
@@ -571,37 +340,60 @@ export function ClassroomSection({ asset }: { asset: GeneratedAsset }) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Section: Calendar (title + description)                                    */
+/* Section: Calendar (events with weekly / one-off schedule)                  */
 /* -------------------------------------------------------------------------- */
 
+type CalendarEventsContent = { events: CalendarEvent[] };
+
 export function CalendarSection({ asset }: { asset: GeneratedAsset }) {
-  const c = asset.content as TitleDescriptionContent;
+  const c = asset.content as CalendarEventsContent;
   return (
     <Card>
       <CardHeader>
         <CardTitle>Calendar</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-2">
-        <div className="space-y-1 rounded-md border p-3">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">
-              Title
-            </p>
-            <CopyButton text={c.title} label="Copy title" />
-          </div>
-          <p className="font-semibold">{c.title}</p>
-        </div>
-        <div className="space-y-1 rounded-md border p-3">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">
-              Description
-            </p>
-            <CopyButton text={c.description} label="Copy description" />
-          </div>
-          <p className="whitespace-pre-wrap text-sm">{c.description}</p>
-        </div>
+      <CardContent className="space-y-3">
+        {c.events.map((event, i) => {
+          const scheduleText = formatSchedule(event.schedule);
+          return (
+            <div key={i} className="space-y-2 rounded-md border p-3">
+              <div className="space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Title
+                  </p>
+                  <CopyButton text={event.title} label="Copy title" />
+                </div>
+                <p className="font-semibold">{event.title}</p>
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Schedule
+                  </p>
+                  <CopyButton text={scheduleText} label="Copy schedule" />
+                </div>
+                <p className="text-sm">{scheduleText}</p>
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Description
+                  </p>
+                  <CopyButton
+                    text={event.description}
+                    label="Copy description"
+                  />
+                </div>
+                <p className="whitespace-pre-wrap text-sm">
+                  {event.description}
+                </p>
+              </div>
+            </div>
+          );
+        })}
         <p className="text-xs text-muted-foreground">
-          Paste these into Skool &gt; Calendar &gt; Settings (separate fields).
+          Paste each event into Skool &gt; Calendar &gt; New Event.
         </p>
       </CardContent>
     </Card>
@@ -649,7 +441,7 @@ function LeaderboardSection({ asset }: { asset: GeneratedAsset }) {
 /* -------------------------------------------------------------------------- */
 
 type CategoriesContent = {
-  categories: { name: string; description: string }[];
+  categories: string[];
 };
 
 function CategoriesSection({ asset }: { asset: GeneratedAsset }) {
@@ -660,7 +452,7 @@ function CategoriesSection({ asset }: { asset: GeneratedAsset }) {
         <CardTitle>Categories</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        {c.categories.map((cat, i) => (
+        {c.categories.map((name, i) => (
           <div
             key={i}
             className="flex items-start gap-3 rounded-md border p-3"
@@ -668,15 +460,12 @@ function CategoriesSection({ asset }: { asset: GeneratedAsset }) {
             <span className="mt-0.5 font-mono text-xs text-muted-foreground">
               {i + 1}.
             </span>
-            <div className="flex-1 space-y-0.5">
-              <p className="font-semibold">{cat.name}</p>
-              <p className="text-xs text-muted-foreground">{cat.description}</p>
-            </div>
-            <CopyButton text={`${cat.name}\n${cat.description}`} />
+            <p className="flex-1 font-semibold">{name}</p>
+            <CopyButton text={name} />
           </div>
         ))}
         <p className="text-xs text-muted-foreground">
-          Paste these into Skool &gt; Community &gt; Categories.
+          Paste each name into Skool &gt; Community &gt; Categories.
         </p>
       </CardContent>
     </Card>
@@ -716,15 +505,13 @@ function DiscoverySeoSection({ asset }: { asset: GeneratedAsset }) {
 
 const CHECKLIST_ITEMS = [
   "Created Skool community",
-  "Uploaded cover image",
-  "Uploaded community icon",
   "Set community description (transformation line)",
   "Pasted About Us page",
   'Created "Start Here" course with 4 lessons',
   "Configured welcome message automation",
   "Set pricing per the proposal",
-  "Named Classroom + Calendar areas",
-  "Uploaded Classroom + Calendar cover images",
+  "Named Classroom area",
+  "Created Calendar events",
   "Renamed leaderboard levels",
   "Created the 3 community categories",
   "Pasted Discovery search keywords",
@@ -815,19 +602,16 @@ export function ExportView({ package: pkg, creator, assets }: ExportViewProps) {
   const m = Object.fromEntries(
     MODULE_KEYS.map((k) => [k, byModule.get(k)]),
   ) as Record<ModuleKey, GeneratedAsset | undefined>;
-  const cover = m.cover;
-  const icon = m.icon;
   const welcomeDm = m.welcome_dm;
   const transformation = m.transformation;
   const aboutUs = m.about_us;
   const startHere = m.start_here;
+  const firstPost = m.first_post;
   const classroom = m.classroom;
   const calendar = m.calendar;
   const leaderboard = m.leaderboard;
   const categories = m.categories;
   const discoverySeo = m.discovery_seo;
-  const classroomCover = m.classroom_cover;
-  const calendarCover = m.calendar_cover;
 
   return (
     <div className="space-y-6">
@@ -847,34 +631,51 @@ export function ExportView({ package: pkg, creator, assets }: ExportViewProps) {
             {creator.name} — {creator.communityName}
           </p>
         </div>
-        <Button
-          onClick={() => deployMutation.mutate()}
-          disabled={!allChecked || isDeployed || deployMutation.isPending}
-        >
-          {deployMutation.isPending && (
-            <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-          )}
-          {isDeployed
-            ? "Deployed"
-            : deployMutation.isPending
-              ? "Deploying…"
-              : "Mark as deployed"}
-        </Button>
+        <div className="flex items-center gap-2">
+          <a
+            href={`/packages/${pkg.id}/images`}
+            className={cn(buttonVariants({ variant: "outline" }))}
+          >
+            Images
+          </a>
+          <a
+            href={`/api/packages/${pkg.id}/export/document`}
+            download
+            className={cn(buttonVariants({ variant: "outline" }))}
+          >
+            <Download className="mr-1.5 h-4 w-4" />
+            Download .md
+          </a>
+          <Button
+            onClick={() => deployMutation.mutate()}
+            disabled={!allChecked || isDeployed || deployMutation.isPending}
+          >
+            {deployMutation.isPending && (
+              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+            )}
+            {isDeployed
+              ? "Deployed"
+              : deployMutation.isPending
+                ? "Deploying…"
+                : allChecked
+                  ? "Deploy Package"
+                  : "In Review"}
+          </Button>
+        </div>
       </header>
 
       {welcomeDm && <WelcomeDmSection asset={welcomeDm} />}
       {transformation && <TransformationSection asset={transformation} />}
       {aboutUs && <AboutUsSection asset={aboutUs} />}
       {startHere && <StartHereSection asset={startHere} />}
-      {cover && <CoverSection asset={cover} />}
-      {icon && <IconSection asset={icon} />}
+      {firstPost && <FirstPostSection asset={firstPost} />}
       {classroom && <ClassroomSection asset={classroom} />}
-      {classroomCover && <ClassroomCoverSection asset={classroomCover} />}
       {calendar && <CalendarSection asset={calendar} />}
-      {calendarCover && <CalendarCoverSection asset={calendarCover} />}
       {leaderboard && <LeaderboardSection asset={leaderboard} />}
       {categories && <CategoriesSection asset={categories} />}
       {discoverySeo && <DiscoverySeoSection asset={discoverySeo} />}
+
+      <HandoverSection packageId={pkg.id} />
 
       <DeploymentChecklist
         checked={checked}
@@ -886,6 +687,32 @@ export function ExportView({ package: pkg, creator, assets }: ExportViewProps) {
           })
         }
       />
+
+      <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-muted-foreground">
+          {isDeployed
+            ? "This package has been marked as deployed."
+            : allChecked
+              ? "All checklist items complete — ready to deploy."
+              : "Finish every checklist item above to enable deployment."}
+        </p>
+        <Button
+          onClick={() => deployMutation.mutate()}
+          disabled={!allChecked || isDeployed || deployMutation.isPending}
+          size="lg"
+        >
+          {deployMutation.isPending && (
+            <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+          )}
+          {isDeployed
+            ? "Deployed"
+            : deployMutation.isPending
+              ? "Deploying…"
+              : allChecked
+                ? "Deploy Package"
+                : "In Review"}
+        </Button>
+      </div>
     </div>
   );
 }

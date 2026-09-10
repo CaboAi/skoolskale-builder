@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -24,6 +24,14 @@ const ModuleParam = z.enum(MODULE_KEYS);
 const RegenerateSchema = z
   .object({
     note: z.string().max(1000).optional(),
+    /**
+     * When present, the Inngest function uses this string verbatim as
+     * the prompt and skips the builder entirely. Powers the
+     * "Regenerate with edited prompt" affordance on each module card
+     * (Phase 2). 10000 chars is generous — full About Us / Start Here
+     * user messages run ~3-5k.
+     */
+    editedPrompt: z.string().max(10000).optional(),
   })
   .default({});
 
@@ -62,16 +70,11 @@ export async function POST(req: NextRequest, { params }: RouteCtx) {
     throw err;
   }
 
-  // Own-row check — superuser DB connection bypasses RLS, so enforce here.
+  // Existence check — workspace-wide; any VA can regenerate any module.
   const [pkg] = await db
     .select({ id: launchPackages.id })
     .from(launchPackages)
-    .where(
-      and(
-        eq(launchPackages.id, idR.data),
-        eq(launchPackages.createdBy, user.id),
-      ),
-    )
+    .where(eq(launchPackages.id, idR.data))
     .limit(1);
   if (!pkg) {
     return NextResponse.json<ApiError>(
@@ -86,6 +89,7 @@ export async function POST(req: NextRequest, { params }: RouteCtx) {
       packageId: idR.data,
       userId: user.id,
       regenerateNote: body.note,
+      editedPrompt: body.editedPrompt,
     },
   });
 
@@ -94,7 +98,11 @@ export async function POST(req: NextRequest, { params }: RouteCtx) {
     `module.regenerate.${modR.data}`,
     "package",
     idR.data,
-    { module: modR.data, note: body.note },
+    {
+      module: modR.data,
+      note: body.note,
+      editedPrompt: body.editedPrompt ? true : undefined,
+    },
   );
 
   return NextResponse.json(

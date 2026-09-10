@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { and, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { requireUser } from '@/lib/auth';
 import { db } from '@/lib/db';
@@ -32,11 +32,12 @@ export async function POST(req: NextRequest) {
     throw err;
   }
 
-  // Verify creator belongs to the user before creating a package for it.
+  // Workspace-wide: any VA can attach a package to any creator. The creator
+  // just needs to exist.
   const [creator] = await db
     .select({ id: creators.id })
     .from(creators)
-    .where(and(eq(creators.id, body.creator_id), eq(creators.createdBy, user.id)))
+    .where(eq(creators.id, body.creator_id))
     .limit(1);
   if (!creator) {
     return NextResponse.json<ApiError>(

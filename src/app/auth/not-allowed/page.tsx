@@ -12,12 +12,12 @@ import {
 
 export default function NotAllowedPage() {
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-muted/30 p-4">
+    <main className="flex flex-1 items-center justify-center bg-muted/30 p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>Access not authorized</CardTitle>
           <CardDescription>
-            Your email isn&rsquo;t on the Skool Skale team allowlist.
+            Your email isn&rsquo;t on the preSkool team allowlist.
           </CardDescription>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">

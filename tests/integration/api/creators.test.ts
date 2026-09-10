@@ -12,30 +12,57 @@
 import { describe, expect, test, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 
+// Static route imports — see tests/integration/api/regenerate.test.ts
+// for rationale. Cold-load shifts to file boot (10s hookTimeout) instead
+// of per-test (5s testTimeout). vi.mock above is hoisted by vitest's AST
+// transform so the routes see the mocked deps.
+import { POST, GET as GET_CREATORS } from '@/app/api/creators/route';
+import {
+  GET as GET_CREATOR_BY_ID,
+  PATCH,
+} from '@/app/api/creators/[id]/route';
+
 const fakeUser = { id: '00000000-0000-0000-0000-000000000001', email: 't@e.com' };
 
 // ---- Mocks ----
+//
+// All factory-captured state hoisted per-file. See CLAUDE.md
+// § "Mocking conventions". Spies are hoisted too — every test that
+// asserts against logAudit re-imports it via `await import('@/lib/audit')`
+// and the hoisted ref is what the dynamic import resolves to.
+const { dbState, requireUserMock, requireAdminMock, isAllowedEmailMock, logAuditMock } =
+  vi.hoisted(() => ({
+    dbState: {
+      insertReturning: [] as unknown[],
+      selectRows: [] as unknown[],
+      updateReturning: [] as unknown[],
+      lastInsertValues: undefined as unknown,
+      lastUpdateSet: undefined as unknown,
+    },
+    requireUserMock: vi.fn(async () => ({
+      id: '00000000-0000-0000-0000-000000000001',
+      email: 't@e.com',
+    })),
+    requireAdminMock: vi.fn(async () => ({
+      id: '00000000-0000-0000-0000-000000000001',
+      email: 't@e.com',
+    })),
+    isAllowedEmailMock: vi.fn(() => true),
+    logAuditMock: vi.fn(async () => undefined),
+  }));
 
 vi.mock('@/lib/auth', () => ({
-  requireUser: vi.fn(async () => fakeUser),
-  requireAdmin: vi.fn(async () => fakeUser),
-  isAllowedEmail: vi.fn(() => true),
+  requireUser: requireUserMock,
+  requireAdmin: requireAdminMock,
+  isAllowedEmail: isAllowedEmailMock,
 }));
 
 vi.mock('@/lib/audit', () => ({
-  logAudit: vi.fn(async () => undefined),
+  logAudit: logAuditMock,
 }));
 
-const dbState = {
-  insertReturning: [] as unknown[],
-  selectRows: [] as unknown[],
-  updateReturning: [] as unknown[],
-  lastInsertValues: undefined as unknown,
-  lastUpdateSet: undefined as unknown,
-};
-
-vi.mock('@/lib/db', () => {
-  const db = {
+vi.mock('@/lib/db', () => ({
+  db: {
     insert: () => ({
       values: (v: unknown) => {
         dbState.lastInsertValues = v;
@@ -63,9 +90,8 @@ vi.mock('@/lib/db', () => {
         };
       },
     }),
-  };
-  return { db };
-});
+  },
+}));
 
 // ---- Test helpers ----
 
@@ -77,18 +103,14 @@ const VALID_CREATOR = {
   transformation: 'Reclaim your power',
   tone: 'warm',
   offer_breakdown: {
-    courses: [{ name: 'Foundations' }],
-    live_calls: 'weekly',
     perks: ['private podcast'],
-    events: [],
     guest_sessions: false,
   },
-  pricing: { monthly: 47, annual: 470, tiers: [] },
+  pricing: { monthly: 47, annual: 470, additional_tiers: [] },
   trial_terms: { has_trial: true, duration_days: 7 },
   refund_policy: '14 days, no questions',
   support_contact: 'support@alchemy.co',
   brand_prefs: 'soft gold + deep teal',
-  creator_photo_url: 'https://cdn.example.com/jane.jpg',
 };
 
 function jsonRequest(url: string, method: string, body?: unknown) {
@@ -115,9 +137,6 @@ describe('POST /api/creators', () => {
     const inserted = { id: 'c-1', name: VALID_CREATOR.name, created_by: fakeUser.id };
     dbState.insertReturning = [inserted];
 
-    const { POST } = await import('@/app/api/creators/route');
-    const { logAudit } = await import('@/lib/audit');
-
     const res = await POST(
       jsonRequest('http://test/api/creators', 'POST', VALID_CREATOR),
     );
@@ -133,7 +152,7 @@ describe('POST /api/creators', () => {
       supportContact: VALID_CREATOR.support_contact,
       createdBy: fakeUser.id,
     });
-    expect(logAudit).toHaveBeenCalledWith(
+    expect(logAuditMock).toHaveBeenCalledWith(
       fakeUser.id,
       'creator.create',
       'creator',
@@ -143,7 +162,6 @@ describe('POST /api/creators', () => {
   });
 
   test('returns 400 with validation_failed on missing required field', async () => {
-    const { POST } = await import('@/app/api/creators/route');
     const bad = { ...VALID_CREATOR, name: '' };
 
     const res = await POST(
@@ -164,8 +182,7 @@ describe('GET /api/creators', () => {
       { id: 'c-1', name: 'Older', created_by: fakeUser.id },
     ];
 
-    const { GET } = await import('@/app/api/creators/route');
-    const res = await GET();
+    const res = await GET_CREATORS();
     const body = await res.json();
 
     expect(res.status).toBe(200);
@@ -179,8 +196,7 @@ describe('GET /api/creators/[id]', () => {
     const uuid = '550e8400-e29b-41d4-a716-446655440000';
     dbState.selectRows = [{ id: uuid, name: 'Jane', created_by: fakeUser.id }];
 
-    const { GET } = await import('@/app/api/creators/[id]/route');
-    const res = await GET(jsonRequest(`http://test/api/creators/${uuid}`, 'GET'), {
+    const res = await GET_CREATOR_BY_ID(jsonRequest(`http://test/api/creators/${uuid}`, 'GET'), {
       params: Promise.resolve({ id: uuid }),
     });
     const body = await res.json();
@@ -193,8 +209,7 @@ describe('GET /api/creators/[id]', () => {
     const uuid = '550e8400-e29b-41d4-a716-446655440000';
     dbState.selectRows = [];
 
-    const { GET } = await import('@/app/api/creators/[id]/route');
-    const res = await GET(jsonRequest(`http://test/api/creators/${uuid}`, 'GET'), {
+    const res = await GET_CREATOR_BY_ID(jsonRequest(`http://test/api/creators/${uuid}`, 'GET'), {
       params: Promise.resolve({ id: uuid }),
     });
 
@@ -203,8 +218,7 @@ describe('GET /api/creators/[id]', () => {
   });
 
   test('returns 400 on non-uuid id', async () => {
-    const { GET } = await import('@/app/api/creators/[id]/route');
-    const res = await GET(jsonRequest('http://test/api/creators/not-a-uuid', 'GET'), {
+    const res = await GET_CREATOR_BY_ID(jsonRequest('http://test/api/creators/not-a-uuid', 'GET'), {
       params: Promise.resolve({ id: 'not-a-uuid' }),
     });
     expect(res.status).toBe(400);
@@ -220,9 +234,6 @@ describe('PATCH /api/creators/[id]', () => {
 
     const patch = { name: 'Renamed', community_name: 'NewCo' };
 
-    const { PATCH } = await import('@/app/api/creators/[id]/route');
-    const { logAudit } = await import('@/lib/audit');
-
     const res = await PATCH(
       jsonRequest(`http://test/api/creators/${uuid}`, 'PATCH', patch),
       { params: Promise.resolve({ id: uuid }) },
@@ -235,7 +246,7 @@ describe('PATCH /api/creators/[id]', () => {
       name: 'Renamed',
       communityName: 'NewCo',
     });
-    expect(logAudit).toHaveBeenCalledWith(
+    expect(logAuditMock).toHaveBeenCalledWith(
       fakeUser.id,
       'creator.update',
       'creator',
@@ -247,9 +258,128 @@ describe('PATCH /api/creators/[id]', () => {
   test('rejects empty patch body', async () => {
     const uuid = '550e8400-e29b-41d4-a716-446655440000';
 
-    const { PATCH } = await import('@/app/api/creators/[id]/route');
     const res = await PATCH(
       jsonRequest(`http://test/api/creators/${uuid}`, 'PATCH', {}),
+      { params: Promise.resolve({ id: uuid }) },
+    );
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).code).toBe('validation_failed');
+  });
+
+  // The wizard autosaves getValues() every 30s, which on Steps 1-4
+  // includes empty-string defaults for fields the user hasn't filled
+  // yet (audience, transformation, brand_prefs, ...). Pre-fix those
+  // tripped CreatorIntakeSchema's .min(1) constraints inside
+  // .partial() and the PATCH 400'd with "Invalid request body". The
+  // schema now preprocesses out empty strings before validation, so
+  // the request succeeds as long as at least one non-empty field
+  // survives the strip.
+  test('strips empty-string fields before validation (wizard autosave)', async () => {
+    const uuid = '550e8400-e29b-41d4-a716-446655440000';
+    dbState.selectRows = [{ id: uuid, created_by: fakeUser.id }];
+    dbState.updateReturning = [{ id: uuid, name: 'Jane' }];
+
+    // What the autosave snapshot looks like just after Step 1 finished:
+    // name + community_name + niche + support_contact are real,
+    // everything else is the RHF empty-string default.
+    const autosavePayload = {
+      name: 'Jane',
+      community_name: 'Alchemy',
+      niche: 'spiritual',
+      audience: '',
+      transformation: '',
+      support_contact: 'jane@example.com',
+      refund_policy: '',
+      brand_prefs: '',
+    };
+
+    const res = await PATCH(
+      jsonRequest(`http://test/api/creators/${uuid}`, 'PATCH', autosavePayload),
+      { params: Promise.resolve({ id: uuid }) },
+    );
+
+    expect(res.status).toBe(200);
+    const updateSet = dbState.lastUpdateSet as Record<string, unknown>;
+    expect(updateSet).toMatchObject({
+      name: 'Jane',
+      communityName: 'Alchemy',
+      supportContact: 'jane@example.com',
+    });
+    // Empty-string fields must not have been written through.
+    expect(updateSet.audience).toBeUndefined();
+    expect(updateSet.transformation).toBeUndefined();
+    expect(updateSet.brandPrefs).toBeUndefined();
+    expect(updateSet.refundPolicy).toBeUndefined();
+  });
+
+  test('rejects patch body that is all empty strings', async () => {
+    const uuid = '550e8400-e29b-41d4-a716-446655440000';
+
+    const res = await PATCH(
+      jsonRequest(`http://test/api/creators/${uuid}`, 'PATCH', {
+        name: '',
+        audience: '',
+      }),
+      { params: Promise.resolve({ id: uuid }) },
+    );
+
+    // After stripping, the cleaned object is {} — refine() rejects.
+    expect(res.status).toBe(400);
+    expect((await res.json()).code).toBe('validation_failed');
+  });
+
+  // Regression: the wizard's Step 5 seed values are `classroom_titles: [""]`
+  // and `calendar_intake.events[0].title: ""` — empty strings INSIDE arrays
+  // that survive the top-level strip. Before the schema split they tripped
+  // the strict .min(1) constraints and the autosave 400'd with "Invalid
+  // request body" on every tick of Steps 1-4.
+  test('accepts the wizard seed-shaped autosave payload (classroom_titles: [""] etc.)', async () => {
+    const uuid = '550e8400-e29b-41d4-a716-446655440000';
+    dbState.selectRows = [{ id: uuid, created_by: fakeUser.id }];
+    dbState.updateReturning = [{ id: uuid, name: 'Jane' }];
+
+    const seedAutosave = {
+      name: 'Jane',
+      community_name: 'Sanctuary',
+      niche: 'spiritual',
+      support_contact: 'jane@example.com',
+      classroom_titles: [''],
+      calendar_intake: {
+        events: [
+          {
+            title: '',
+            schedule: {
+              type: 'weekly',
+              dayOfWeek: 'mon',
+              time: '09:00',
+              timezone: 'America/New_York',
+            },
+          },
+        ],
+      },
+    };
+
+    const res = await PATCH(
+      jsonRequest(`http://test/api/creators/${uuid}`, 'PATCH', seedAutosave),
+      { params: Promise.resolve({ id: uuid }) },
+    );
+
+    expect(res.status).toBe(200);
+    const updateSet = dbState.lastUpdateSet as Record<string, unknown>;
+    // The seeded fields persist through to the DB write — we DON'T strip
+    // empty inner strings, we just don't reject them. Submit will catch
+    // the real problem when the user clicks "Create launch package".
+    expect(updateSet.classroomIntake).toEqual(['']);
+  });
+
+  test('rejects a type mismatch in the autosave payload (string where number expected)', async () => {
+    const uuid = '550e8400-e29b-41d4-a716-446655440000';
+
+    const res = await PATCH(
+      jsonRequest(`http://test/api/creators/${uuid}`, 'PATCH', {
+        pricing: { monthly: 'twenty' },
+      }),
       { params: Promise.resolve({ id: uuid }) },
     );
 

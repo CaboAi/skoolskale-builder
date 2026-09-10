@@ -55,6 +55,8 @@ export const moduleEnum = pgEnum('module', [
   // PR #7 image companions for the add-on text modules above.
   'classroom_cover',
   'calendar_cover',
+  // PR #41 — pinned welcome post on the community's main feed.
+  'first_post',
 ]);
 
 export const launchPackageStatusEnum = pgEnum('launch_package_status', [
@@ -72,6 +74,48 @@ export const generationJobStatusEnum = pgEnum('generation_job_status', [
   'done',
   'failed',
   'cancelled',
+]);
+
+// Handover deliverables are deliberately NOT module enum values: they'd leak
+// into REQUIRED_FOR_EXPORT gating, module API route validation, and dashboard
+// ordering. Keys mirror src/prompts/handover/deliverables.ts.
+export const handoverDocKeyEnum = pgEnum('handover_doc_key', [
+  'readme', // 00-README.md — deterministic, no Claude call
+  'vsl_and_cancellation', // 01
+  'pre_launch_emails', // 02
+  'post_launch_emails', // 03
+  'docuseries_full_script', // 04
+  'dm_sequences', // 05
+]);
+
+// ---------- Images phase enums ----------
+//
+// Image slots are deliberately NOT module enum values, for the same reason
+// handover doc keys aren't: they'd leak into REQUIRED_FOR_EXPORT gating,
+// module route validation, and dashboard ordering. The legacy image values
+// still sitting in `module` ('cover', 'icon', 'classroom_cover', ...) are
+// pre-#39 orphans and are unrelated to these.
+export const imageSlotKindEnum = pgEnum('image_slot_kind', [
+  'icon',
+  'classroom_cover',
+  'calendar_cover',
+  'about_us',
+  'start_here_thumb',
+  'join_now_banner',
+]);
+
+export const imageReferenceKindEnum = pgEnum('image_reference_kind', [
+  'headshot',
+  'brand_kit',
+]);
+
+// How a pinned style spec came to be. 'fallback' means the model output
+// failed schema validation and the deterministic niche/tone base was kept —
+// recorded rather than silently swallowed.
+export const imageStyleSpecSourceEnum = pgEnum('image_style_spec_source', [
+  'generated',
+  'edited',
+  'fallback',
 ]);
 
 // ---------- RLS shorthand ----------
@@ -106,7 +150,15 @@ export const creators = pgTable(
     refundPolicy: text('refund_policy'),
     supportContact: text('support_contact'),
     brandPrefs: text('brand_prefs'),
+    // Orphan columns after chore/remove-creator-photo-upload. Photo upload
+    // existed as the Gemini reference image for cover generation; with
+    // image generation removed (PR #39) and the upload UI removed in this
+    // PR, no code writes or reads these. Columns kept (not dropped) to
+    // preserve any historical data — same pattern as `gemini_image_usage`
+    // in generation_jobs. Dropping requires a migration that's only
+    // reversible via backup restore; ops decision for later.
     creatorPhotoUrl: text('creator_photo_url'),
+    creatorPhotoPath: text('creator_photo_path'),
     // Add-on intake (PR #4) — nullable so the Step 1 POST flow doesn't have
     // to backfill. Step 5 PATCHes these in. Stored as jsonb / text[] mirrors
     // of the Zod schemas in src/types/schemas.ts.
@@ -127,26 +179,31 @@ export const creators = pgTable(
   (t) => [
     index('creators_created_by_idx').on(t.createdBy),
     index('creators_niche_idx').on(t.niche),
-    pgPolicy('creators_select_own_or_admin', {
+    // Workspace-wide reads + writes — any authenticated VA can act on any
+    // package family record. INSERT still requires `created_by = auth.uid()`
+    // so the audit trail stays accurate. The Drizzle `db` connects via the
+    // service-role DATABASE_URL and bypasses these policies anyway; these
+    // are the boundary for any future Supabase JS client callers.
+    pgPolicy('creators_select_authed', {
       for: 'select',
       to: 'authenticated',
-      using: ownerOrAdmin('created_by'),
+      using: sql.raw('true'),
     }),
-    pgPolicy('creators_insert_own_or_admin', {
+    pgPolicy('creators_insert_self_or_admin', {
       for: 'insert',
       to: 'authenticated',
       withCheck: ownerOrAdmin('created_by'),
     }),
-    pgPolicy('creators_update_own_or_admin', {
+    pgPolicy('creators_update_authed', {
       for: 'update',
       to: 'authenticated',
-      using: ownerOrAdmin('created_by'),
-      withCheck: ownerOrAdmin('created_by'),
+      using: sql.raw('true'),
+      withCheck: sql.raw('true'),
     }),
-    pgPolicy('creators_delete_own_or_admin', {
+    pgPolicy('creators_delete_authed', {
       for: 'delete',
       to: 'authenticated',
-      using: ownerOrAdmin('created_by'),
+      using: sql.raw('true'),
     }),
   ],
 ).enableRLS();
@@ -177,26 +234,27 @@ export const launchPackages = pgTable(
     index('launch_packages_creator_id_idx').on(t.creatorId),
     index('launch_packages_created_by_idx').on(t.createdBy),
     index('launch_packages_status_idx').on(t.status),
-    pgPolicy('launch_packages_select_own_or_admin', {
+    // See creators block above for the rationale on workspace-wide policies.
+    pgPolicy('launch_packages_select_authed', {
       for: 'select',
       to: 'authenticated',
-      using: ownerOrAdmin('created_by'),
+      using: sql.raw('true'),
     }),
-    pgPolicy('launch_packages_insert_own_or_admin', {
+    pgPolicy('launch_packages_insert_self_or_admin', {
       for: 'insert',
       to: 'authenticated',
       withCheck: ownerOrAdmin('created_by'),
     }),
-    pgPolicy('launch_packages_update_own_or_admin', {
+    pgPolicy('launch_packages_update_authed', {
       for: 'update',
       to: 'authenticated',
-      using: ownerOrAdmin('created_by'),
-      withCheck: ownerOrAdmin('created_by'),
+      using: sql.raw('true'),
+      withCheck: sql.raw('true'),
     }),
-    pgPolicy('launch_packages_delete_own_or_admin', {
+    pgPolicy('launch_packages_delete_authed', {
       for: 'delete',
       to: 'authenticated',
-      using: ownerOrAdmin('created_by'),
+      using: sql.raw('true'),
     }),
   ],
 ).enableRLS();
@@ -231,26 +289,26 @@ export const generatedAssets = pgTable(
     index('generated_assets_package_id_idx').on(t.packageId),
     index('generated_assets_module_idx').on(t.module),
     index('generated_assets_created_by_idx').on(t.createdBy),
-    pgPolicy('generated_assets_select_own_or_admin', {
+    pgPolicy('generated_assets_select_authed', {
       for: 'select',
       to: 'authenticated',
-      using: ownerOrAdmin('created_by'),
+      using: sql.raw('true'),
     }),
-    pgPolicy('generated_assets_insert_own_or_admin', {
+    pgPolicy('generated_assets_insert_self_or_admin', {
       for: 'insert',
       to: 'authenticated',
       withCheck: ownerOrAdmin('created_by'),
     }),
-    pgPolicy('generated_assets_update_own_or_admin', {
+    pgPolicy('generated_assets_update_authed', {
       for: 'update',
       to: 'authenticated',
-      using: ownerOrAdmin('created_by'),
-      withCheck: ownerOrAdmin('created_by'),
+      using: sql.raw('true'),
+      withCheck: sql.raw('true'),
     }),
-    pgPolicy('generated_assets_delete_own_or_admin', {
+    pgPolicy('generated_assets_delete_authed', {
       for: 'delete',
       to: 'authenticated',
-      using: ownerOrAdmin('created_by'),
+      using: sql.raw('true'),
     }),
   ],
 ).enableRLS();
@@ -283,26 +341,371 @@ export const generationJobs = pgTable(
     index('generation_jobs_package_id_idx').on(t.packageId),
     index('generation_jobs_status_idx').on(t.status),
     index('generation_jobs_inngest_run_id_idx').on(t.inngestRunId),
-    pgPolicy('generation_jobs_select_own_or_admin', {
+    pgPolicy('generation_jobs_select_authed', {
       for: 'select',
       to: 'authenticated',
-      using: ownerOrAdmin('created_by'),
+      using: sql.raw('true'),
     }),
-    pgPolicy('generation_jobs_insert_own_or_admin', {
+    pgPolicy('generation_jobs_insert_self_or_admin', {
       for: 'insert',
       to: 'authenticated',
       withCheck: ownerOrAdmin('created_by'),
     }),
-    pgPolicy('generation_jobs_update_own_or_admin', {
+    pgPolicy('generation_jobs_update_authed', {
       for: 'update',
       to: 'authenticated',
-      using: ownerOrAdmin('created_by'),
-      withCheck: ownerOrAdmin('created_by'),
+      using: sql.raw('true'),
+      withCheck: sql.raw('true'),
     }),
-    pgPolicy('generation_jobs_delete_own_or_admin', {
+    pgPolicy('generation_jobs_delete_authed', {
       for: 'delete',
       to: 'authenticated',
-      using: ownerOrAdmin('created_by'),
+      using: sql.raw('true'),
+    }),
+  ],
+).enableRLS();
+
+// ---------- handover_runs ----------
+// One row per handover generation attempt for a package. The UI polls this
+// row; per-doc progress is derived from handover_documents rows so parallel
+// Inngest steps never contend on a shared jsonb column.
+
+export const handoverRuns = pgTable(
+  'handover_runs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    packageId: uuid('package_id')
+      .notNull()
+      .references(() => launchPackages.id, { onDelete: 'cascade' }),
+    status: generationJobStatusEnum('status').notNull().default('queued'),
+    // Guest launch emails require the VA's explicit confirmation (the DFY
+    // recurring-defect rule) — guest_sessions=true alone never enables them.
+    includeGuestEmails: boolean('include_guest_emails').notNull().default(false),
+    inngestRunId: text('inngest_run_id'),
+    // Aggregate: { model, inputTokens, outputTokens, cacheReadTokens,
+    //              cacheWriteTokens, costUsd, durationMs }
+    claudeUsage: jsonb('claude_usage'),
+    error: text('error'),
+    createdBy: uuid('created_by').notNull(),
+    startedAt: timestamp('started_at', { withTimezone: true }),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index('handover_runs_package_id_idx').on(t.packageId),
+    index('handover_runs_status_idx').on(t.status),
+    pgPolicy('handover_runs_select_authed', {
+      for: 'select',
+      to: 'authenticated',
+      using: sql.raw('true'),
+    }),
+    pgPolicy('handover_runs_insert_self_or_admin', {
+      for: 'insert',
+      to: 'authenticated',
+      withCheck: ownerOrAdmin('created_by'),
+    }),
+    pgPolicy('handover_runs_update_authed', {
+      for: 'update',
+      to: 'authenticated',
+      using: sql.raw('true'),
+      withCheck: sql.raw('true'),
+    }),
+    pgPolicy('handover_runs_delete_authed', {
+      for: 'delete',
+      to: 'authenticated',
+      using: sql.raw('true'),
+    }),
+  ],
+).enableRLS();
+
+// ---------- handover_documents ----------
+// One row per generated deliverable per run. packageId is denormalized so
+// "latest doc per docKey for a package" doesn't need a runs join. version is
+// per (packageId, docKey), mirroring generated_assets semantics.
+
+export const handoverDocuments = pgTable(
+  'handover_documents',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    runId: uuid('run_id')
+      .notNull()
+      .references(() => handoverRuns.id, { onDelete: 'cascade' }),
+    packageId: uuid('package_id')
+      .notNull()
+      .references(() => launchPackages.id, { onDelete: 'cascade' }),
+    docKey: handoverDocKeyEnum('doc_key').notNull(),
+    version: integer('version').notNull().default(1),
+    contentMd: text('content_md').notNull(),
+    // Bucket-relative path in handover-docs; null until the PDF render step.
+    pdfPath: text('pdf_path'),
+    wordCount: integer('word_count').notNull().default(0),
+    placeholderCount: integer('placeholder_count').notNull().default(0),
+    // Per-doc: { inputTokens, outputTokens, cacheReadTokens,
+    //            cacheWriteTokens, durationMs, costUsd }; null for readme.
+    claudeUsage: jsonb('claude_usage'),
+    createdBy: uuid('created_by').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index('handover_documents_run_id_idx').on(t.runId),
+    index('handover_documents_package_doc_idx').on(t.packageId, t.docKey),
+    pgPolicy('handover_documents_select_authed', {
+      for: 'select',
+      to: 'authenticated',
+      using: sql.raw('true'),
+    }),
+    pgPolicy('handover_documents_insert_self_or_admin', {
+      for: 'insert',
+      to: 'authenticated',
+      withCheck: ownerOrAdmin('created_by'),
+    }),
+    pgPolicy('handover_documents_update_authed', {
+      for: 'update',
+      to: 'authenticated',
+      using: sql.raw('true'),
+      withCheck: sql.raw('true'),
+    }),
+    pgPolicy('handover_documents_delete_authed', {
+      for: 'delete',
+      to: 'authenticated',
+      using: sql.raw('true'),
+    }),
+  ],
+).enableRLS();
+
+// ---------- image_style_specs ----------
+// The consistency contract for the images phase. One row per pinned art
+// direction, versioned per package. Every image records which spec produced
+// it, so "why does this cover not match?" is always answerable. Never
+// updated in place — a VA edit inserts a new version.
+
+export const imageStyleSpecs = pgTable(
+  'image_style_specs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    packageId: uuid('package_id')
+      .notNull()
+      .references(() => launchPackages.id, { onDelete: 'cascade' }),
+    version: integer('version').notNull().default(1),
+    // ImageStyleSpec (src/lib/images/style-spec.ts). Validated by Zod on the
+    // way in — both from the model (Structured Outputs) and from VA edits.
+    spec: jsonb('spec').notNull(),
+    source: imageStyleSpecSourceEnum('source').notNull(),
+    model: text('model'),
+    // { inputTokens, outputTokens, costUsd, durationMs }; null for VA edits.
+    usage: jsonb('usage'),
+    createdBy: uuid('created_by').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index('image_style_specs_package_version_idx').on(t.packageId, t.version),
+    pgPolicy('image_style_specs_select_authed', {
+      for: 'select',
+      to: 'authenticated',
+      using: sql.raw('true'),
+    }),
+    pgPolicy('image_style_specs_insert_self_or_admin', {
+      for: 'insert',
+      to: 'authenticated',
+      withCheck: ownerOrAdmin('created_by'),
+    }),
+    pgPolicy('image_style_specs_update_authed', {
+      for: 'update',
+      to: 'authenticated',
+      using: sql.raw('true'),
+      withCheck: sql.raw('true'),
+    }),
+    pgPolicy('image_style_specs_delete_authed', {
+      for: 'delete',
+      to: 'authenticated',
+      using: sql.raw('true'),
+    }),
+  ],
+).enableRLS();
+
+// ---------- image_references ----------
+// VA-uploaded reference images (creator headshot, brand kit). Latest row per
+// (package, kind) wins; replacing a reference inserts, never updates, so the
+// prompt archaeology stays intact.
+
+export const imageReferences = pgTable(
+  'image_references',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    packageId: uuid('package_id')
+      .notNull()
+      .references(() => launchPackages.id, { onDelete: 'cascade' }),
+    kind: imageReferenceKindEnum('kind').notNull(),
+    bucket: text('bucket').notNull(),
+    path: text('path').notNull(),
+    mime: text('mime').notNull(),
+    createdBy: uuid('created_by').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index('image_references_package_kind_idx').on(t.packageId, t.kind),
+    pgPolicy('image_references_select_authed', {
+      for: 'select',
+      to: 'authenticated',
+      using: sql.raw('true'),
+    }),
+    pgPolicy('image_references_insert_self_or_admin', {
+      for: 'insert',
+      to: 'authenticated',
+      withCheck: ownerOrAdmin('created_by'),
+    }),
+    pgPolicy('image_references_update_authed', {
+      for: 'update',
+      to: 'authenticated',
+      using: sql.raw('true'),
+      withCheck: sql.raw('true'),
+    }),
+    pgPolicy('image_references_delete_authed', {
+      for: 'delete',
+      to: 'authenticated',
+      using: sql.raw('true'),
+    }),
+  ],
+).enableRLS();
+
+// ---------- image_runs ----------
+// One row per generation attempt. `plannedSlotKeys` makes a full 12-slot run
+// and a single-slot regenerate the same row shape, so the UI gets N-of-M
+// progress without recomputing the plan. Status reuses generation_job_status.
+
+export const imageRuns = pgTable(
+  'image_runs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    packageId: uuid('package_id')
+      .notNull()
+      .references(() => launchPackages.id, { onDelete: 'cascade' }),
+    styleSpecId: uuid('style_spec_id').references(() => imageStyleSpecs.id, {
+      onDelete: 'set null',
+    }),
+    status: generationJobStatusEnum('status').notNull().default('queued'),
+    plannedSlotKeys: text('planned_slot_keys').array().notNull(),
+    inngestRunId: text('inngest_run_id'),
+    // Aggregate: { imageCount, doneCount, failedCount, costUsd, durationMs }
+    imageUsage: jsonb('image_usage'),
+    error: text('error'),
+    createdBy: uuid('created_by').notNull(),
+    startedAt: timestamp('started_at', { withTimezone: true }),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index('image_runs_package_id_idx').on(t.packageId),
+    index('image_runs_status_idx').on(t.status),
+    pgPolicy('image_runs_select_authed', {
+      for: 'select',
+      to: 'authenticated',
+      using: sql.raw('true'),
+    }),
+    pgPolicy('image_runs_insert_self_or_admin', {
+      for: 'insert',
+      to: 'authenticated',
+      withCheck: ownerOrAdmin('created_by'),
+    }),
+    pgPolicy('image_runs_update_authed', {
+      for: 'update',
+      to: 'authenticated',
+      using: sql.raw('true'),
+      withCheck: sql.raw('true'),
+    }),
+    pgPolicy('image_runs_delete_authed', {
+      for: 'delete',
+      to: 'authenticated',
+      using: sql.raw('true'),
+    }),
+  ],
+).enableRLS();
+
+// ---------- image_assets ----------
+// One row per generated image. packageId is denormalized so "latest image per
+// slot for a package" needs no runs join (same call as handover_documents).
+// `prompt` stores the exact string sent to the provider — the only way to
+// answer "why did this one come out different?" after the fact.
+
+export const imageAssets = pgTable(
+  'image_assets',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    runId: uuid('run_id')
+      .notNull()
+      .references(() => imageRuns.id, { onDelete: 'cascade' }),
+    packageId: uuid('package_id')
+      .notNull()
+      .references(() => launchPackages.id, { onDelete: 'cascade' }),
+    // `${slotKind}:${slotIndex}` — ordinal, not slugified, so retitling a
+    // classroom module doesn't orphan its image.
+    slotKey: text('slot_key').notNull(),
+    slotKind: imageSlotKindEnum('slot_kind').notNull(),
+    slotIndex: integer('slot_index').notNull().default(0),
+    // The title as it was at generation time. Drift from the live plan is
+    // what drives the "title changed — regenerate" chip.
+    slotTitle: text('slot_title'),
+    version: integer('version').notNull().default(1),
+    status: generationJobStatusEnum('status').notNull().default('queued'),
+    // Bucket-relative path in image-slots; null while queued or on failure.
+    storagePath: text('storage_path'),
+    width: integer('width'),
+    height: integer('height'),
+    mime: text('mime').notNull().default('image/png'),
+    prompt: text('prompt'),
+    styleSpecId: uuid('style_spec_id').references(() => imageStyleSpecs.id, {
+      onDelete: 'set null',
+    }),
+    provider: text('provider'),
+    model: text('model'),
+    costUsd: numeric('cost_usd', { precision: 10, scale: 4 })
+      .notNull()
+      .default('0'),
+    durationMs: integer('duration_ms'),
+    error: text('error'),
+    regenerateNote: text('regenerate_note'),
+    createdBy: uuid('created_by').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index('image_assets_run_id_idx').on(t.runId),
+    index('image_assets_package_slot_idx').on(
+      t.packageId,
+      t.slotKey,
+      t.version,
+    ),
+    pgPolicy('image_assets_select_authed', {
+      for: 'select',
+      to: 'authenticated',
+      using: sql.raw('true'),
+    }),
+    pgPolicy('image_assets_insert_self_or_admin', {
+      for: 'insert',
+      to: 'authenticated',
+      withCheck: ownerOrAdmin('created_by'),
+    }),
+    pgPolicy('image_assets_update_authed', {
+      for: 'update',
+      to: 'authenticated',
+      using: sql.raw('true'),
+      withCheck: sql.raw('true'),
+    }),
+    pgPolicy('image_assets_delete_authed', {
+      for: 'delete',
+      to: 'authenticated',
+      using: sql.raw('true'),
     }),
   ],
 ).enableRLS();
@@ -416,6 +819,22 @@ export type GeneratedAsset = typeof generatedAssets.$inferSelect;
 export type NewGeneratedAsset = typeof generatedAssets.$inferInsert;
 export type GenerationJob = typeof generationJobs.$inferSelect;
 export type NewGenerationJob = typeof generationJobs.$inferInsert;
+export type HandoverRun = typeof handoverRuns.$inferSelect;
+export type NewHandoverRun = typeof handoverRuns.$inferInsert;
+export type HandoverDocument = typeof handoverDocuments.$inferSelect;
+export type NewHandoverDocument = typeof handoverDocuments.$inferInsert;
+export type HandoverDocKey = (typeof handoverDocKeyEnum.enumValues)[number];
+export type ImageStyleSpecRow = typeof imageStyleSpecs.$inferSelect;
+export type NewImageStyleSpecRow = typeof imageStyleSpecs.$inferInsert;
+export type ImageReference = typeof imageReferences.$inferSelect;
+export type NewImageReference = typeof imageReferences.$inferInsert;
+export type ImageRun = typeof imageRuns.$inferSelect;
+export type NewImageRun = typeof imageRuns.$inferInsert;
+export type ImageAsset = typeof imageAssets.$inferSelect;
+export type NewImageAsset = typeof imageAssets.$inferInsert;
+export type ImageSlotKind = (typeof imageSlotKindEnum.enumValues)[number];
+export type ImageReferenceKind =
+  (typeof imageReferenceKindEnum.enumValues)[number];
 export type PatternLibraryEntry = typeof patternLibrary.$inferSelect;
 export type NewPatternLibraryEntry = typeof patternLibrary.$inferInsert;
 export type AuditLogEntry = typeof auditLog.$inferSelect;

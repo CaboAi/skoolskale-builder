@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -31,16 +31,11 @@ export async function POST(_req: NextRequest, { params }: RouteCtx) {
     );
   }
 
-  // Owner check.
+  // Existence check — workspace-wide, any VA can deploy any package.
   const [pkg] = await db
     .select()
     .from(launchPackages)
-    .where(
-      and(
-        eq(launchPackages.id, idR.data),
-        eq(launchPackages.createdBy, user.id),
-      ),
-    )
+    .where(eq(launchPackages.id, idR.data))
     .limit(1);
   if (!pkg) {
     return NextResponse.json<ApiError>(

@@ -1,9 +1,9 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { eq, desc } from 'drizzle-orm';
+import { desc } from 'drizzle-orm';
 import { requireUser } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { creators } from '@/lib/db/schema';
-import { CreatorDraftSchema } from '@/types/schemas';
+import { CreatorStep1Schema } from '@/types/schemas';
 import { validateBody, ValidationError, type ApiError } from '@/lib/validation';
 import { logAudit } from '@/lib/audit';
 
@@ -12,7 +12,8 @@ import { logAudit } from '@/lib/audit';
  * intake fields. NOT NULL columns the wizard hasn't filled yet get empty
  * defaults; later steps PATCH the real values in.
  *
- * GET /api/creators — list the current user's creators (newest first).
+ * GET /api/creators — list every creator in the workspace, newest first.
+ * Workspace-wide so VAs can pick up handoffs.
  */
 
 export async function POST(req: NextRequest) {
@@ -20,7 +21,7 @@ export async function POST(req: NextRequest) {
 
   let body;
   try {
-    body = await validateBody(req, CreatorDraftSchema);
+    body = await validateBody(req, CreatorStep1Schema);
   } catch (err) {
     if (err instanceof ValidationError) {
       return NextResponse.json<ApiError>(err.payload, { status: 400 });
@@ -39,17 +40,14 @@ export async function POST(req: NextRequest) {
       transformation: '',
       tone: 'warm',
       offerBreakdown: {
-        courses: [],
         perks: [],
-        events: [],
         guest_sessions: false,
       },
-      pricing: { tiers: [] },
-      trialTerms: { has_trial: false },
+      pricing: { additional_tiers: [] },
+      trialTerms: { has_trial: false, duration_days: 7 },
       refundPolicy: '',
       supportContact: body.support_contact,
       brandPrefs: '',
-      creatorPhotoUrl: body.creator_photo_url,
       createdBy: user.id,
     })
     .returning();
@@ -60,12 +58,11 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET() {
-  const user = await requireUser();
+  await requireUser();
 
   const rows = await db
     .select()
     .from(creators)
-    .where(eq(creators.createdBy, user.id))
     .orderBy(desc(creators.createdAt));
 
   return NextResponse.json({ creators: rows });

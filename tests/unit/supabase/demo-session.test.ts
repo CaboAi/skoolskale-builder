@@ -12,16 +12,16 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { NextRequest, NextResponse } from 'next/server';
 
-const envState: {
-  DEMO_MODE: boolean;
-  DEMO_USER_EMAIL: string | undefined;
-} = {
-  DEMO_MODE: false,
-  DEMO_USER_EMAIL: 'demo@skoolskale.app',
-};
-
-const generateLinkMock = vi.fn();
-const verifyOtpMock = vi.fn();
+// All factory-captured state hoisted per-file. See CLAUDE.md
+// § "Mocking conventions".
+const { envState, generateLinkMock, verifyOtpMock } = vi.hoisted(() => ({
+  envState: {
+    DEMO_MODE: false,
+    DEMO_USER_EMAIL: 'demo@skoolskale.app' as string | undefined,
+  },
+  generateLinkMock: vi.fn(),
+  verifyOtpMock: vi.fn(),
+}));
 
 vi.mock('@/lib/env', () => ({
   get env() {

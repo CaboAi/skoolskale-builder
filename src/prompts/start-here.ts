@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { GeneratorInput } from '@/types/generators';
+import { regenerateNoteSuffix } from './_shared';
 
 const HowToUseSectionSchema = z.object({
   name: z.string().min(1).max(80),
@@ -111,7 +112,7 @@ Offer breakdown: ${JSON.stringify(input.creator.offer_breakdown)}
 Support contact: ${input.creator.support_contact}
 Brand prefs: ${input.creator.brand_prefs || '(none)'}
 </creator_context>
-${input.regenerateNote ? `\n<regenerate_note>${input.regenerateNote}</regenerate_note>\n` : ''}
+
 <task>
 Write the Start Here document in a ${input.creator.tone} tone. Output only the JSON inside the <start_here_json> tags.
 
@@ -120,7 +121,7 @@ Reminder of required shape — all 4 top-level keys must be present:
 - step_2_community_rules: { title, rules: [...] }     (object, not array)
 - step_3_faqs: [ { question, answer_template }, ... ] (array, not object)
 - step_4_need_assistance: { title, template }         (object, not string)
-</task>`;
+</task>${regenerateNoteSuffix(input.regenerateNote)}`;
 }
 
 export function parseOutput(raw: string): StartHereOutput {

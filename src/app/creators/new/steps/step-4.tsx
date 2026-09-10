@@ -89,12 +89,12 @@ export function Step4Voice({ form }: Props) {
           <SelectTrigger id="tone">
             <SelectValue />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="w-[420px] max-w-[calc(100vw-2rem)]">
             {TONES.map((t) => (
               <SelectItem key={t.value} value={t.value}>
                 <div className="flex flex-col">
                   <span className="font-medium">{t.label}</span>
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-xs text-muted-foreground whitespace-normal">
                     {t.description}
                   </span>
                 </div>
@@ -116,7 +116,7 @@ export function Step4Voice({ form }: Props) {
           id="brand_prefs"
           rows={5}
           {...register('brand_prefs')}
-          placeholder="Colors, typography vibes, visual references, words to use / avoid…"
+          placeholder="Words to use, words to avoid, signature phrases, voice samples to mimic…"
         />
         {errors.brand_prefs?.message ? (
           <p className="text-xs text-destructive">

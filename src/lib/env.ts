@@ -17,7 +17,16 @@ const serverSchema = z
 
     // AI providers
     ANTHROPIC_API_KEY: z.string().min(1),
-    GOOGLE_AI_API_KEY: z.string().min(1),
+    // GOOGLE_AI_API_KEY removed in chore/remove-image-generation. Mario
+    // needs to delete it from Vercel via CLI post-merge — Vercel's UI
+    // can't widen or delete sensitive env vars.
+    //
+    // gpt-image-1 (images phase). Optional ON PURPOSE: this schema validates
+    // at import time and is pulled in by `next build`, `pnpm storage:setup`,
+    // and every test. Making it required would break boot everywhere until
+    // the key lands. The provider throws at CALL time instead, and the
+    // images poll route reports `providerConfigured` so the UI can say so.
+    OPENAI_API_KEY: z.string().min(1).optional(),
 
     // Inngest
     INNGEST_EVENT_KEY: z.string().min(1),

@@ -3,6 +3,7 @@ import {
   type DiscoverySeoContent,
 } from '@/types/schemas';
 import type { GeneratorInput } from '@/types/generators';
+import { regenerateNoteSuffix } from './_shared';
 
 const TARGET_KEYWORDS = 11; // Skool's max as of v1.1
 const KEYWORD_MAX = 40;
@@ -42,15 +43,21 @@ ${ex.content}
     )
     .join('\n\n');
 
-  const offer = input.creator.offer_breakdown;
+  // Offer hints pull from the intake surfaces that still exist: classroom
+  // titles (step 5) and calendar event titles (step 5). The old free-form
+  // `offer_breakdown.courses` / `offer_breakdown.events` strings were
+  // dropped because they duplicated those structured sources.
   const offerHints: string[] = [];
-  if (offer.courses?.length) {
+  const classroomTitles = input.creator.classroom_titles ?? [];
+  if (classroomTitles.length) {
+    offerHints.push(`courses: ${classroomTitles.join(', ')}`);
+  }
+  const calendarEvents = input.creator.calendar_intake?.events ?? [];
+  if (calendarEvents.length) {
     offerHints.push(
-      `courses: ${offer.courses.map((c) => c.name).join(', ')}`,
+      `events: ${calendarEvents.map((e) => e.title).join(', ')}`,
     );
   }
-  if (offer.live_calls) offerHints.push(`live calls: ${offer.live_calls}`);
-  if (offer.events?.length) offerHints.push(`events: ${offer.events.join(', ')}`);
 
   return `<examples>
 ${examples || '<!-- no examples available -->'}
@@ -63,10 +70,10 @@ Transformation promise: ${input.creator.transformation}
 Tone: ${input.creator.tone}
 Offer hints: ${offerHints.length ? offerHints.join('; ') : '<!-- none -->'}
 </creator_context>
-${input.regenerateNote ? `\n<regenerate_note>${input.regenerateNote}</regenerate_note>\n` : ''}
+
 <task>
 Produce ${TARGET_KEYWORDS} Discovery search keywords for this community. Mix niche / transformation / audience descriptors. Lowercase, 1-4 words each, no duplicates.
-</task>`;
+</task>${regenerateNoteSuffix(input.regenerateNote)}`;
 }
 
 export function parseOutput(raw: string): DiscoverySeoContent {

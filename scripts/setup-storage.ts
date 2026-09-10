@@ -1,14 +1,24 @@
 /**
  * Idempotent storage bootstrap.
  * Ensures all required buckets exist with the correct policies. Currently:
- *   - `creator-photos`    — user-uploaded creator portraits (jpg/png/webp)
- *   - `cover-variants`    — Gemini-generated cover image variants (png)
+ *   - `creator-photos`    — user-uploaded creator portraits (jpg/png/webp).
+ *                           PUBLIC for now (wizard preview still uses
+ *                           public URLs); follow-up PR rewrites the
+ *                           upload component to use signed URLs and flips
+ *                           this bucket private too.
+ *   - `cover-variants`    — Gemini-generated cover image variants (png).
+ *                           PRIVATE — read access only via service-role
+ *                           signed URLs (`resolveAssetUrls`).
  *   - `image-variants`    — Gemini-generated image variants for non-cover
  *                           image modules (icon, classroom_cover,
  *                           calendar_cover). Subpathed by `${packageId}/${module}/`.
+ *                           PRIVATE — same model as cover-variants.
  *
- * All buckets: public read, authenticated INSERT/UPDATE/DELETE on
- * storage.objects scoped by bucket_id.
+ * Buckets: per-bucket `public` flag (see BUCKETS below). All buckets:
+ * authenticated INSERT/UPDATE/DELETE on storage.objects scoped by
+ * bucket_id. Read on private buckets goes through signed URLs only —
+ * Stage 3 readers (`src/lib/storage/resolve-variants.ts`) batch-sign on
+ * every page render with a 1-hour TTL.
  *
  * Run: `pnpm storage:setup`
  */
@@ -21,6 +31,15 @@ type BucketConfig = {
   name: string;
   policyPrefix: string; // e.g. 'creator_photos' → policies named creator_photos_authed_insert, ...
   allowedMimeTypes: string[];
+  /**
+   * When false the bucket is private and reads require a signed URL.
+   * Signed-URLs migration Stage 4 flipped the two Gemini-output buckets
+   * private; `creator-photos` stays public until the upload component
+   * is migrated.
+   */
+  public: boolean;
+  /** Per-bucket size cap; falls back to MAX_BYTES (5 MB). */
+  maxBytes?: number;
 };
 
 const BUCKETS: BucketConfig[] = [
@@ -28,16 +47,51 @@ const BUCKETS: BucketConfig[] = [
     name: "creator-photos",
     policyPrefix: "creator_photos",
     allowedMimeTypes: ["image/jpeg", "image/png", "image/webp"],
+    public: true,
   },
   {
     name: "cover-variants",
     policyPrefix: "cover_variants",
     allowedMimeTypes: ["image/png"],
+    public: false,
   },
   {
     name: "image-variants",
     policyPrefix: "image_variants",
     allowedMimeTypes: ["image/png"],
+    public: false,
+  },
+  {
+    // Handover deliverable PDFs, subpathed `${packageId}/${runId}/`.
+    // PRIVATE — downloads go through signed URLs with a download filename.
+    name: "handover-docs",
+    policyPrefix: "handover_docs",
+    allowedMimeTypes: ["application/pdf"],
+    public: false,
+    maxBytes: 20 * 1024 * 1024,
+  },
+  {
+    // Images phase: final, spec-sized PNGs, subpathed
+    // `${packageId}/${slotKey}/v${version}.png`. Deliberately NOT the
+    // legacy `image-variants` bucket — that one still holds pre-#39
+    // Gemini objects under `${packageId}/classroom_cover/`, and the new
+    // path scheme would interleave with them.
+    name: "image-slots",
+    policyPrefix: "image_slots",
+    allowedMimeTypes: ["image/png"],
+    public: false,
+    maxBytes: 10 * 1024 * 1024,
+  },
+  {
+    // Images phase: VA-uploaded creator headshot + brand-kit reference,
+    // subpathed `${packageId}/`. PRIVATE — the Images page previews them
+    // through signed URLs, and the provider reads them service-role via
+    // storage.download() rather than over the network.
+    name: "image-references",
+    policyPrefix: "image_references",
+    allowedMimeTypes: ["image/jpeg", "image/png", "image/webp"],
+    public: false,
+    maxBytes: 10 * 1024 * 1024,
   },
 ];
 
@@ -51,8 +105,8 @@ async function ensureBucket(cfg: BucketConfig) {
   const exists = list?.some((b) => b.name === cfg.name);
 
   const opts = {
-    public: true,
-    fileSizeLimit: MAX_BYTES,
+    public: cfg.public,
+    fileSizeLimit: cfg.maxBytes ?? MAX_BYTES,
     allowedMimeTypes: cfg.allowedMimeTypes,
   };
 
@@ -122,9 +176,11 @@ async function main() {
     await sql.end();
   }
 
-  const names = BUCKETS.map((b) => `"${b.name}"`).join(", ");
+  const summary = BUCKETS.map(
+    (b) => `"${b.name}"=${b.public ? "public" : "private"}`,
+  ).join(", ");
   console.log(
-    `[storage] OK — ${names} ready (public read, authenticated write).`,
+    `[storage] OK — ${summary} ready (authenticated INSERT/UPDATE/DELETE; private bucket reads require signed URLs).`,
   );
 }
 

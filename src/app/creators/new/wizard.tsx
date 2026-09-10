@@ -24,12 +24,12 @@ const AUTOSAVE_MS = 30_000;
 
 // Fields to validate on each step's Next click.
 const STEP_FIELDS: FieldPath<CreatorIntake>[][] = [
-  ["name", "community_name", "niche", "support_contact", "creator_photo_url"],
+  ["name", "community_name", "niche", "support_contact"],
   ["transformation", "audience", "offer_breakdown"],
   ["pricing", "trial_terms", "refund_policy"],
   ["tone", "brand_prefs"],
   [
-    "classroom_intake",
+    "classroom_titles",
     "calendar_intake",
     "leaderboard_levels",
     "categories",
@@ -45,18 +45,39 @@ const DEFAULTS: CreatorIntake = {
   transformation: "",
   tone: "warm",
   offer_breakdown: {
-    courses: [],
-    live_calls: undefined,
     perks: [],
-    events: [],
     guest_sessions: false,
   },
-  pricing: { monthly: undefined, annual: undefined, tiers: [] },
-  trial_terms: { has_trial: false, duration_days: undefined },
+  pricing: {
+    monthly: undefined,
+    annual: undefined,
+    free_community: false,
+    additional_tiers: [],
+  },
+  trial_terms: { has_trial: false, duration_days: 7 },
   refund_policy: "",
   support_contact: "",
   brand_prefs: "",
-  creator_photo_url: undefined,
+  // Seed one empty row so the VA sees the repeater immediately. The
+  // schema's per-item `.string().min(1)` blocks an empty-string submission
+  // with a clear error.
+  classroom_titles: [""],
+  // Seed one default event row (recurring Monday 9am ET) so the EventsRepeater
+  // renders on first paint; the title is empty, schema enforces min(1).
+  calendar_intake: {
+    events: [
+      {
+        title: "",
+        schedule: {
+          type: "weekly" as const,
+          dayOfWeek: "mon" as const,
+          interval: 1,
+          time: "09:00",
+          timezone: "America/New_York",
+        },
+      },
+    ],
+  },
 };
 
 export function IntakeWizard() {
@@ -87,7 +108,6 @@ export function IntakeWizard() {
       community_name: v.community_name,
       niche: v.niche,
       support_contact: v.support_contact,
-      creator_photo_url: v.creator_photo_url,
     };
     const res = await fetch("/api/creators", {
       method: "POST",

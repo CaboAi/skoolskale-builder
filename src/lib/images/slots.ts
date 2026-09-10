@@ -1,0 +1,297 @@
+/**
+ * Image slot registry — single source of truth for what images a package
+ * needs, at what pixel size, carrying what text.
+ *
+ * Deliberately parallel to `src/lib/modules/registry.ts` but separate from
+ * it: image slots are NOT module enum values. Folding them in would leak
+ * them into REQUIRED_FOR_EXPORT gating, module route validation, and
+ * dashboard card dispatch — the exact coupling that made the pre-#39 image
+ * modules painful to remove.
+ *
+ * Constraints:
+ * - Pure module. No `server-only`, no DB, no Inngest imports. `SlotCard.tsx`
+ *   and the images page both import it.
+ */
+import type { ImageSlotKind } from "@/lib/db/schema";
+
+/**
+ * Style family. Every banner shares one art direction and one aspect, so the
+ * style anchor (the first generated banner, fed back as a reference image)
+ * applies to all of them. The icon is its own family: square, transparent,
+ * and legible at 64x64, so anchoring it to a banner would fight the brief.
+ */
+export type StyleFamily = "banner" | "icon";
+
+/** The only sizes gpt-image-1 emits. Everything else is a sharp crop away. */
+export type ProviderSize = "1024x1024" | "1536x1024" | "1024x1536";
+
+export type SlotKindConfig = {
+  kind: ImageSlotKind;
+  label: string;
+  family: StyleFamily;
+  /** Final Skool-spec pixels, after post-processing. */
+  target: { width: number; height: number };
+  /** What we ask the provider for; sharp centre-crops down to `target`. */
+  sourceSize: ProviderSize;
+  background: "opaque" | "transparent";
+  /** true → one slot per classroom module / calendar event. */
+  dynamic: boolean;
+  /**
+   * Reserved head-room inside MAX_SLOTS_PER_RUN. Admitted before any
+   * priority fill, so the singleton brand slots can't be starved by a
+   * package with 10 classroom modules and 10 calendar events.
+   */
+  quota: number;
+  /** Lower runs first. Drives run order and therefore the style anchor. */
+  priority: number;
+  /**
+   * What the model is asked to depict. The style block owns *how* it looks;
+   * this owns *what* is in frame. Kept here rather than in the prompt file
+   * so adding a slot kind is one edit.
+   */
+  intent: string;
+};
+
+export const SLOT_REGISTRY: Record<ImageSlotKind, SlotKindConfig> = {
+  icon: {
+    kind: "icon",
+    label: "Community Icon",
+    family: "icon",
+    target: { width: 512, height: 512 },
+    sourceSize: "1024x1024",
+    background: "transparent",
+    dynamic: false,
+    quota: 1,
+    priority: 10,
+    intent:
+      "A square community icon: a single centred mark — monogram, symbol, or tight wordmark — that stays legible when Skool renders it at 64x64. Solid centred composition, generous margin, no scene, no photograph.",
+  },
+  classroom_cover: {
+    kind: "classroom_cover",
+    label: "Classroom Cover",
+    family: "banner",
+    target: { width: 1456, height: 816 },
+    sourceSize: "1536x1024",
+    background: "opaque",
+    dynamic: true,
+    quota: 4,
+    priority: 20,
+    intent:
+      "A horizontal course-module cover. An evocative scene or abstract composition that reads as this module's subject, with the module title set as the only text.",
+  },
+  calendar_cover: {
+    kind: "calendar_cover",
+    label: "Calendar Cover",
+    family: "banner",
+    target: { width: 1456, height: 816 },
+    sourceSize: "1536x1024",
+    background: "opaque",
+    dynamic: true,
+    quota: 3,
+    priority: 30,
+    intent:
+      "A horizontal event cover suggesting rhythm and gathering, with the event title set as the only text.",
+  },
+  about_us: {
+    kind: "about_us",
+    label: "About Us Image",
+    family: "banner",
+    target: { width: 1456, height: 816 },
+    sourceSize: "1536x1024",
+    background: "opaque",
+    dynamic: false,
+    quota: 2,
+    priority: 40,
+    intent:
+      "A horizontal atmospheric image for the About Us page. Mood and place, carrying the community's promise without stating it. NO text anywhere in the image.",
+  },
+  start_here_thumb: {
+    kind: "start_here_thumb",
+    label: "Start Here Thumbnail",
+    family: "banner",
+    target: { width: 1280, height: 720 },
+    sourceSize: "1536x1024",
+    background: "opaque",
+    dynamic: false,
+    quota: 1,
+    priority: 50,
+    intent:
+      'A horizontal onboarding thumbnail with a clear directional pull (arrow, path, doorway, threshold) and the words "START HERE" as the only text.',
+  },
+  join_now_banner: {
+    kind: "join_now_banner",
+    label: "Join Now Banner",
+    family: "banner",
+    target: { width: 1456, height: 816 },
+    sourceSize: "1536x1024",
+    background: "opaque",
+    dynamic: false,
+    quota: 1,
+    priority: 60,
+    intent:
+      'A horizontal conversion banner with the words "JOIN NOW" as the primary text and clear empty space where a price or trial line can sit.',
+  },
+};
+
+export const SLOT_KINDS = Object.keys(SLOT_REGISTRY) as [
+  ImageSlotKind,
+  ...ImageSlotKind[],
+];
+
+/**
+ * Hard ceiling on images generated by one auto-run. Each image is a serial
+ * provider call of up to ~150s, so 12 is already a ~30 minute run — the
+ * number the 45-minute poll give-up is sized against. Everything beyond it
+ * lands in `overflow` with a per-slot Generate button.
+ */
+export const MAX_SLOTS_PER_RUN = 12;
+
+/** How many About Us atmospherics to plan when the caller doesn't say. */
+export const DEFAULT_ABOUT_US_COUNT = 2;
+
+/**
+ * `${kind}:${index}` — ORDINAL, not slugified from the title. Retitling a
+ * classroom module must not orphan its existing image; the title lives in
+ * `image_assets.slot_title` instead, and drift from the live plan is what
+ * drives the "title changed — regenerate" chip.
+ */
+export type SlotKey = string;
+
+export function slotKey(kind: ImageSlotKind, index: number): SlotKey {
+  return `${kind}:${index}`;
+}
+
+export function parseSlotKey(
+  key: string,
+): { kind: ImageSlotKind; index: number } | null {
+  const [rawKind, rawIndex, ...rest] = key.split(":");
+  if (rest.length > 0 || rawIndex === undefined) return null;
+  if (!(rawKind in SLOT_REGISTRY)) return null;
+  if (!/^\d+$/.test(rawIndex)) return null;
+  return { kind: rawKind as ImageSlotKind, index: Number(rawIndex) };
+}
+
+export type SlotPlan = {
+  key: SlotKey;
+  kind: ImageSlotKind;
+  index: number;
+  /** Human label for the UI, e.g. "Classroom — Reset Your Nervous System". */
+  label: string;
+  /**
+   * The ONLY text permitted in the image. Empty string means no text at all.
+   *
+   * There is exactly one text field on this type by design: classroom and
+   * calendar descriptions are dropped at the planner boundary, so there is
+   * no value downstream that could leak a description into a prompt.
+   */
+  titleText: string;
+  target: { width: number; height: number };
+  sourceSize: ProviderSize;
+  background: "opaque" | "transparent";
+  family: StyleFamily;
+};
+
+export type SlotPlanResult = {
+  /** Generated by a full run, in run order. Never longer than the cap. */
+  auto: SlotPlan[];
+  /** Beyond the cap. Generated one at a time from the UI. */
+  overflow: SlotPlan[];
+};
+
+export type PlanSlotsInput = {
+  communityName: string;
+  /** Classroom module titles, in DNA order. */
+  classroomTitles: string[];
+  /** Calendar event titles, in DNA order. */
+  calendarTitles: string[];
+  aboutUsCount?: number;
+};
+
+function buildSlot(
+  kind: ImageSlotKind,
+  index: number,
+  titleText: string,
+  label: string,
+): SlotPlan {
+  const cfg = SLOT_REGISTRY[kind];
+  return {
+    key: slotKey(kind, index),
+    kind,
+    index,
+    label,
+    titleText,
+    target: cfg.target,
+    sourceSize: cfg.sourceSize,
+    background: cfg.background,
+    family: cfg.family,
+  };
+}
+
+/**
+ * Derive every slot a package could have, then split at the run cap.
+ *
+ * Admission is quota-then-priority, not truncation: each kind is guaranteed
+ * its `quota` first, and only the leftover budget is filled in priority
+ * order. Without the quota pass, a 10-module package would spend the whole
+ * cap on classroom covers and never produce an icon.
+ *
+ * `auto` is sorted by (priority, index), which puts `classroom_cover:0`
+ * first among banners — that image becomes the style anchor for the rest.
+ */
+export function planSlots(input: PlanSlotsInput): SlotPlanResult {
+  const aboutUsCount = input.aboutUsCount ?? DEFAULT_ABOUT_US_COUNT;
+
+  const all: SlotPlan[] = [
+    buildSlot("icon", 0, input.communityName, "Community Icon"),
+    ...input.classroomTitles.map((title, i) =>
+      buildSlot("classroom_cover", i, title, `Classroom — ${title}`),
+    ),
+    ...input.calendarTitles.map((title, i) =>
+      buildSlot("calendar_cover", i, title, `Calendar — ${title}`),
+    ),
+    ...Array.from({ length: aboutUsCount }, (_, i) =>
+      buildSlot("about_us", i, "", `About Us — image ${i + 1}`),
+    ),
+    buildSlot("start_here_thumb", 0, "START HERE", "Start Here Thumbnail"),
+    buildSlot("join_now_banner", 0, "JOIN NOW", "Join Now Banner"),
+  ];
+
+  const byRunOrder = (a: SlotPlan, b: SlotPlan) =>
+    SLOT_REGISTRY[a.kind].priority - SLOT_REGISTRY[b.kind].priority ||
+    a.index - b.index;
+
+  const ordered = [...all].sort(byRunOrder);
+
+  // Pass 1: every kind gets up to its quota.
+  const admitted = new Set<SlotKey>();
+  const takenPerKind = new Map<ImageSlotKind, number>();
+  for (const slot of ordered) {
+    if (admitted.size >= MAX_SLOTS_PER_RUN) break;
+    const taken = takenPerKind.get(slot.kind) ?? 0;
+    if (taken >= SLOT_REGISTRY[slot.kind].quota) continue;
+    admitted.add(slot.key);
+    takenPerKind.set(slot.kind, taken + 1);
+  }
+
+  // Pass 2: spend whatever budget the quotas left, in priority order.
+  for (const slot of ordered) {
+    if (admitted.size >= MAX_SLOTS_PER_RUN) break;
+    admitted.add(slot.key);
+  }
+
+  return {
+    auto: ordered.filter((s) => admitted.has(s.key)),
+    overflow: ordered.filter((s) => !admitted.has(s.key)),
+  };
+}
+
+/** Flat lookup for routes that receive a slot key and need its plan. */
+export function findSlot(
+  plan: SlotPlanResult,
+  key: SlotKey,
+): SlotPlan | undefined {
+  return (
+    plan.auto.find((s) => s.key === key) ??
+    plan.overflow.find((s) => s.key === key)
+  );
+}

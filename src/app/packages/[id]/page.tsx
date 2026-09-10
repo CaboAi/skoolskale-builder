@@ -6,20 +6,24 @@ import { PackageDashboard } from "@/components/dashboard/PackageDashboard";
 
 const UuidParam = z.string().uuid();
 
+// Signed image URLs are time-sensitive — re-render fully on every request
+// rather than serving a cached HTML/RSC payload with stale tokens.
+export const dynamic = "force-dynamic";
+
 type Props = { params: Promise<{ id: string }> };
 
 export default async function PackagePage({ params }: Props) {
-  const user = await requireUser();
+  await requireUser();
   const { id } = await params;
 
   const idResult = UuidParam.safeParse(id);
   if (!idResult.success) notFound();
 
-  const details = await getPackageWithDetails(idResult.data, user.id);
+  const details = await getPackageWithDetails(idResult.data);
   if (!details) notFound();
 
   return (
-    <main className="min-h-dvh bg-muted/30 p-4 md:p-8">
+    <main className="flex-1 bg-muted/30 p-4 md:p-8">
       <div className="mx-auto max-w-6xl">
         <PackageDashboard
           package={details.package}

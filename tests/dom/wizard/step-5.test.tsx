@@ -22,12 +22,27 @@ const DEFAULTS: CreatorIntake = {
   audience: "x",
   transformation: "x",
   tone: "warm",
-  offer_breakdown: { courses: [], perks: [], events: [], guest_sessions: false },
-  pricing: { tiers: [] },
-  trial_terms: { has_trial: false },
+  offer_breakdown: { perks: [], guest_sessions: false },
+  pricing: { free_community: false, additional_tiers: [] },
+  trial_terms: { has_trial: false, duration_days: 7 },
   refund_policy: "",
   support_contact: "x",
   brand_prefs: "",
+  classroom_titles: [""],
+  calendar_intake: {
+    events: [
+      {
+        title: "",
+        schedule: {
+          type: "weekly",
+          dayOfWeek: "mon",
+          interval: 1,
+          time: "09:00",
+          timezone: "America/New_York",
+        },
+      },
+    ],
+  },
 };
 
 function Harness() {
@@ -47,33 +62,59 @@ describe("Step5AddOns", () => {
     expect(
       screen.getByRole("heading", { name: /Launch package add-ons/i }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /Classroom/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Classroom titles/i }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Calendar/i })).toBeInTheDocument();
     expect(screen.getByText(/Leaderboard levels \(9\)/i)).toBeInTheDocument();
     expect(screen.getByText(/Categories \(3\)/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Discovery search keywords/i)).toBeInTheDocument();
   });
 
-  test("classroom title and description inputs accept text and respect max length", async () => {
+  test("classroom titles repeater starts with one row capped at 50 chars", async () => {
     const user = userEvent.setup();
     render(<Harness />);
-    const title = screen.getByLabelText(/^Title.*max 50/i);
-    const desc = screen.getByLabelText(/^Description.*max 500/i);
-    await user.type(title, "The Welcome Course");
-    await user.type(desc, "What you'll learn inside.");
-    expect(title).toHaveValue("The Welcome Course");
-    expect(desc).toHaveValue("What you'll learn inside.");
-    // maxLength caps are HTML attributes — assert they were applied.
-    expect(title).toHaveAttribute("maxLength", "50");
-    expect(desc).toHaveAttribute("maxLength", "500");
+    const first = screen.getByLabelText(/Classroom 1/i);
+    await user.type(first, "The Welcome Course");
+    expect(first).toHaveValue("The Welcome Course");
+    expect(first).toHaveAttribute("maxLength", "50");
   });
 
-  test("calendar title and description fields apply tighter caps (30/300)", () => {
+  test("Add classroom title button appends a new row up to 10", async () => {
+    const user = userEvent.setup();
     render(<Harness />);
-    const title = screen.getByLabelText(/^Title.*max 30/i);
-    const desc = screen.getByLabelText(/^Description.*max 300/i);
-    expect(title).toHaveAttribute("maxLength", "30");
-    expect(desc).toHaveAttribute("maxLength", "300");
+    const addButton = screen.getByRole("button", {
+      name: /Add classroom title/i,
+    });
+    await user.click(addButton);
+    expect(screen.getByLabelText(/Classroom 2/i)).toBeInTheDocument();
+    // Click 8 more times to reach the cap (1 default + 1 + 8 = 10).
+    for (let i = 0; i < 8; i++) {
+      await user.click(addButton);
+    }
+    expect(screen.getByLabelText(/Classroom 10/i)).toBeInTheDocument();
+    expect(addButton).toBeDisabled();
+  });
+
+  test("events repeater starts with one row capped at 60-char title", () => {
+    render(<Harness />);
+    // Row 1's "Event 1" header is rendered above its inputs.
+    expect(screen.getByText(/^Event 1$/)).toBeInTheDocument();
+    // The title input is capped at CALENDAR_EVENT_TITLE_MAX = 60.
+    const titleInput = document.getElementById("events-0-title");
+    expect(titleInput).toBeInTheDocument();
+    expect(titleInput).toHaveAttribute("maxLength", "60");
+  });
+
+  test("Add event button appends rows until the 10-event cap is reached", async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    const addButton = screen.getByRole("button", { name: /Add event/i });
+    for (let i = 0; i < 9; i++) {
+      await user.click(addButton);
+    }
+    expect(screen.getByText(/^Event 10$/)).toBeInTheDocument();
+    expect(addButton).toBeDisabled();
   });
 
   test("leaderboard renders 9 rows prefilled with the canonical default names", () => {
@@ -94,11 +135,15 @@ describe("Step5AddOns", () => {
     }
   });
 
-  test("categories renders 3 rows prefilled with the canonical defaults", () => {
+  test("categories renders 3 rows prefilled with the canonical defaults and no description fields", () => {
     render(<Harness />);
     expect(screen.getByDisplayValue("Introduce Yourself")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Share your wins")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Advice from the creator")).toBeInTheDocument();
+    // No description textareas next to the categories.
+    expect(
+      screen.queryByPlaceholderText(/Short description/i),
+    ).not.toBeInTheDocument();
   });
 
   test("editing a leaderboard row updates the displayed value", async () => {
@@ -110,13 +155,13 @@ describe("Step5AddOns", () => {
     expect(newcomer).toHaveValue("Seedling");
   });
 
-  test("editing a category description updates the displayed value", async () => {
+  test("editing a category row updates the displayed value", async () => {
     const user = userEvent.setup();
     render(<Harness />);
-    const desc = screen.getByDisplayValue("Say hi and tell us a bit about you.");
-    await user.clear(desc);
-    await user.type(desc, "Welcome — introduce yourself!");
-    expect(desc).toHaveValue("Welcome — introduce yourself!");
+    const intro = screen.getByDisplayValue("Introduce Yourself");
+    await user.clear(intro);
+    await user.type(intro, "Land here");
+    expect(intro).toHaveValue("Land here");
   });
 
   test("discovery keyword input accepts an Enter-committed chip", async () => {

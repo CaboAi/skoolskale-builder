@@ -1,7 +1,6 @@
 "use client";
 
 import type { ComponentType } from "react";
-import Image from "next/image";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import {
   Card,
@@ -21,16 +20,29 @@ import {
 } from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
 import type { GeneratedAsset } from "@/lib/db/schema";
+import type { CalendarEvent } from "@/types/schemas";
+import { formatSchedule } from "@/lib/calendar/format-schedule";
 import {
   MODULE_LABELS,
   type CardVariant,
 } from "@/lib/modules/registry";
+import { useDashboardContext } from "./dashboard-context";
+import { PromptExpander } from "./PromptExpander";
 
 /* -------------------------------------------------------------------------- */
 /* Module → human label (re-exported from registry for back-compat)           */
 /* -------------------------------------------------------------------------- */
 
 export { MODULE_LABELS };
+
+/**
+ * Shared hover treatment for every interactive module card on the
+ * dashboard. Border ring shifts toward primary, slight elevation lifts
+ * via shadow-md, 200ms ease-out. Skeletons skip this — there's nothing
+ * to hover-respond to while waiting.
+ */
+const MODULE_CARD_CLASS =
+  "transition-all duration-200 ease-out hover:ring-primary/40 hover:shadow-md";
 
 /* -------------------------------------------------------------------------- */
 /* Action callbacks — placeholders for 5.3                                    */
@@ -48,11 +60,18 @@ export type ModuleActionHandler = (
 /* -------------------------------------------------------------------------- */
 
 function ApprovalCheck({ approved }: { approved: boolean }) {
+  // Keyed so the icon remounts when approval flips — that's what triggers
+  // the spring zoom-in animation. The cubic-bezier overshoots past 1.0
+  // before settling, which makes "Approved" feel rewarding rather than
+  // a quiet state-flip.
   return (
     <CheckCircle2
+      key={approved ? "approved" : "pending"}
       className={cn(
-        "h-5 w-5 shrink-0",
-        approved ? "fill-emerald-500 text-white" : "text-muted-foreground/30",
+        "h-5 w-5 shrink-0 transition-colors",
+        approved
+          ? "fill-success text-success-foreground animate-in zoom-in-50 fade-in duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
+          : "text-muted-foreground/30",
       )}
       aria-label={approved ? "Approved" : "Not approved"}
     />
@@ -90,43 +109,89 @@ function ModuleFooter({
 }) {
   const approving = pendingAction === "approve";
   const anyPending = pendingAction !== null;
+  // Optional dashboard-level wiring — null when card is rendered in
+  // isolation (tests), in which case the prompt-editor affordance is
+  // hidden. The footer otherwise renders byte-identical to pre-Phase-2.
+  const dashboard = useDashboardContext();
+  const editedPending =
+    dashboard?.pendingEditedRegenerateModule === module || false;
   return (
-    <CardFooter className="flex flex-wrap gap-2 border-t pt-4">
-      {showEdit && (
+    <CardFooter className="flex flex-col gap-3 border-t pt-4">
+      <div className="flex w-full flex-wrap gap-2">
+        {showEdit && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onAction(module, "edit")}
+            disabled={anyPending || editedPending}
+          >
+            Edit
+          </Button>
+        )}
         <Button
           variant="outline"
           size="sm"
-          onClick={() => onAction(module, "edit")}
-          disabled={anyPending}
+          onClick={() => onAction(module, "regenerate")}
+          disabled={anyPending || editedPending}
         >
-          Edit
+          Regenerate
         </Button>
+        <Button
+          variant={approved ? "secondary" : "default"}
+          size="sm"
+          className="ml-auto"
+          onClick={() => onAction(module, "approve")}
+          disabled={approved || anyPending || editedPending}
+        >
+          {approving && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+          {approving ? "Approving…" : approved ? "Approved" : "Approve"}
+        </Button>
+      </div>
+      {dashboard && (
+        <PromptExpander
+          packageId={dashboard.packageId}
+          module={module}
+          onRegenerateEdited={(prompt) =>
+            dashboard.onRegenerateEditedPrompt(module, prompt)
+          }
+          disabled={editedPending || anyPending}
+        />
       )}
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => onAction(module, "regenerate")}
-        disabled={anyPending}
-      >
-        Regenerate
-      </Button>
-      <Button
-        variant={approved ? "secondary" : "default"}
-        size="sm"
-        className="ml-auto"
-        onClick={() => onAction(module, "approve")}
-        disabled={approved || anyPending}
-      >
-        {approving && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
-        {approving ? "Approving…" : approved ? "Approved" : "Approve"}
-      </Button>
     </CardFooter>
   );
 }
 
 /* -------------------------------------------------------------------------- */
 /* Skeletons                                                                  */
+/*                                                                            */
+/* Title stays as real text (MODULE_LABELS) so the user knows which module    */
+/* is in flight without reading a placeholder bar. Body matches the actual    */
+/* card shape per variant. Footer mirrors the real Edit / Regenerate /        */
+/* Approve trio so the layout doesn't shift when content lands. A friendly    */
+/* one-line status sits below the body skeleton — uses --muted-foreground so  */
+/* it retokens with the palette.                                              */
 /* -------------------------------------------------------------------------- */
+
+function statusFor(module: string): string {
+  const label = MODULE_LABELS[module] ?? module;
+  return `Drafting your ${label}…`;
+}
+
+function SkeletonStatusText({ module }: { module: string }) {
+  return (
+    <p className="text-xs text-muted-foreground">{statusFor(module)}</p>
+  );
+}
+
+function SkeletonFooter() {
+  return (
+    <CardFooter className="flex flex-row gap-2 border-t pt-4">
+      <Skeleton className="h-7 w-16" />
+      <Skeleton className="h-7 w-24" />
+      <Skeleton className="ml-auto h-7 w-20" />
+    </CardFooter>
+  );
+}
 
 export function CopyModuleSkeleton({
   module,
@@ -140,63 +205,17 @@ export function CopyModuleSkeleton({
       <CardHeader>
         <CardTitle className="text-base">{MODULE_LABELS[module]}</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-2">
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-11/12" />
-        <Skeleton className="h-4 w-9/12" />
-        <Skeleton className="h-4 w-10/12" />
-        <Skeleton className="h-4 w-8/12" />
-      </CardContent>
-    </Card>
-  );
-}
-
-/**
- * Skeleton for image-variants modules (cover, icon). Three placeholder
- * tiles in a row. Cover-shaped 16:9; icon also fits visually in this grid.
- */
-export function ImageVariantsSkeleton({
-  module,
-  fullWidth = false,
-}: {
-  module: string;
-  fullWidth?: boolean;
-}) {
-  return (
-    <Card className={cn(fullWidth && "md:col-span-2")}>
-      <CardHeader>
-        <CardTitle className="text-base">{MODULE_LABELS[module]}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <Skeleton className="aspect-[16/9] w-full" />
-          <Skeleton className="aspect-[16/9] w-full" />
-          <Skeleton className="aspect-[16/9] w-full" />
+      <CardContent className="space-y-3">
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-11/12" />
+          <Skeleton className="h-4 w-9/12" />
+          <Skeleton className="h-4 w-10/12" />
+          <Skeleton className="h-4 w-8/12" />
         </div>
+        <SkeletonStatusText module={module} />
       </CardContent>
-    </Card>
-  );
-}
-
-/**
- * Skeleton for single-variant image modules (classroom_cover, calendar_cover).
- * One placeholder banner.
- */
-export function ImageSingleSkeleton({
-  module,
-  fullWidth = false,
-}: {
-  module: string;
-  fullWidth?: boolean;
-}) {
-  return (
-    <Card className={cn(fullWidth && "md:col-span-2")}>
-      <CardHeader>
-        <CardTitle className="text-base">{MODULE_LABELS[module]}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Skeleton className="aspect-[16/9] w-full" />
-      </CardContent>
+      <SkeletonFooter />
     </Card>
   );
 }
@@ -209,7 +228,10 @@ export function ImageSingleSkeleton({
 
 type WelcomeDmContent = { content: string };
 type TransformationContent = { candidates: string[] };
-type TitleDescriptionContent = { title: string; description: string };
+type ClassroomContentDisplay = {
+  items: { title: string; description: string }[];
+};
+type CalendarEventsContent = { events: CalendarEvent[] };
 
 export function TextModuleCard({
   asset,
@@ -224,7 +246,7 @@ export function TextModuleCard({
   if (moduleName === "transformation") {
     const c = asset.content as TransformationContent;
     return (
-      <Card>
+      <Card className={MODULE_CARD_CLASS}>
         <ModuleHeader module={moduleName} approved={asset.approved} />
         <CardContent>
           <ol className="divide-y rounded-md border">
@@ -247,16 +269,51 @@ export function TextModuleCard({
       </Card>
     );
   }
-  if (moduleName === "classroom" || moduleName === "calendar") {
-    const c = asset.content as TitleDescriptionContent;
+  if (moduleName === "classroom") {
+    const c = asset.content as ClassroomContentDisplay;
     return (
-      <Card>
+      <Card className={MODULE_CARD_CLASS}>
         <ModuleHeader module={moduleName} approved={asset.approved} />
         <CardContent className="space-y-3">
-          <p className="text-base font-semibold leading-tight">{c.title}</p>
-          <p className="whitespace-pre-wrap text-sm text-muted-foreground">
-            {c.description}
-          </p>
+          {c.items.map((item, i) => (
+            <div key={i} className="space-y-1 rounded-md border p-3">
+              <p className="text-sm font-semibold leading-tight">
+                {item.title}
+              </p>
+              <p className="whitespace-pre-wrap text-xs text-muted-foreground">
+                {item.description}
+              </p>
+            </div>
+          ))}
+        </CardContent>
+        <ModuleFooter
+          module={moduleName}
+          onAction={onAction}
+          approved={asset.approved}
+          pendingAction={pendingAction}
+        />
+      </Card>
+    );
+  }
+  if (moduleName === "calendar") {
+    const c = asset.content as CalendarEventsContent;
+    return (
+      <Card className={MODULE_CARD_CLASS}>
+        <ModuleHeader module={moduleName} approved={asset.approved} />
+        <CardContent className="space-y-3">
+          {c.events.map((event, i) => (
+            <div key={i} className="space-y-1 rounded-md border p-3">
+              <p className="text-sm font-semibold leading-tight">
+                {event.title}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {formatSchedule(event.schedule)}
+              </p>
+              <p className="whitespace-pre-wrap text-xs text-muted-foreground">
+                {event.description}
+              </p>
+            </div>
+          ))}
         </CardContent>
         <ModuleFooter
           module={moduleName}
@@ -271,7 +328,7 @@ export function TextModuleCard({
   const c = asset.content as WelcomeDmContent;
   const wordCount = c.content.split(/\s+/).filter(Boolean).length;
   return (
-    <Card>
+    <Card className={MODULE_CARD_CLASS}>
       <ModuleHeader module={moduleName} approved={asset.approved} />
       <CardContent className="space-y-3">
         <pre className="whitespace-pre-wrap rounded-md bg-muted p-3 font-mono text-xs leading-relaxed">
@@ -312,7 +369,7 @@ export function AboutUsCard({
 }) {
   const c = asset.content as AboutUsContent;
   return (
-    <Card>
+    <Card className={MODULE_CARD_CLASS}>
       <ModuleHeader module="about_us" approved={asset.approved} />
       <CardContent className="space-y-4">
         <p className="text-base leading-snug">{c.hero}</p>
@@ -352,6 +409,52 @@ export function AboutUsCard({
 }
 
 /* -------------------------------------------------------------------------- */
+/* First Post — pinned welcome thread (title + body)                          */
+/* -------------------------------------------------------------------------- */
+
+type FirstPostContent = { title: string; body: string };
+
+export function FirstPostCard({
+  asset,
+  onAction,
+  pendingAction = null,
+}: {
+  asset: GeneratedAsset;
+  onAction: ModuleActionHandler;
+  pendingAction?: ModuleAction | null;
+}) {
+  const c = asset.content as FirstPostContent;
+  return (
+    <Card className={cn(MODULE_CARD_CLASS, "md:col-span-2")}>
+      <ModuleHeader module="first_post" approved={asset.approved} />
+      <CardContent className="space-y-3">
+        <p
+          className="text-base font-semibold leading-snug"
+          data-slot="first-post-title"
+        >
+          {c.title}
+        </p>
+        <pre
+          className="whitespace-pre-wrap rounded-md bg-muted p-3 font-mono text-xs leading-relaxed"
+          data-slot="first-post-body"
+        >
+          {c.body}
+        </pre>
+        <p className="text-xs text-muted-foreground">
+          {c.body.length.toLocaleString()} chars
+        </p>
+      </CardContent>
+      <ModuleFooter
+        module="first_post"
+        onAction={onAction}
+        approved={asset.approved}
+        pendingAction={pendingAction}
+      />
+    </Card>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
 /* Start Here                                                                  */
 /* -------------------------------------------------------------------------- */
 
@@ -376,7 +479,7 @@ export function StartHereCard({
 }) {
   const c = asset.content as StartHereContent;
   return (
-    <Card>
+    <Card className={MODULE_CARD_CLASS}>
       <ModuleHeader module="start_here" approved={asset.approved} />
       <CardContent>
         <Accordion multiple className="w-full">
@@ -447,141 +550,6 @@ export function StartHereCard({
 }
 
 /* -------------------------------------------------------------------------- */
-/* Image-variants card — multi-variant image modules (cover, icon).           */
-/*                                                                            */
-/* Renders N variants in a grid; clicking a variant calls onSelectVariant     */
-/* with the asset's module key and the chosen index. Generalized from PR #6's */
-/* CoverCard (renamed in PR #7) so cover and icon share the same UI.          */
-/* -------------------------------------------------------------------------- */
-
-type ImageVariant = { url: string; index: number };
-type ImageVariantsContent = {
-  variants: ImageVariant[];
-  selected_variant_index?: number;
-};
-
-export function ImageVariantsCard({
-  asset,
-  onAction,
-  onSelectVariant,
-  pendingAction = null,
-  selectingIndex = null,
-}: {
-  asset: GeneratedAsset;
-  onAction: ModuleActionHandler;
-  onSelectVariant?: (module: string, index: number) => void;
-  pendingAction?: ModuleAction | null;
-  /** Index of the variant whose select-variant request is in flight, if any. */
-  selectingIndex?: number | null;
-}) {
-  const c = asset.content as ImageVariantsContent;
-  const selected = c.selected_variant_index ?? 0;
-  const variantSelectInFlight = selectingIndex !== null;
-  const moduleName = asset.module;
-  const moduleLabel = MODULE_LABELS[moduleName] ?? moduleName;
-  return (
-    <Card className="md:col-span-2">
-      <ModuleHeader module={moduleName} approved={asset.approved} />
-      <CardContent>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          {c.variants.map((v) => {
-            const isSelected = v.index === selected;
-            const isSelecting = selectingIndex === v.index;
-            return (
-              <button
-                type="button"
-                key={v.index}
-                onClick={() => onSelectVariant?.(moduleName, v.index)}
-                disabled={variantSelectInFlight || !onSelectVariant}
-                className={cn(
-                  "relative overflow-hidden rounded-md border-2 transition",
-                  isSelected
-                    ? "border-primary"
-                    : "border-muted hover:border-muted-foreground/40",
-                  variantSelectInFlight && "cursor-wait",
-                )}
-              >
-                <Image
-                  src={v.url}
-                  alt={`${moduleLabel} variant ${v.index + 1}`}
-                  width={480}
-                  height={270}
-                  className="h-auto w-full"
-                />
-                {isSelected && (
-                  <span className="absolute right-2 top-2 rounded-full bg-background">
-                    <CheckCircle2 className="h-6 w-6 fill-primary text-primary-foreground" />
-                  </span>
-                )}
-                {isSelecting && (
-                  <span className="absolute inset-0 flex items-center justify-center bg-background/60">
-                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </CardContent>
-      <ModuleFooter
-        module={moduleName}
-        onAction={onAction}
-        showEdit={false}
-        approved={asset.approved}
-        pendingAction={pendingAction}
-      />
-    </Card>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/* Image-single card — single-variant image modules (classroom_cover,         */
-/* calendar_cover). One image, one download/select target.                    */
-/* -------------------------------------------------------------------------- */
-
-export function ImageModuleCard({
-  asset,
-  onAction,
-  pendingAction = null,
-}: {
-  asset: GeneratedAsset;
-  onAction: ModuleActionHandler;
-  pendingAction?: ModuleAction | null;
-}) {
-  const c = asset.content as ImageVariantsContent;
-  const moduleName = asset.module;
-  const moduleLabel = MODULE_LABELS[moduleName] ?? moduleName;
-  const variant = c.variants[0];
-  return (
-    <Card className="md:col-span-2">
-      <ModuleHeader module={moduleName} approved={asset.approved} />
-      <CardContent>
-        {variant ? (
-          <div className="overflow-hidden rounded-md border">
-            <Image
-              src={variant.url}
-              alt={`${moduleLabel}`}
-              width={1456}
-              height={816}
-              className="h-auto w-full"
-            />
-          </div>
-        ) : (
-          <Skeleton className="aspect-[16/9] w-full" />
-        )}
-      </CardContent>
-      <ModuleFooter
-        module={moduleName}
-        onAction={onAction}
-        showEdit={false}
-        approved={asset.approved}
-        pendingAction={pendingAction}
-      />
-    </Card>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
 /* Leaderboard — 9-level rank list                                            */
 /* -------------------------------------------------------------------------- */
 
@@ -598,7 +566,7 @@ export function LeaderboardCard({
 }) {
   const c = asset.content as LeaderboardContent;
   return (
-    <Card>
+    <Card className={MODULE_CARD_CLASS}>
       <ModuleHeader module="leaderboard" approved={asset.approved} />
       <CardContent>
         <ol className="divide-y rounded-md border">
@@ -627,7 +595,7 @@ export function LeaderboardCard({
 /* -------------------------------------------------------------------------- */
 
 type CategoriesContent = {
-  categories: { name: string; description: string }[];
+  categories: string[];
 };
 
 export function CategoriesCard({
@@ -641,15 +609,19 @@ export function CategoriesCard({
 }) {
   const c = asset.content as CategoriesContent;
   return (
-    <Card>
+    <Card className={MODULE_CARD_CLASS}>
       <ModuleHeader module="categories" approved={asset.approved} />
-      <CardContent className="space-y-3">
-        {c.categories.map((cat, i) => (
-          <div key={i} className="space-y-0.5 rounded-md border p-3">
-            <p className="text-sm font-semibold">{cat.name}</p>
-            <p className="text-xs text-muted-foreground">{cat.description}</p>
-          </div>
-        ))}
+      <CardContent>
+        <ol className="divide-y rounded-md border">
+          {c.categories.map((name, i) => (
+            <li key={i} className="flex gap-3 px-3 py-2 text-sm">
+              <span className="font-mono text-xs text-muted-foreground">
+                {i + 1}.
+              </span>
+              <span>{name}</span>
+            </li>
+          ))}
+        </ol>
       </CardContent>
       <ModuleFooter
         module="categories"
@@ -678,7 +650,7 @@ export function DiscoverySeoCard({
 }) {
   const c = asset.content as DiscoverySeoContent;
   return (
-    <Card>
+    <Card className={MODULE_CARD_CLASS}>
       <ModuleHeader module="discovery_seo" approved={asset.approved} />
       <CardContent>
         <div className="flex flex-wrap gap-1.5">
@@ -702,26 +674,17 @@ export function DiscoverySeoCard({
 /* -------------------------------------------------------------------------- */
 /* CARD_COMPONENTS — registry-driven card dispatch                            */
 /*                                                                            */
-/* PR #7 tightens this from `Partial<Record<>>` to `Record<>` — every         */
-/* CardVariant in the registry now has a wired component. Adding a new        */
+/* Every CardVariant in the registry has a wired component. Adding a new      */
 /* variant without a component is a compile-time error.                       */
 /*                                                                            */
-/* Variant-aware modules (image-variants) read onSelectVariant +              */
-/* selectingIndex from the props bag; non-variant modules ignore them.        */
+/* Image dispatchers (image-variants / image-single) were removed in the      */
+/* chore/remove-image-generation cut alongside their card components.         */
 /* -------------------------------------------------------------------------- */
 
 export type GenericModuleCardProps = {
   asset: GeneratedAsset;
   onAction: ModuleActionHandler;
   pendingAction?: ModuleAction | null;
-  /**
-   * Variant-aware modules (cover, icon) call this with their module key
-   * + chosen variant index. The dashboard maps module key → API route.
-   * Non-variant modules ignore this prop.
-   */
-  onSelectVariant?: (module: string, index: number) => void;
-  /** Index of the variant whose select-variant request is in flight. */
-  selectingIndex?: number | null;
 };
 
 export const CARD_COMPONENTS: Record<
@@ -731,8 +694,7 @@ export const CARD_COMPONENTS: Record<
   "simple-text": TextModuleCard,
   "about-us": AboutUsCard,
   "start-here": StartHereCard,
-  "image-variants": ImageVariantsCard,
-  "image-single": ImageModuleCard,
+  "title-body": FirstPostCard,
   leaderboard: LeaderboardCard,
   repeater: CategoriesCard,
   chips: DiscoverySeoCard,

@@ -18,6 +18,30 @@ import type { GeneratedAsset } from "@/lib/db/schema";
 import { MODULE_LABELS } from "./module-cards";
 import { RepeaterField } from "@/components/wizard/RepeaterField";
 import { KeywordChipField } from "@/components/wizard/KeywordChipField";
+import {
+  EventsRepeater,
+  makeDefaultEvent,
+} from "@/components/wizard/EventsRepeater";
+import { AboutUsEditForm } from "./edit-forms/AboutUsEditForm";
+import { StartHereEditForm } from "./edit-forms/StartHereEditForm";
+import type { AboutUsOutput } from "@/prompts/about-us";
+import { WELCOME_DM_MAX_CHARS } from "@/prompts/welcome-dm";
+import type { StartHereOutput } from "@/prompts/start-here";
+import {
+  FIRST_POST_BODY_MAX,
+  FIRST_POST_TITLE_MAX,
+  type FirstPostOutput,
+} from "@/prompts/first-post";
+import { cn } from "@/lib/utils";
+import type {
+  CalendarEvent,
+  CalendarEventIntake,
+} from "@/types/schemas";
+import {
+  CALENDAR_EVENT_DESCRIPTION_MAX,
+  CALENDAR_EVENT_TITLE_MAX,
+  CALENDAR_MAX_EVENTS,
+} from "@/types/schemas";
 
 /* -------------------------------------------------------------------------- */
 /* Regenerate                                                                  */
@@ -95,27 +119,41 @@ export function RegenerateDialog({
 type WelcomeDmContent = { content: string };
 type TransformationContent = { candidates: string[] };
 type TitleDescriptionContent = { title: string; description: string };
+type ClassroomEditContent = { items: TitleDescriptionContent[] };
 type LeaderboardContent = { levels: string[] };
 type CategoriesContent = {
-  categories: { name: string; description: string }[];
+  categories: string[];
 };
 type DiscoverySeoContent = { keywords: string[] };
+type CalendarEditContent = { events: CalendarEvent[] };
 
-const TITLE_DESCRIPTION_LIMITS = {
-  classroom: { titleMax: 50, descriptionMax: 500 },
-  calendar: { titleMax: 30, descriptionMax: 300 },
+const CALENDAR_EVENT_LIMITS = {
+  titleMax: CALENDAR_EVENT_TITLE_MAX,
+  descriptionMax: CALENDAR_EVENT_DESCRIPTION_MAX,
+  maxItems: CALENDAR_MAX_EVENTS,
+} as const;
+const CLASSROOM_LIMITS = {
+  titleMax: 50,
+  descriptionMax: 500,
+  maxItems: 10,
 } as const;
 
 function EditFormShell({
   description,
   children,
   saving,
+  saveDisabled = false,
+  saveDisabledReason,
   onSave,
   onCancel,
 }: {
   description: ReactNode;
   children: ReactNode;
   saving: boolean;
+  /** Per-form gate (e.g. char-cap violation). OR'd with `saving`. */
+  saveDisabled?: boolean;
+  /** Optional explainer shown next to a disabled Save button. */
+  saveDisabledReason?: ReactNode;
   onSave: () => void;
   onCancel: () => void;
 }) {
@@ -127,10 +165,15 @@ function EditFormShell({
       </DialogHeader>
       <div className="space-y-3">{children}</div>
       <DialogFooter>
+        {saveDisabled && saveDisabledReason ? (
+          <p className="mr-auto text-xs text-destructive">
+            {saveDisabledReason}
+          </p>
+        ) : null}
         <Button variant="outline" onClick={onCancel} disabled={saving}>
           Cancel
         </Button>
-        <Button onClick={onSave} disabled={saving}>
+        <Button onClick={onSave} disabled={saving || saveDisabled}>
           {saving && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
           {saving ? "Saving…" : "Save"}
         </Button>
@@ -211,8 +254,7 @@ function EditDialogBody({
   }
   if (module === "classroom") {
     return (
-      <TitleDescriptionEditForm
-        kind="classroom"
+      <ClassroomEditForm
         asset={asset}
         onSave={onSave}
         onCancel={onCancel}
@@ -222,8 +264,7 @@ function EditDialogBody({
   }
   if (module === "calendar") {
     return (
-      <TitleDescriptionEditForm
-        kind="calendar"
+      <CalendarEditForm
         asset={asset}
         onSave={onSave}
         onCancel={onCancel}
@@ -261,7 +302,41 @@ function EditDialogBody({
       />
     );
   }
-  // about_us, start_here → JSON editor.
+  if (module === "about_us") {
+    return (
+      <AboutUsEditForm
+        initial={asset.content as Partial<AboutUsOutput>}
+        onSave={onSave}
+        onCancel={onCancel}
+        saving={saving}
+      />
+    );
+  }
+  if (module === "start_here") {
+    return (
+      <StartHereEditForm
+        initial={asset.content as Partial<StartHereOutput>}
+        onSave={onSave}
+        onCancel={onCancel}
+        saving={saving}
+      />
+    );
+  }
+  if (module === "first_post") {
+    return (
+      <FirstPostEditForm
+        asset={asset}
+        onSave={onSave}
+        onCancel={onCancel}
+        saving={saving}
+      />
+    );
+  }
+  // Defensive fallback. Per the PR #15 audit, no other module currently
+  // routes through EditDialog with a structured-only shape — the per-
+  // module forms above cover every dispatched module key. Kept so that
+  // adding a new module without an explicit form branch surfaces
+  // editable JSON instead of a runtime crash.
   return (
     <JsonEditForm
       asset={asset}
@@ -287,10 +362,18 @@ function WelcomeDmEditForm({
 }) {
   const initial = (asset.content as WelcomeDmContent).content;
   const [text, setText] = useState(initial);
+  const len = text.length;
+  const overCap = len > WELCOME_DM_MAX_CHARS;
   return (
     <EditFormShell
       description="Welcome DM body. Must contain #NAME# and #GROUPNAME# merge tags."
       saving={saving}
+      saveDisabled={overCap}
+      saveDisabledReason={
+        overCap
+          ? `${len - WELCOME_DM_MAX_CHARS} chars over Skool's cap`
+          : undefined
+      }
       onSave={() => onSave({ content: text })}
       onCancel={onCancel}
     >
@@ -299,7 +382,99 @@ function WelcomeDmEditForm({
         onChange={(e) => setText(e.target.value)}
         rows={12}
         className="font-mono text-xs"
+        aria-invalid={overCap || undefined}
       />
+      <p
+        className={cn(
+          "text-right text-xs tabular-nums",
+          overCap ? "font-semibold text-destructive" : "text-muted-foreground",
+        )}
+        aria-live="polite"
+      >
+        {len} / {WELCOME_DM_MAX_CHARS}
+      </p>
+    </EditFormShell>
+  );
+}
+
+/* ---------- First Post — title + body with independent counters ---------- */
+
+function FirstPostEditForm({
+  asset,
+  onSave,
+  onCancel,
+  saving,
+}: {
+  asset: GeneratedAsset;
+  onSave: (content: unknown) => void;
+  onCancel: () => void;
+  saving: boolean;
+}) {
+  const initial = asset.content as FirstPostOutput;
+  const [title, setTitle] = useState(initial.title ?? "");
+  const [body, setBody] = useState(initial.body ?? "");
+  const titleLen = title.length;
+  const bodyLen = body.length;
+  const titleOver = titleLen > FIRST_POST_TITLE_MAX;
+  const bodyOver = bodyLen > FIRST_POST_BODY_MAX;
+  const overCap = titleOver || bodyOver;
+  return (
+    <EditFormShell
+      description="Pinned welcome post — title + body have independent Skool fields."
+      saving={saving}
+      saveDisabled={overCap}
+      saveDisabledReason={
+        titleOver
+          ? `Title ${titleLen - FIRST_POST_TITLE_MAX} chars over cap`
+          : bodyOver
+            ? `Body ${bodyLen - FIRST_POST_BODY_MAX} chars over cap`
+            : undefined
+      }
+      onSave={() => onSave({ title, body })}
+      onCancel={onCancel}
+    >
+      <div className="space-y-1.5">
+        <Label htmlFor="first-post-title">Title</Label>
+        <Input
+          id="first-post-title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          aria-invalid={titleOver || undefined}
+        />
+        <p
+          className={cn(
+            "text-right text-xs tabular-nums",
+            titleOver
+              ? "font-semibold text-destructive"
+              : "text-muted-foreground",
+          )}
+          aria-live="polite"
+        >
+          {titleLen} / {FIRST_POST_TITLE_MAX}
+        </p>
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="first-post-body">Body</Label>
+        <Textarea
+          id="first-post-body"
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          rows={20}
+          className="font-mono text-xs"
+          aria-invalid={bodyOver || undefined}
+        />
+        <p
+          className={cn(
+            "text-right text-xs tabular-nums",
+            bodyOver
+              ? "font-semibold text-destructive"
+              : "text-muted-foreground",
+          )}
+          aria-live="polite"
+        >
+          {bodyLen.toLocaleString()} / {FIRST_POST_BODY_MAX.toLocaleString()}
+        </p>
+      </div>
     </EditFormShell>
   );
 }
@@ -394,61 +569,188 @@ function JsonEditForm({
   );
 }
 
-/* ---------- Classroom / Calendar — title + description ---------- */
+/* ---------- Calendar — events with schedule + per-event description ---------- */
 
-function TitleDescriptionEditForm({
-  kind,
+function CalendarEditForm({
   asset,
   onSave,
   onCancel,
   saving,
 }: {
-  kind: "classroom" | "calendar";
   asset: GeneratedAsset;
   onSave: (content: unknown) => void;
   onCancel: () => void;
   saving: boolean;
 }) {
-  const initial = asset.content as TitleDescriptionContent;
-  const [title, setTitle] = useState(initial.title);
-  const [description, setDescription] = useState(initial.description);
-  const limits = TITLE_DESCRIPTION_LIMITS[kind];
+  const initial = (asset.content as CalendarEditContent).events.slice(
+    0,
+    CALENDAR_EVENT_LIMITS.maxItems,
+  );
+  const [events, setEvents] = useState<CalendarEvent[]>(
+    initial.length > 0
+      ? initial
+      : [{ ...makeDefaultEvent(), description: "" }],
+  );
+
+  function updateDescription(i: number, description: string) {
+    setEvents((prev) => {
+      const next = [...prev];
+      next[i] = { ...next[i], description };
+      return next;
+    });
+  }
+
+  // Intake (title + schedule) is editable via the EventsRepeater; the parsed
+  // description is editable in a dedicated textarea below each row. The two
+  // shapes line up by index — EventsRepeater operates on CalendarEventIntake
+  // and we re-attach the existing description on save.
+  function setEventIntakes(nextIntakes: CalendarEventIntake[]) {
+    setEvents((prev) => {
+      return nextIntakes.map((intake, i) => ({
+        ...intake,
+        description: prev[i]?.description ?? "",
+      }));
+    });
+  }
+
   return (
     <EditFormShell
-      description={`${MODULE_LABELS[kind]} title and description.`}
+      description={`Up to ${CALENDAR_EVENT_LIMITS.maxItems} events. Edit title, schedule, and the per-event description.`}
       saving={saving}
-      onSave={() => onSave({ title, description })}
+      onSave={() => onSave({ events })}
       onCancel={onCancel}
     >
-      <div className="space-y-1">
-        <Label htmlFor="td-title">
-          Title{" "}
-          <span className="text-xs text-muted-foreground">
-            (max {limits.titleMax})
-          </span>
-        </Label>
-        <Input
-          id="td-title"
-          value={title}
-          maxLength={limits.titleMax}
-          onChange={(e) => setTitle(e.target.value)}
-        />
-      </div>
-      <div className="space-y-1">
-        <Label htmlFor="td-description">
-          Description{" "}
-          <span className="text-xs text-muted-foreground">
-            (max {limits.descriptionMax})
-          </span>
-        </Label>
-        <Textarea
-          id="td-description"
-          rows={5}
-          value={description}
-          maxLength={limits.descriptionMax}
-          onChange={(e) => setDescription(e.target.value)}
-        />
-      </div>
+      <EventsRepeater
+        values={events.map((e) => ({ title: e.title, schedule: e.schedule }))}
+        onChange={setEventIntakes}
+      />
+      {events.map((event, i) => {
+        const descId = `cal-edit-desc-${i}`;
+        return (
+          <div key={i} className="space-y-1 rounded-md border p-3">
+            <Label htmlFor={descId}>
+              Event {i + 1} description{" "}
+              <span className="text-xs text-muted-foreground">
+                (max {CALENDAR_EVENT_LIMITS.descriptionMax})
+              </span>
+            </Label>
+            <Textarea
+              id={descId}
+              rows={3}
+              value={event.description}
+              maxLength={CALENDAR_EVENT_LIMITS.descriptionMax}
+              onChange={(e) => updateDescription(i, e.target.value)}
+            />
+          </div>
+        );
+      })}
+    </EditFormShell>
+  );
+}
+
+/* ---------- Classroom — repeating { title, description } items ---------- */
+
+function ClassroomEditForm({
+  asset,
+  onSave,
+  onCancel,
+  saving,
+}: {
+  asset: GeneratedAsset;
+  onSave: (content: unknown) => void;
+  onCancel: () => void;
+  saving: boolean;
+}) {
+  const initial = (asset.content as ClassroomEditContent).items.slice(
+    0,
+    CLASSROOM_LIMITS.maxItems,
+  );
+  const [items, setItems] = useState<TitleDescriptionContent[]>(initial);
+
+  function updateItem(i: number, patch: Partial<TitleDescriptionContent>) {
+    setItems((prev) => {
+      const next = [...prev];
+      next[i] = { ...next[i], ...patch };
+      return next;
+    });
+  }
+
+  function removeItem(i: number) {
+    setItems((prev) => prev.filter((_, idx) => idx !== i));
+  }
+
+  const atMax = items.length >= CLASSROOM_LIMITS.maxItems;
+
+  return (
+    <EditFormShell
+      description={`One title + 2-3 sentence description per classroom (max ${CLASSROOM_LIMITS.maxItems}).`}
+      saving={saving}
+      onSave={() => onSave({ items })}
+      onCancel={onCancel}
+    >
+      {items.map((item, i) => {
+        const titleId = `classroom-edit-title-${i}`;
+        const descId = `classroom-edit-description-${i}`;
+        return (
+          <div key={i} className="space-y-2 rounded-md border p-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium text-muted-foreground">
+                Classroom {i + 1}
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => removeItem(i)}
+                disabled={items.length <= 1}
+              >
+                Remove
+              </Button>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor={titleId}>
+                Title{" "}
+                <span className="text-xs text-muted-foreground">
+                  (max {CLASSROOM_LIMITS.titleMax})
+                </span>
+              </Label>
+              <Input
+                id={titleId}
+                value={item.title}
+                maxLength={CLASSROOM_LIMITS.titleMax}
+                onChange={(e) => updateItem(i, { title: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor={descId}>
+                Description{" "}
+                <span className="text-xs text-muted-foreground">
+                  (max {CLASSROOM_LIMITS.descriptionMax})
+                </span>
+              </Label>
+              <Textarea
+                id={descId}
+                rows={3}
+                value={item.description}
+                maxLength={CLASSROOM_LIMITS.descriptionMax}
+                onChange={(e) =>
+                  updateItem(i, { description: e.target.value })
+                }
+              />
+            </div>
+          </div>
+        );
+      })}
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() =>
+          setItems((prev) => [...prev, { title: "", description: "" }])
+        }
+        disabled={atMax}
+      >
+        Add classroom ({items.length}/{CLASSROOM_LIMITS.maxItems})
+      </Button>
     </EditFormShell>
   );
 }
@@ -486,7 +788,7 @@ function LeaderboardEditForm({
   );
 }
 
-/* ---------- Categories — 3 named blocks ---------- */
+/* ---------- Categories — 3 names (name-only; Skool has no description field) ---------- */
 
 function CategoriesEditForm({
   asset,
@@ -500,24 +802,20 @@ function CategoriesEditForm({
   saving: boolean;
 }) {
   const initial = (asset.content as CategoriesContent).categories;
-  const [rows, setRows] = useState<
-    { name: string; description: string }[]
-  >(initial.slice(0, 3));
+  const [rows, setRows] = useState<string[]>(initial.slice(0, 3));
   return (
     <EditFormShell
-      description="Three category names with descriptions (introduce, share-wins, creator-advice slots)."
+      description="Three category names (introduce, share-wins, creator-advice slots)."
       saving={saving}
       onSave={() => onSave({ categories: rows })}
       onCancel={onCancel}
     >
       <RepeaterField
-        variant="grouped"
+        variant="single"
         legend="Categories"
         rowLabel={(i) => `Category ${i + 1}`}
         values={rows}
         onChange={setRows}
-        namePlaceholder="Category name"
-        descriptionPlaceholder="One-line description"
       />
     </EditFormShell>
   );

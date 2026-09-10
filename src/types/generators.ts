@@ -30,8 +30,22 @@ export type CreatorContext = Pick<
   | "refund_policy"
   | "support_contact"
   | "brand_prefs"
-  | "creator_photo_url"
->;
+> & {
+  /**
+   * Optional here because legacy DB rows may have null classroom_intake.
+   * Required by CreatorIntakeSchema at wizard submit time. The classroom
+   * prompt builder throws if absent so a misconfigured creator can't reach
+   * Claude with an empty title list.
+   */
+  classroom_titles?: CreatorIntake["classroom_titles"];
+  /**
+   * VA-supplied calendar events (title + schedule per event). Optional here
+   * because draft creators may not have filled in step 5 yet; the calendar
+   * prompt builder throws if absent so a misconfigured creator can't reach
+   * Claude with an empty events list.
+   */
+  calendar_intake?: CreatorIntake["calendar_intake"];
+};
 
 /**
  * One pattern library example ready to be injected as a few-shot sample.
@@ -104,6 +118,9 @@ export function toCreatorContext(row: Creator): CreatorContext {
     refund_policy: row.refundPolicy ?? "",
     support_contact: row.supportContact ?? "",
     brand_prefs: row.brandPrefs ?? "",
-    creator_photo_url: row.creatorPhotoUrl ?? undefined,
+    classroom_titles:
+      (row.classroomIntake as CreatorContext["classroom_titles"]) ?? undefined,
+    calendar_intake:
+      (row.calendarIntake as CreatorContext["calendar_intake"]) ?? undefined,
   };
 }

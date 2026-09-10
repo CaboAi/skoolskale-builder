@@ -1,37 +1,52 @@
-import "server-only";
+/**
+ * Image provider contract.
+ *
+ * Recovered from the seam deleted in PR #39 (`git show
+ * 0e4e694^:src/lib/image-providers/types.ts`) and widened for gpt-image-1.
+ * The seam exists because the provider is expected to change: Ideogram is
+ * the planned swap at client handover, and the pipeline above this line
+ * should not have to care.
+ *
+ * Pure module — types only.
+ */
+import type { ProviderSize } from "@/lib/images/slots";
+import type { ImageTokenUsage } from "@/lib/images/usage";
 
 /**
- * Provider-agnostic contract for image generation.
+ * Where a reference image lives.
  *
- * The current default provider is Gemini Nano Banana 2 (see ./gemini.ts).
- * Future swaps (Ideogram, ChatGPT Image, etc.) implement this interface
- * and get registered in ./index.ts. Callers stay unchanged.
- *
- * Note on width/height: Gemini Nano Banana doesn't accept dimensions as
- * a parameter — prompts embed dimensions in their text. We still pass
- * width/height through the interface so future providers that DO accept
- * dimensions (Ideogram, ChatGPT Image) can use them without a contract
- * change.
+ * `storage` is strongly preferred: it downloads under the service-role
+ * client, which works regardless of bucket visibility and has no signed-URL
+ * TTL to race against mid-generation. `url` exists for ad-hoc callers
+ * (scripts, tests) that already hold one.
  */
+export type ReferenceImageSource =
+  | { kind: "url"; url: string }
+  | { kind: "storage"; bucket: string; path: string };
+
 export type ImageGenerateArgs = {
   prompt: string;
-  referenceImageUrl?: string;
-  numVariants: number;
-  width: number;
-  height: number;
-  packageId: string;
   /**
-   * generation_jobs row id this call belongs to. Usage logging skips
-   * when omitted (ad-hoc CLIs, tests).
+   * Ordered, and the order is meaningful: headshot, then brand kit, then the
+   * style anchor. Empty or omitted routes to the text-to-image endpoint.
    */
-  jobId?: string;
+  referenceImages?: ReferenceImageSource[];
+  size: ProviderSize;
+  quality: "low" | "medium" | "high";
+  background: "opaque" | "transparent";
+  /** Whether a reference is the creator's face, which raises input fidelity. */
+  hasPortraitReference?: boolean;
+  packageId: string;
   model?: string;
 };
 
 export type ImageGenerateResult = {
-  images: Buffer[];
+  /** Exactly one image. This phase has no variants by design. */
+  image: Buffer;
   costUsd: number;
   modelUsed: string;
+  durationMs: number;
+  tokens?: ImageTokenUsage;
 };
 
 export interface ImageProvider {

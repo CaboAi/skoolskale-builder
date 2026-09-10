@@ -13,8 +13,8 @@ A launch-phase Skool community builder for the Skool Skale agency. Internal tool
 - **Auth:** Supabase Auth (magic link)
 - **Storage:** Supabase Storage (private buckets)
 - **AI copy:** Claude Sonnet 4 via Vercel AI SDK (`streamText`)
-- **AI images:** Gemini Nano Banana 2 (`gemini-3.1-flash-image-preview`) via `@google/genai`
-- **Image composition:** Native via Gemini reference images (no Sharp for MVP)
+- **AI images:** OpenAI `gpt-image-1` (quality `high`) via raw `fetch` — no SDK dependency
+- **Image sizing:** `sharp` centre-crop + resize to exact Skool specs (gpt-image-1 only emits 1024x1024 / 1536x1024 / 1024x1536)
 - **Background jobs:** Inngest (all long-running work)
 - **UI:** shadcn/ui + Tailwind CSS v4
 - **Forms:** React Hook Form + Zod
@@ -26,7 +26,7 @@ Do not introduce new major dependencies without Mario's approval.
 
 ## Architectural Rules
 
-1. **No Claude or Gemini image calls in API routes.** All external AI calls run inside Inngest functions. API routes enqueue jobs and return immediately.
+1. **No external AI calls in API routes** — Claude, OpenAI text, OpenAI images, any of them. All run inside Inngest functions. API routes enqueue jobs and return immediately.
 2. **No client-side API keys.** All secrets in Vercel env vars, accessed only from server.
 3. **Every new table needs RLS policies.** No exceptions. Test with anon + authed Supabase clients.
 4. **Generator prompts live in `/src/prompts/<module>.ts`.** Not in database. Version controlled, reviewed by `prompt-engineer`.
@@ -106,14 +106,14 @@ The 2026-05-08 `wiki/log.md` entry "PR #7 deploy ops (post-merge infra catch-up)
 - **backend-engineer** — Next.js API routes, server actions, Inngest functions, auth logic
 - **frontend-engineer** — React components, forms, dashboards, shadcn work, styling
 - **prompt-engineer** — `/src/prompts/` files, pattern library, output parsers, Zod schemas for AI outputs
-- **integration-specialist** — Claude API, Gemini image API, Canva Connect, OAuth flows, webhooks
+- **integration-specialist** — Claude API, OpenAI image API, Canva Connect, OAuth flows, webhooks
 - **qa-reviewer** — tests, PR review, regression checks (invoked before every merge)
 
 If a ticket crosses agent lanes, split it.
 
 ## Anti-Patterns (Never Do These)
 
-- ❌ Call Claude or Gemini image API from an API route handler (use Inngest)
+- ❌ Call any external AI API (Claude, OpenAI) from an API route handler (use Inngest)
 - ❌ Put prompts in the database (they live in Git, versioned)
 - ❌ Skip RLS "because it's an internal tool" (still required)
 - ❌ Import `createClient` from `@supabase/supabase-js` directly in components (use wrappers in `/src/lib/supabase/`)
@@ -130,7 +130,8 @@ If a ticket crosses agent lanes, split it.
 /src/lib/db/                 Drizzle client + queries
 /src/lib/supabase/           Supabase client wrappers
 /src/lib/claude/             Claude/AI SDK wrapper
-/src/lib/gemini-image/       Gemini image API wrapper
+/src/lib/image-providers/    Image provider seam (OpenAI impl; Ideogram swap planned)
+/src/lib/images/             Slot registry, style spec, sharp post-process, usage
 /src/lib/canva/              Canva Connect client
 /src/lib/inngest/            Inngest client + functions
 /src/prompts/                Generator system prompts
