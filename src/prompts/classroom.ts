@@ -3,22 +3,22 @@ import {
   type ClassroomContent,
 } from '@/types/schemas';
 import type { GeneratorInput } from '@/types/generators';
-import { EmptyIntakeError } from '@/lib/inngest/cap-violation';
+import { CapViolationError, EmptyIntakeError } from '@/lib/inngest/cap-violation';
 import { regenerateNoteSuffix } from './_shared';
 
 const TITLE_MAX = 50;
-const DESCRIPTION_MAX = 500;
+export const CLASSROOM_DESCRIPTION_MAX = 200;
 const MAX_ITEMS = 10;
 
-export const systemPrompt = `You are a copywriter for Skool communities. The community owner provides the names of the classrooms / courses inside their community Classroom area. Your job is to write a short 2-3 sentence description for each one, in the creator's voice.
+export const systemPrompt = `You are a copywriter for Skool communities. The community owner provides the names of the classrooms / courses inside their community Classroom area. Your job is to write a short 1-2 sentence description for each one, in the creator's voice.
 
 For every classroom title the user supplies, produce one <item> with:
 1. <title> — echo the title EXACTLY as given. Do not rename, reword, translate, or "improve" it. This is non-negotiable.
-2. <description> — 2 to 3 plain-prose sentences (max ${DESCRIPTION_MAX} characters) telling a member what they'll find in that classroom and why it matters.
+2. <description> — 1 to 2 plain-prose sentences (max ${CLASSROOM_DESCRIPTION_MAX} characters) telling a member what they'll find in that classroom and why it matters.
 
 Hard rules:
 - Echo every title verbatim. Same casing, same punctuation, same words. If the user wrote "Module 1: Reset", do not output "Module 1 - Reset" or "Reset Module".
-- Description: 1-${DESCRIPTION_MAX} characters, 2-3 short sentences. No bullet points, no markdown, no emojis.
+- Description: 1-${CLASSROOM_DESCRIPTION_MAX} characters, 1-2 short sentences. Count the characters; anything over ${CLASSROOM_DESCRIPTION_MAX} is rejected. No bullet points, no markdown, no emojis.
 - Match the tone provided.
 - Speak directly to the member ("you'll find", "start with", "this section").
 - Ground every description in the creator's transformation, audience, and offer. Don't describe Skool generically.
@@ -37,11 +37,11 @@ Respond in this exact format:
 <classroom>
 <item>
 <title>...title 1 verbatim...</title>
-<description>...2-3 sentences...</description>
+<description>...1-2 sentences...</description>
 </item>
 <item>
 <title>...title 2 verbatim...</title>
-<description>...2-3 sentences...</description>
+<description>...1-2 sentences...</description>
 </item>
 ... one item per supplied title ...
 </classroom>`;
@@ -95,7 +95,7 @@ ${titlesBlock}
 </classroom_titles>
 
 <task>
-Write one <item> per title above, in the same order. Echo each title verbatim and write a 2-3 sentence description (max ${DESCRIPTION_MAX} chars) in a ${input.creator.tone} tone.
+Write one <item> per title above, in the same order. Echo each title verbatim and write a 1-2 sentence description (max ${CLASSROOM_DESCRIPTION_MAX} chars) in a ${input.creator.tone} tone.
 </task>${regenerateNoteSuffix(input.regenerateNote)}`;
 }
 
@@ -132,10 +132,16 @@ export function parseOutput(raw: string): ClassroomContent {
         `classroom: item ${i + 1} title is ${title.length} chars (max ${TITLE_MAX})`,
       );
     }
-    if (description.length > DESCRIPTION_MAX) {
-      throw new Error(
-        `classroom: item ${i + 1} description is ${description.length} chars (max ${DESCRIPTION_MAX})`,
-      );
+    // Typed so the generator factory fires its single "rewrite tighter"
+    // retry instead of failing the module on a small overshoot.
+    if (description.length > CLASSROOM_DESCRIPTION_MAX) {
+      throw new CapViolationError({
+        module: 'classroom',
+        moduleLabel: `Classroom item ${i + 1} description`,
+        actualChars: description.length,
+        maxChars: CLASSROOM_DESCRIPTION_MAX,
+        rawOutput: raw,
+      });
     }
 
     return { title, description };
