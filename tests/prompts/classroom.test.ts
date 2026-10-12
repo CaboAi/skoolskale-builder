@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import { parseOutput } from '@/prompts/classroom';
+import { CapViolationError } from '@/lib/inngest/cap-violation';
+import { CLASSROOM_DESCRIPTION_MAX, parseOutput } from '@/prompts/classroom';
 
 describe('classroom.parseOutput', () => {
   test('parses one item with title + description', () => {
@@ -65,10 +66,32 @@ describe('classroom.parseOutput', () => {
     expect(() => parseOutput(raw)).toThrow(/item 1 title is 51 chars/);
   });
 
-  test('throws when a description exceeds 500 chars', () => {
-    const longDesc = 'a'.repeat(501);
-    const raw = `<classroom><item><title>Ok</title><description>${longDesc}</description></item></classroom>`;
-    expect(() => parseOutput(raw)).toThrow(/item 1 description is 501 chars/);
+  test('accepts a description of exactly the 200-char cap', () => {
+    const atCap = 'a'.repeat(CLASSROOM_DESCRIPTION_MAX);
+    const raw = `<classroom><item><title>Ok</title><description>${atCap}</description></item></classroom>`;
+    expect(parseOutput(raw).items[0].description).toHaveLength(200);
+  });
+
+  test('throws CapViolationError naming the item when a description is 201 chars', () => {
+    const overCap = 'a'.repeat(CLASSROOM_DESCRIPTION_MAX + 1);
+    const raw = `<classroom>
+<item><title>Ok</title><description>fine</description></item>
+<item><title>Long</title><description>${overCap}</description></item>
+</classroom>`;
+    let caught: unknown;
+    try {
+      parseOutput(raw);
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(CapViolationError);
+    expect(caught).toMatchObject({
+      module: 'classroom',
+      moduleLabel: 'Classroom item 2 description',
+      actualChars: 201,
+      maxChars: 200,
+      rawOutput: raw,
+    });
   });
 
   test('throws when more than 10 items are returned', () => {
