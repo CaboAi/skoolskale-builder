@@ -32,6 +32,10 @@ import {
   FIRST_POST_TITLE_MAX,
   type FirstPostOutput,
 } from "@/prompts/first-post";
+import {
+  PERKS_POST_BODY_MAX,
+  PERKS_POST_TITLE_MAX,
+} from "@/prompts/perks-post";
 import { cn } from "@/lib/utils";
 import type {
   CalendarEvent,
@@ -332,6 +336,19 @@ function EditDialogBody({
       />
     );
   }
+  if (module === "perks_post") {
+    return (
+      <FirstPostEditForm
+        asset={asset}
+        onSave={onSave}
+        onCancel={onCancel}
+        saving={saving}
+        titleMax={PERKS_POST_TITLE_MAX}
+        bodyMax={PERKS_POST_BODY_MAX}
+        description="Perks post for the perks category — title + body have independent Skool fields."
+      />
+    );
+  }
   // Defensive fallback. Per the PR #15 audit, no other module currently
   // routes through EditDialog with a structured-only shape — the per-
   // module forms above cover every dispatched module key. Kept so that
@@ -397,37 +414,43 @@ function WelcomeDmEditForm({
   );
 }
 
-/* ---------- First Post — title + body with independent counters ---------- */
+/* ---------- First Post / Perks Post — title + body with independent counters ---------- */
 
 function FirstPostEditForm({
   asset,
   onSave,
   onCancel,
   saving,
+  titleMax = FIRST_POST_TITLE_MAX,
+  bodyMax = FIRST_POST_BODY_MAX,
+  description = "Pinned welcome post — title + body have independent Skool fields.",
 }: {
   asset: GeneratedAsset;
   onSave: (content: unknown) => void;
   onCancel: () => void;
   saving: boolean;
+  titleMax?: number;
+  bodyMax?: number;
+  description?: string;
 }) {
   const initial = asset.content as FirstPostOutput;
   const [title, setTitle] = useState(initial.title ?? "");
   const [body, setBody] = useState(initial.body ?? "");
   const titleLen = title.length;
   const bodyLen = body.length;
-  const titleOver = titleLen > FIRST_POST_TITLE_MAX;
-  const bodyOver = bodyLen > FIRST_POST_BODY_MAX;
+  const titleOver = titleLen > titleMax;
+  const bodyOver = bodyLen > bodyMax;
   const overCap = titleOver || bodyOver;
   return (
     <EditFormShell
-      description="Pinned welcome post — title + body have independent Skool fields."
+      description={description}
       saving={saving}
       saveDisabled={overCap}
       saveDisabledReason={
         titleOver
-          ? `Title ${titleLen - FIRST_POST_TITLE_MAX} chars over cap`
+          ? `Title ${titleLen - titleMax} chars over cap`
           : bodyOver
-            ? `Body ${bodyLen - FIRST_POST_BODY_MAX} chars over cap`
+            ? `Body ${bodyLen - bodyMax} chars over cap`
             : undefined
       }
       onSave={() => onSave({ title, body })}
@@ -450,7 +473,7 @@ function FirstPostEditForm({
           )}
           aria-live="polite"
         >
-          {titleLen} / {FIRST_POST_TITLE_MAX}
+          {titleLen} / {titleMax}
         </p>
       </div>
       <div className="space-y-1.5">
@@ -472,7 +495,7 @@ function FirstPostEditForm({
           )}
           aria-live="polite"
         >
-          {bodyLen.toLocaleString()} / {FIRST_POST_BODY_MAX.toLocaleString()}
+          {bodyLen.toLocaleString()} / {bodyMax.toLocaleString()}
         </p>
       </div>
     </EditFormShell>
@@ -802,10 +825,14 @@ function CategoriesEditForm({
   saving: boolean;
 }) {
   const initial = (asset.content as CategoriesContent).categories;
-  const [rows, setRows] = useState<string[]>(initial.slice(0, 3));
+  const [rows, setRows] = useState<string[]>(initial.slice(0, 4));
   return (
     <EditFormShell
-      description="Three category names (introduce, share-wins, creator-advice slots)."
+      description={
+        rows.length > 3
+          ? "Category names (introduce, share-wins, creator-advice, perks slots)."
+          : "Three category names (introduce, share-wins, creator-advice slots)."
+      }
       saving={saving}
       onSave={() => onSave({ categories: rows })}
       onCancel={onCancel}

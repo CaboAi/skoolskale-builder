@@ -424,9 +424,30 @@ export function FirstPostCard({
   pendingAction?: ModuleAction | null;
 }) {
   const c = asset.content as FirstPostContent;
+  // Shared by first_post and perks_post (both cardVariant "title-body").
+  const moduleKey = asset.module;
+  if (moduleKey === "perks_post" && !c.body) {
+    return (
+      <Card className={MODULE_CARD_CLASS}>
+        <ModuleHeader module={moduleKey} approved={asset.approved} />
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            No perks on the intake, so there&apos;s no perks post. Add perks
+            on intake step 2 and regenerate, or approve to skip.
+          </p>
+        </CardContent>
+        <ModuleFooter
+          module={moduleKey}
+          onAction={onAction}
+          approved={asset.approved}
+          pendingAction={pendingAction}
+        />
+      </Card>
+    );
+  }
   return (
     <Card className={cn(MODULE_CARD_CLASS, "md:col-span-2")}>
-      <ModuleHeader module="first_post" approved={asset.approved} />
+      <ModuleHeader module={moduleKey} approved={asset.approved} />
       <CardContent className="space-y-3">
         <p
           className="text-base font-semibold leading-snug"
@@ -445,7 +466,7 @@ export function FirstPostCard({
         </p>
       </CardContent>
       <ModuleFooter
-        module="first_post"
+        module={moduleKey}
         onAction={onAction}
         approved={asset.approved}
         pendingAction={pendingAction}
@@ -466,6 +487,10 @@ type StartHereContent = {
   step_2_community_rules: { title: string; rules: string[] };
   step_3_faqs: { question: string; answer_template: string }[];
   step_4_need_assistance: { title: string; template: string };
+  step_5_perks?: {
+    title: string;
+    perks: { name: string; description: string }[];
+  };
 };
 
 export function StartHereCard({
@@ -537,6 +562,23 @@ export function StartHereCard({
               </p>
             </AccordionContent>
           </AccordionItem>
+          {c.step_5_perks && (
+            <AccordionItem value="step-5">
+              <AccordionTrigger>
+                Step 5: {c.step_5_perks.title}
+              </AccordionTrigger>
+              <AccordionContent>
+                <ul className="space-y-2 text-sm">
+                  {c.step_5_perks.perks.map((p, i) => (
+                    <li key={i}>
+                      <p className="font-semibold">{p.name}</p>
+                      <p className="text-muted-foreground">{p.description}</p>
+                    </li>
+                  ))}
+                </ul>
+              </AccordionContent>
+            </AccordionItem>
+          )}
         </Accordion>
       </CardContent>
       <ModuleFooter

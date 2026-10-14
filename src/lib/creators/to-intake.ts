@@ -17,7 +17,7 @@
 import type { Creator } from "@/lib/db/schema";
 import {
   CalendarIntakeSchema,
-  CategoriesContentSchema,
+  CategoryNamesIntakeSchema,
   ClassroomTitlesSchema,
   DiscoverySeoContentSchema,
   LeaderboardContentSchema,
@@ -90,7 +90,7 @@ export function creatorToIntake(creator: Creator): CreatorIntake {
       creator.leaderboardLevels,
     ),
     categories: parsed(
-      CategoriesContentSchema.shape.categories,
+      CategoryNamesIntakeSchema,
       creator.categories,
     ),
     discovery_keywords: parsed(

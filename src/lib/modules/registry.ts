@@ -28,6 +28,7 @@ import { TransformationSchema } from "@/prompts/transformation";
 import { AboutUsSchema } from "@/prompts/about-us";
 import { StartHereSchema } from "@/prompts/start-here";
 import { FirstPostSchema } from "@/prompts/first-post";
+import { PerksPostSchema } from "@/prompts/perks-post";
 import {
   ClassroomContentSchema,
   CalendarContentSchema,
@@ -42,6 +43,7 @@ export type ModuleKey =
   | "about_us"
   | "start_here"
   | "first_post"
+  | "perks_post"
   // Add-on text modules — registered in PR #4 (intake), generators in PR #6.
   | "classroom"
   | "calendar"
@@ -159,6 +161,20 @@ export const MODULE_REGISTRY: Record<ModuleKey, ModuleConfig> = {
     // catches body-over-cap and fires one rewrite-tighter retry.
     targetChars: 1800,
     maxChars: 2500,
+  },
+  perks_post: {
+    key: "perks_post",
+    label: "Perks Post",
+    outputSchema: PerksPostSchema,
+    generatorKind: "claude-text",
+    cardVariant: "title-body",
+    // Default-on for every package. Creators without intake perks get an
+    // empty asset (EmptyIntakeError skip path), so the card still lands
+    // and can be approved without blocking export.
+    includedByDefault: true,
+    eventName: "generate.perks_post.requested",
+    targetChars: 1200,
+    maxChars: 2000,
   },
   classroom: {
     key: "classroom",

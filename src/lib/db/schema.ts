@@ -57,6 +57,8 @@ export const moduleEnum = pgEnum('module', [
   'calendar_cover',
   // PR #41 — pinned welcome post on the community's main feed.
   'first_post',
+  // Second launch post — announces the intake perks in the perks category.
+  'perks_post',
 ]);
 
 export const launchPackageStatusEnum = pgEnum('launch_package_status', [

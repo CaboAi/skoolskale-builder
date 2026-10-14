@@ -17,3 +17,14 @@ export function regenerateNoteSuffix(note?: string | null): string {
   if (!trimmed) return "";
   return `\n\nUSER FEEDBACK TO INCORPORATE:\n${trimmed}\n\nTreat this feedback as priority guidance. If it conflicts with default style choices, the user feedback wins.`;
 }
+
+/**
+ * The perks a creator listed on intake step 2, trimmed with blanks dropped.
+ * Start Here, Categories and the Perks Post all branch on whether this is
+ * empty, so they share one definition of "has perks".
+ */
+export function listedPerks(
+  offerBreakdown?: { perks?: string[] } | null,
+): string[] {
+  return (offerBreakdown?.perks ?? []).map((p) => p.trim()).filter(Boolean);
+}

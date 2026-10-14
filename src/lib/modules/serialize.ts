@@ -37,6 +37,10 @@ type StartHereContent = {
   step_2_community_rules: { title: string; rules: string[] };
   step_3_faqs: { question: string; answer_template: string }[];
   step_4_need_assistance: { title: string; template: string };
+  step_5_perks?: {
+    title: string;
+    perks: { name: string; description: string }[];
+  };
 };
 type FirstPostContent = { title: string; body: string };
 type ClassroomContent = { items: { title: string; description: string }[] };
@@ -77,12 +81,24 @@ export function renderStep4Text(
   return `${s.title}\n\n${s.template}`;
 }
 
+export function renderStep5Text(
+  s: NonNullable<StartHereContent["step_5_perks"]>,
+): string {
+  const perks = s.perks
+    .map((p) => `${p.name}\n${p.description}`)
+    .join("\n\n");
+  return `${s.title}\n\n${perks}`;
+}
+
 function renderStartHereText(c: StartHereContent): string {
   return [
     `Step 1 — ${renderStep1Text(c.step_1_how_to_use)}`,
     `Step 2 — ${renderStep2Text(c.step_2_community_rules)}`,
     `Step 3 — FAQs\n${renderStep3Text(c.step_3_faqs)}`,
     `Step 4 — ${renderStep4Text(c.step_4_need_assistance)}`,
+    ...(c.step_5_perks
+      ? [`Step 5 — ${renderStep5Text(c.step_5_perks)}`]
+      : []),
   ].join("\n\n");
 }
 
@@ -116,6 +132,10 @@ export function serializeModuleText(
     case "first_post": {
       const { title, body } = content as FirstPostContent;
       return `Title: ${title}\n\n${body}`;
+    }
+    case "perks_post": {
+      const { title, body } = content as FirstPostContent;
+      return body ? `Title: ${title}\n\n${body}` : "_No perks — no perks post._";
     }
     case "classroom": {
       const { items } = content as ClassroomContent;

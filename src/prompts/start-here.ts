@@ -1,11 +1,18 @@
 import { z } from 'zod';
 import type { GeneratorInput } from '@/types/generators';
-import { regenerateNoteSuffix } from './_shared';
+import { listedPerks, regenerateNoteSuffix } from './_shared';
 
 const HowToUseSectionSchema = z.object({
   name: z.string().min(1).max(80),
   description: z.string().min(1).max(400),
 });
+
+const PerkSchema = z.object({
+  name: z.string().min(1).max(80),
+  description: z.string().min(1).max(400),
+});
+
+export const START_HERE_PERKS_MAX = 20;
 
 const FaqSchema = z.object({
   question: z.string().min(3).max(250),
@@ -26,13 +33,24 @@ export const StartHereSchema = z.object({
     title: z.string().min(1).max(120),
     template: z.string().min(5).max(500),
   }),
+  /**
+   * Present only when the intake lists perks (offer_breakdown.perks). Sits
+   * after Need Assistance so it renders as the last Start Here lesson.
+   * Optional so assets generated before this step existed still parse.
+   */
+  step_5_perks: z
+    .object({
+      title: z.string().min(1).max(120),
+      perks: z.array(PerkSchema).min(1).max(START_HERE_PERKS_MAX),
+    })
+    .optional(),
 });
 
 export type StartHereOutput = z.infer<typeof StartHereSchema>;
 
 export const systemPrompt = `You are a community operations writer. You produce the "Start Here" onboarding document for a Skool community — what members read first.
 
-The output is a 4-step structured JSON document. Every field is REQUIRED. Match this exact shape:
+The output is a 4-step structured JSON document, plus a 5th "perks" step ONLY when the creator has perks. Steps 1-4 are REQUIRED. Match this exact shape:
 
 {
   "step_1_how_to_use": {
@@ -56,6 +74,13 @@ The output is a 4-step structured JSON document. Every field is REQUIRED. Match 
   "step_4_need_assistance": {
     "title": "string (1-120 chars, e.g. 'Need Assistance?')",
     "template": "string (5-500 chars, closing line that names the support contact)"
+  },
+  "step_5_perks": {
+    "title": "string (1-120 chars, e.g. 'Your Member Perks')",
+    "perks": [
+      { "name": "string (1-80 chars, the perk)", "description": "string (1-400 chars, what the member gets + why it matters)" }
+      // one object per perk listed in the creator's offer_breakdown.perks, same order
+    ]
   }
 }
 
@@ -64,7 +89,8 @@ Shape rules (these are the most common drift points — read carefully):
 - step_2_community_rules is an OBJECT with "title" (string) and "rules" (array of plain strings). Rules are strings, not objects.
 - step_3_faqs is an ARRAY of objects, each {question, answer_template}. It is NOT an object whose keys are questions.
 - step_4_need_assistance is an OBJECT with "title" (string) and "template" (string). It is NOT a bare string.
-- Every one of the four top-level keys MUST be present. Do not omit any field.
+- step_1 through step_4 MUST be present. Do not omit any of them.
+- step_5_perks is an OBJECT with "title" (string) and "perks" (array of {name, description}). Include it ONLY when the task says the creator has perks; otherwise omit the key entirely.
 
 Content rules:
 - Use the creator's tone for rule phrasing and FAQ answers. Per-tone calibration:
@@ -77,6 +103,7 @@ Content rules:
 - step_1 sections explain the Skool tabs (Community, Classroom, Calendar, Networking, Map, Leaderboard, Chat, Events) and any creator-specific features mentioned in the offer breakdown.
 - step_3_faqs MUST address at minimum: where to start, content order, event recordings, leveling up. You may add more relevant FAQs.
 - step_4 template MUST reference the creator's support_contact value (use the literal value from creator context).
+- step_5_perks: one entry per perk the creator listed, in the same order. Keep the perk's substance — rephrase the name only for clarity, never invent new perks, discounts, values, or redemption mechanics. The description says what the member gets, in the creator's tone.
 - Do not invent offers, prices, or community features absent from the creator context.
 
 Output rules:
@@ -116,15 +143,34 @@ Brand prefs: ${input.creator.brand_prefs || '(none)'}
 <task>
 Write the Start Here document in a ${input.creator.tone} tone. Output only the JSON inside the <start_here_json> tags.
 
-Reminder of required shape — all 4 top-level keys must be present:
+${perksInstruction(listedPerks(input.creator.offer_breakdown))}
+
+Reminder of required shape — steps 1-4 must be present:
 - step_1_how_to_use: { title, sections: [...] }       (object, not array)
 - step_2_community_rules: { title, rules: [...] }     (object, not array)
 - step_3_faqs: [ { question, answer_template }, ... ] (array, not object)
 - step_4_need_assistance: { title, template }         (object, not string)
+- step_5_perks: { title, perks: [...] }                (object, only when the creator has perks)
 </task>${regenerateNoteSuffix(input.regenerateNote)}`;
 }
 
-export function parseOutput(raw: string): StartHereOutput {
+function perksInstruction(perks: string[]): string {
+  if (perks.length === 0) {
+    return 'The creator has NO perks. OMIT step_5_perks entirely.';
+  }
+  const list = perks.map((p, i) => `${i + 1}. ${p}`).join('\n');
+  return `The creator HAS perks. INCLUDE step_5_perks with exactly ${perks.length} entries, one per perk below, in this order:\n${list}`;
+}
+
+/**
+ * With the intake available, step 5 is reconciled against it: a perks
+ * creator must get step_5_perks (throwing lets Inngest retry), and a stray
+ * step 5 for a no-perks creator is dropped rather than shipped.
+ */
+export function parseOutput(
+  raw: string,
+  input?: GeneratorInput,
+): StartHereOutput {
   const match = raw.match(/<start_here_json>([\s\S]*?)<\/start_here_json>/i);
   if (!match) throw new Error('start_here: missing <start_here_json> tag');
 
@@ -143,6 +189,17 @@ export function parseOutput(raw: string): StartHereOutput {
     throw new Error(
       `start_here: schema mismatch — ${JSON.stringify(result.error.flatten().fieldErrors)}`,
     );
+  }
+  if (!input) return result.data;
+
+  const hasPerks = listedPerks(input.creator.offer_breakdown).length > 0;
+  if (hasPerks && !result.data.step_5_perks) {
+    throw new Error('start_here: creator has perks but step_5_perks is missing');
+  }
+  if (!hasPerks && result.data.step_5_perks) {
+    const steps = { ...result.data };
+    delete steps.step_5_perks;
+    return steps;
   }
   return result.data;
 }

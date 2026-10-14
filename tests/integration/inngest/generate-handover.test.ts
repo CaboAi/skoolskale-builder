@@ -190,6 +190,7 @@ const MODULE_CONTENT: Record<string, unknown> = {
     step_4_need_assistance: { title: "Help", template: "Ask" },
   },
   first_post: { title: "Hello", body: "Body" },
+  perks_post: { title: "", body: "" },
   classroom: { items: [{ title: "Module One", description: "Desc" }] },
   calendar: { events: [] },
   leaderboard: { levels: ["Seed", "Sprout"] },

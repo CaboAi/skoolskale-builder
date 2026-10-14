@@ -137,6 +137,43 @@ describe("serializeModuleText", () => {
     );
   });
 
+  test("start_here appends the perks step as Step 5 when present", () => {
+    const text = serializeModuleText("start_here", {
+      step_1_how_to_use: {
+        title: "How to Use",
+        sections: [{ name: "Navigate", description: "Use the sidebar." }],
+      },
+      step_2_community_rules: { title: "Rules", rules: ["Be kind"] },
+      step_3_faqs: [{ question: "Cost?", answer_template: "See pricing." }],
+      step_4_need_assistance: { title: "Need help?", template: "DM @mod." },
+      step_5_perks: {
+        title: "Your Perks",
+        perks: [
+          { name: "Private podcast", description: "Members-only episodes." },
+          { name: "Hot seat", description: "Get coached live." },
+        ],
+      },
+    });
+    expect(text).toBe(
+      "Step 1 — How to Use\n\nNavigate\nUse the sidebar.\n\n" +
+        "Step 2 — Rules\n\n1. Be kind\n\n" +
+        "Step 3 — FAQs\nQ: Cost?\nA: See pricing.\n\n" +
+        "Step 4 — Need help?\n\nDM @mod.\n\n" +
+        "Step 5 — Your Perks\n\nPrivate podcast\nMembers-only episodes.\n\nHot seat\nGet coached live.",
+    );
+  });
+
+  test.each([
+    [
+      "filled",
+      { title: "Your perks 🎁", body: "Here they are." },
+      "Title: Your perks 🎁\n\nHere they are.",
+    ],
+    ["empty (no perks)", { title: "", body: "" }, "_No perks — no perks post._"],
+  ])("perks_post %s", (_label, content, expected) => {
+    expect(serializeModuleText("perks_post", content)).toBe(expected);
+  });
+
   test("first_post prefixes the title and separates the body", () => {
     expect(
       serializeModuleText("first_post", { title: "Welcome!", body: "Say hi below." }),
