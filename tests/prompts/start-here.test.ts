@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import { parseOutput } from '@/prompts/start-here';
+import { buildUserMessage, parseOutput } from '@/prompts/start-here';
+import type { CreatorContext, GeneratorInput } from '@/types/generators';
 
 const VALID = {
   step_1_how_to_use: {
@@ -117,5 +118,76 @@ ${JSON.stringify(VALID, null, 2)}
     };
     const raw = `<start_here_json>${JSON.stringify(drift)}</start_here_json>`;
     expect(() => parseOutput(raw)).toThrow(/schema mismatch/);
+  });
+});
+
+const PERKS = ['Private podcast', 'Monthly hot seat'];
+
+const STEP_5 = {
+  title: 'Your Member Perks',
+  perks: [
+    { name: 'Private podcast', description: 'Weekly episodes only members hear.' },
+    { name: 'Monthly hot seat', description: 'Bring one question, get coached live.' },
+  ],
+};
+
+function makeInput(perks: string[]): GeneratorInput {
+  const creator: CreatorContext = {
+    name: 'Nancy',
+    community_name: 'Golden Breadcrumbs',
+    niche: 'spiritual',
+    audience: 'people navigating hard seasons',
+    transformation: 'find evidence that impossible things are possible',
+    tone: 'warm',
+    offer_breakdown: { perks, guest_sessions: false },
+    pricing: { free_community: false, additional_tiers: [] },
+    trial_terms: { has_trial: true, duration_days: 7 as const },
+    refund_policy: '',
+    support_contact: 'support@example.test',
+    brand_prefs: '',
+  };
+  return { creator, patternLibrary: [] };
+}
+
+function wrap(doc: unknown): string {
+  return `<start_here_json>${JSON.stringify(doc)}</start_here_json>`;
+}
+
+describe('start-here step 5 (perks)', () => {
+  test('parses step_5_perks after step 4 when the creator has perks', () => {
+    const out = parseOutput(wrap({ ...VALID, step_5_perks: STEP_5 }), makeInput(PERKS));
+    expect(out.step_5_perks).toEqual(STEP_5);
+  });
+
+  test('throws when the creator has perks but step 5 is missing', () => {
+    expect(() => parseOutput(wrap(VALID), makeInput(PERKS))).toThrow(
+      'creator has perks but step_5_perks is missing',
+    );
+  });
+
+  test('drops a stray step 5 when the creator has no perks', () => {
+    const out = parseOutput(wrap({ ...VALID, step_5_perks: STEP_5 }), makeInput([]));
+    expect(out).toEqual(VALID);
+  });
+
+  test('without intake (prompt-editor path) step 5 is optional', () => {
+    expect(parseOutput(wrap(VALID)).step_5_perks).toBeUndefined();
+  });
+
+  test('rejects an empty perks list', () => {
+    const drift = { ...VALID, step_5_perks: { title: 'Perks', perks: [] } };
+    expect(() => parseOutput(wrap(drift))).toThrow(/schema mismatch/);
+  });
+
+  test('user message lists every perk, in order, when the creator has perks', () => {
+    expect(buildUserMessage(makeInput(PERKS))).toContain(
+      'INCLUDE step_5_perks with exactly 2 entries, one per perk below, in this order:\n1. Private podcast\n2. Monthly hot seat',
+    );
+  });
+
+  test('user message tells the model to omit step 5 when there are no perks', () => {
+    expect(buildUserMessage(makeInput([]))).toContain(
+      'The creator has NO perks. OMIT step_5_perks entirely.',
+    );
   });
 });

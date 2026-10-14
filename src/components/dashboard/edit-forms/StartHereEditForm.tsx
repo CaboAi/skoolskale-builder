@@ -7,7 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { StartHereSchema, type StartHereOutput } from "@/prompts/start-here";
+import {
+  START_HERE_PERKS_MAX,
+  StartHereSchema,
+  type StartHereOutput,
+} from "@/prompts/start-here";
 
 /**
  * Structured edit form for the Start Here module (PR #15 follow-up).
@@ -22,6 +26,9 @@ import { StartHereSchema, type StartHereOutput } from "@/prompts/start-here";
  *   2. community_rules:   title + rules[3-10] strings
  *   3. faqs:              array[4-10] {question, answer_template}
  *   4. need_assistance:   title + template
+ *   5. perks (optional):  title + perks[1-20] {name, description}. Only
+ *                         shown when the asset has it — the generator
+ *                         writes it when the intake lists perks.
  *
  * Validation rides StartHereSchema (zodResolver) — every limit the
  * prompt promises is enforced.
@@ -38,6 +45,7 @@ const RULE_MIN = 3;
 const RULE_MAX = 10;
 const FAQ_MIN = 4;
 const FAQ_MAX = 10;
+const PERK_MIN = 1;
 
 type Props = {
   initial: Partial<StartHereOutput>;
@@ -78,6 +86,9 @@ export function StartHereEditForm({
         title: initial.step_4_need_assistance?.title ?? "",
         template: initial.step_4_need_assistance?.template ?? "",
       },
+      ...(initial.step_5_perks
+        ? { step_5_perks: initial.step_5_perks }
+        : {}),
     },
     mode: "onSubmit",
   });
@@ -105,6 +116,9 @@ export function StartHereEditForm({
       <Step2Section control={control} register={register} errors={errors} />
       <Step3Section control={control} register={register} errors={errors} />
       <Step4Section register={register} errors={errors} />
+      {initial.step_5_perks ? (
+        <Step5Section control={control} register={register} errors={errors} />
+      ) : null}
 
       <footer className="flex justify-end gap-2 pt-2">
         <Button
@@ -425,6 +439,80 @@ function Step4Section({
           </p>
         ) : null}
       </div>
+    </SectionShell>
+  );
+}
+
+function Step5Section({
+  control,
+  register,
+  errors,
+}: {
+  control: Control<StartHereOutput>;
+  register: Register;
+  errors: ErrorsBag;
+}) {
+  const perks = useFieldArray({ control, name: "step_5_perks.perks" });
+  return (
+    <SectionShell step={5} title="Perks">
+      <div className="space-y-1.5">
+        <Label htmlFor="step5-title">Title</Label>
+        <Input
+          id="step5-title"
+          maxLength={120}
+          {...register("step_5_perks.title")}
+        />
+        {errors.step_5_perks?.title?.message ? (
+          <p className="text-xs text-destructive">
+            {errors.step_5_perks.title.message}
+          </p>
+        ) : null}
+      </div>
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-muted-foreground">
+          {perks.fields.length} of {START_HERE_PERKS_MAX} perks (min{" "}
+          {PERK_MIN})
+        </p>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={perks.fields.length >= START_HERE_PERKS_MAX}
+          onClick={() => perks.append({ name: "", description: "" })}
+        >
+          <Plus className="mr-1 h-3.5 w-3.5" /> Add perk
+        </Button>
+      </div>
+      {perks.fields.map((p, i) => (
+        <div key={p.id} className="space-y-1.5 rounded-md border p-3">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-medium text-muted-foreground">
+              Perk {i + 1}
+            </p>
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              disabled={perks.fields.length <= PERK_MIN}
+              onClick={() => perks.remove(i)}
+              aria-label={`Remove perk ${i + 1}`}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+          <Input
+            placeholder="Perk"
+            maxLength={80}
+            {...register(`step_5_perks.perks.${i}.name`)}
+          />
+          <Textarea
+            placeholder="What the member gets"
+            rows={2}
+            maxLength={400}
+            {...register(`step_5_perks.perks.${i}.description`)}
+          />
+        </div>
+      ))}
     </SectionShell>
   );
 }

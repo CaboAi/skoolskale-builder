@@ -8,6 +8,7 @@ import { generateTransformation } from "./generate-transformation";
 import { generateAboutUs } from "./generate-about-us";
 import { generateStartHere } from "./generate-start-here";
 import { generateFirstPost } from "./generate-first-post";
+import { generatePerksPost } from "./generate-perks-post";
 import { generateClassroom } from "./generate-classroom";
 import { generateCalendar } from "./generate-calendar";
 import { generateLeaderboard } from "./generate-leaderboard";
@@ -38,6 +39,7 @@ const FUNCTIONS: Partial<
     | typeof generateAboutUs
     | typeof generateStartHere
     | typeof generateFirstPost
+    | typeof generatePerksPost
     | typeof generateClassroom
     | typeof generateCalendar
     | typeof generateLeaderboard
@@ -50,6 +52,7 @@ const FUNCTIONS: Partial<
   about_us: generateAboutUs,
   start_here: generateStartHere,
   first_post: generateFirstPost,
+  perks_post: generatePerksPost,
   classroom: generateClassroom,
   calendar: generateCalendar,
   leaderboard: generateLeaderboard,

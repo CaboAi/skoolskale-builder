@@ -34,6 +34,7 @@ import { buildUserMessage as buildCategories } from "@/prompts/categories";
 import { buildUserMessage as buildClassroom } from "@/prompts/classroom";
 import { buildUserMessage as buildDiscoverySeo } from "@/prompts/discovery_seo";
 import { buildUserMessage as buildLeaderboard } from "@/prompts/leaderboard";
+import { buildUserMessage as buildPerksPost } from "@/prompts/perks-post";
 import { buildUserMessage as buildStartHere } from "@/prompts/start-here";
 import { buildUserMessage as buildTransformation } from "@/prompts/transformation";
 import { buildUserMessage as buildWelcomeDm } from "@/prompts/welcome-dm";
@@ -51,6 +52,7 @@ const TEXT_BUILDERS: Record<string, TextBuilder> = {
   transformation: buildTransformation,
   about_us: buildAboutUs,
   start_here: buildStartHere,
+  perks_post: buildPerksPost,
   classroom: buildClassroom,
   calendar: buildCalendar,
   leaderboard: buildLeaderboard,

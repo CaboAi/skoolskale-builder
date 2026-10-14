@@ -26,6 +26,7 @@ const TEXT_MODULE_KEYS: readonly ModuleKey[] = [
   "about_us",
   "start_here",
   "first_post",
+  "perks_post",
   "classroom",
   "calendar",
   "leaderboard",
@@ -41,9 +42,9 @@ const REMOVED_IMAGE_KEYS = [
 ] as const;
 
 describe("MODULE_REGISTRY shape", () => {
-  test("exposes exactly the 9 text modules — no image modules", () => {
+  test("exposes exactly the 11 text modules — no image modules", () => {
     expect(new Set(MODULE_KEYS)).toEqual(new Set(TEXT_MODULE_KEYS));
-    expect(MODULE_KEYS).toHaveLength(10);
+    expect(MODULE_KEYS).toHaveLength(11);
   });
 
   test.each(REMOVED_IMAGE_KEYS)("removed image module %s is NOT in the registry", (key) => {
@@ -59,7 +60,7 @@ describe("MODULE_REGISTRY shape", () => {
     ).length;
     expect(DASHBOARD_MODULE_KEYS).toHaveLength(total);
     expect(defaultOn).toBe(total);
-    expect(total).toBe(10);
+    expect(total).toBe(11);
   });
 
   test("every module's generatorKind is 'claude-text' — no gemini-image left", () => {
@@ -95,11 +96,11 @@ describe("MODULE_REGISTRY shape", () => {
 });
 
 describe("Package status math", () => {
-  test('"X of Y modules approved" denominator reflects the post-cut count (9, not 13)', () => {
+  test('"X of Y modules approved" denominator counts every default-on module (11)', () => {
     const totalModules = Object.values(MODULE_REGISTRY).filter(
       (m) => m.includedByDefault,
     ).length;
-    expect(totalModules).toBe(10);
+    expect(totalModules).toBe(11);
   });
 });
 
@@ -128,7 +129,7 @@ describe("Add-on text modules default-on contract", () => {
     }
   });
 
-  test("DASHBOARD_MODULE_KEYS contains every key (all 10 surface in the dashboard)", () => {
+  test("DASHBOARD_MODULE_KEYS contains every key (all 11 surface in the dashboard)", () => {
     expect(new Set(DASHBOARD_MODULE_KEYS)).toEqual(new Set(MODULE_KEYS));
   });
 });
@@ -179,5 +180,28 @@ describe("getMissingRequiredModules", () => {
 
   test("empty asset list means every required module is missing", () => {
     expect(getMissingRequiredModules([])).toEqual(REQUIRED_FOR_EXPORT);
+  });
+});
+
+describe("perks_post module config", () => {
+  test("shares the title-body card with its own Skool-cap math", () => {
+    const cfg = MODULE_REGISTRY.perks_post;
+    expect({
+      label: cfg.label,
+      generatorKind: cfg.generatorKind,
+      cardVariant: cfg.cardVariant,
+      includedByDefault: cfg.includedByDefault,
+      eventName: cfg.eventName,
+      targetChars: cfg.targetChars,
+      maxChars: cfg.maxChars,
+    }).toEqual({
+      label: "Perks Post",
+      generatorKind: "claude-text",
+      cardVariant: "title-body",
+      includedByDefault: true,
+      eventName: "generate.perks_post.requested",
+      targetChars: 1200,
+      maxChars: 2000,
+    });
   });
 });

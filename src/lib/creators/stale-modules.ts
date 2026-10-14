@@ -31,6 +31,7 @@ const ALL_TEXT_MODULES: ModuleKey[] = [
   "about_us",
   "start_here",
   "first_post",
+  "perks_post",
   "classroom",
   "calendar",
   "leaderboard",
@@ -51,7 +52,13 @@ export const FIELD_IMPACTS: Record<IntakeField, ModuleKey[]> = {
   name: ["welcome_dm", "about_us", "start_here", "first_post"],
 
   // Offer and commercial terms surface on the sales-facing modules.
-  offer_breakdown: ["about_us", "start_here", "first_post"],
+  offer_breakdown: [
+    "about_us",
+    "start_here",
+    "first_post",
+    "perks_post",
+    "categories",
+  ],
   pricing: ["about_us", "start_here"],
   trial_terms: ["about_us", "start_here"],
   refund_policy: ["about_us", "start_here"],

@@ -26,8 +26,10 @@ import {
   renderStep2Text,
   renderStep3Text,
   renderStep4Text,
+  renderStep5Text,
 } from "@/lib/modules/serialize";
 import { HandoverSection } from "@/components/dashboard/HandoverSection";
+import { PERKS_CATEGORY_INDEX } from "@/prompts/categories";
 import { cn } from "@/lib/utils";
 
 /* -------------------------------------------------------------------------- */
@@ -51,6 +53,10 @@ type StartHereContent = {
   step_2_community_rules: { title: string; rules: string[] };
   step_3_faqs: { question: string; answer_template: string }[];
   step_4_need_assistance: { title: string; template: string };
+  step_5_perks?: {
+    title: string;
+    perks: { name: string; description: string }[];
+  };
 };
 /* -------------------------------------------------------------------------- */
 /* CopyButton                                                                  */
@@ -97,12 +103,20 @@ function CopyButton({
 
 type FirstPostContent = { title: string; body: string };
 
-function FirstPostSection({ asset }: { asset: GeneratedAsset }) {
+function FirstPostSection({
+  asset,
+  heading = "First Post (pinned welcome)",
+  instructions = "Paste into Skool > New post > pin to the community feed. Use the title for the post title field and the body for the post body.",
+}: {
+  asset: GeneratedAsset;
+  heading?: string;
+  instructions?: string;
+}) {
   const c = asset.content as FirstPostContent;
   return (
     <Card>
       <CardHeader>
-        <CardTitle>First Post (pinned welcome)</CardTitle>
+        <CardTitle>{heading}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="space-y-1">
@@ -125,12 +139,30 @@ function FirstPostSection({ asset }: { asset: GeneratedAsset }) {
             {c.body}
           </pre>
         </div>
-        <p className="text-xs text-muted-foreground">
-          Paste into Skool &gt; New post &gt; pin to the community feed. Use
-          the title for the post title field and the body for the post body.
-        </p>
+        <p className="text-xs text-muted-foreground">{instructions}</p>
       </CardContent>
     </Card>
+  );
+}
+
+/** Rendered only when the creator listed perks (non-empty body). */
+function PerksPostSection({
+  asset,
+  perksCategory,
+}: {
+  asset: GeneratedAsset;
+  perksCategory: string | undefined;
+}) {
+  if (!(asset.content as FirstPostContent).body) return null;
+  const where = perksCategory
+    ? `the “${perksCategory}” category`
+    : "the perks category";
+  return (
+    <FirstPostSection
+      asset={asset}
+      heading="Perks Post"
+      instructions={`Paste into Skool > New post in ${where}. Use the title for the post title field and the body for the post body.`}
+    />
   );
 }
 
@@ -251,6 +283,15 @@ function StartHereSection({ asset }: { asset: GeneratedAsset }) {
       label: `Step 4: ${c.step_4_need_assistance.title}`,
       text: renderStep4Text(c.step_4_need_assistance),
     },
+    ...(c.step_5_perks
+      ? [
+          {
+            value: "step-5",
+            label: `Step 5: ${c.step_5_perks.title}`,
+            text: renderStep5Text(c.step_5_perks),
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -281,8 +322,8 @@ function StartHereSection({ asset }: { asset: GeneratedAsset }) {
           ))}
         </Accordion>
         <p className="text-xs text-muted-foreground">
-          Create a course in Skool called &ldquo;Start Here&rdquo;. Add 4
-          lessons matching the steps below.
+          Create a course in Skool called &ldquo;Start Here&rdquo;. Add{" "}
+          {steps.length} lessons matching the steps below.
         </p>
       </CardContent>
     </Card>
@@ -507,13 +548,14 @@ const CHECKLIST_ITEMS = [
   "Created Skool community",
   "Set community description (transformation line)",
   "Pasted About Us page",
-  'Created "Start Here" course with 4 lessons',
+  'Created "Start Here" course with a lesson per step',
   "Configured welcome message automation",
   "Set pricing per the proposal",
   "Named Classroom area",
   "Created Calendar events",
   "Renamed leaderboard levels",
-  "Created the 3 community categories",
+  "Created the community categories (incl. perks, if any)",
+  "Published the welcome post (pinned) and perks post",
   "Pasted Discovery search keywords",
   "Tested join flow with a test account",
 ] as const;
@@ -607,6 +649,7 @@ export function ExportView({ package: pkg, creator, assets }: ExportViewProps) {
   const aboutUs = m.about_us;
   const startHere = m.start_here;
   const firstPost = m.first_post;
+  const perksPost = m.perks_post;
   const classroom = m.classroom;
   const calendar = m.calendar;
   const leaderboard = m.leaderboard;
@@ -669,6 +712,15 @@ export function ExportView({ package: pkg, creator, assets }: ExportViewProps) {
       {aboutUs && <AboutUsSection asset={aboutUs} />}
       {startHere && <StartHereSection asset={startHere} />}
       {firstPost && <FirstPostSection asset={firstPost} />}
+      {perksPost && (
+        <PerksPostSection
+          asset={perksPost}
+          perksCategory={
+            (categories?.content as CategoriesContent | undefined)
+              ?.categories[PERKS_CATEGORY_INDEX]
+          }
+        />
+      )}
       {classroom && <ClassroomSection asset={classroom} />}
       {calendar && <CalendarSection asset={calendar} />}
       {leaderboard && <LeaderboardSection asset={leaderboard} />}

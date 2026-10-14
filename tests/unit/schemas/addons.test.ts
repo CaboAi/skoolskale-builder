@@ -183,8 +183,11 @@ describe("LeaderboardContentSchema", () => {
 describe("CategoriesContentSchema", () => {
   const THREE = ["Intro", "Wins", "Advice"];
 
-  test("accepts exactly 3 non-empty category names", () => {
-    const r = CategoriesContentSchema.safeParse({ categories: THREE });
+  test.each([
+    ["3 (canonical slots)", THREE],
+    ["4 (canonical slots + perks)", [...THREE, "Perks"]],
+  ])("accepts %s non-empty category names", (_label, categories) => {
+    const r = CategoriesContentSchema.safeParse({ categories });
     expect(r.success).toBe(true);
   });
 
@@ -195,9 +198,9 @@ describe("CategoriesContentSchema", () => {
     expect(r.success).toBe(false);
   });
 
-  test("rejects more than 3 categories", () => {
+  test("rejects more than 4 categories", () => {
     const r = CategoriesContentSchema.safeParse({
-      categories: [...THREE, "Off topic"],
+      categories: [...THREE, "Perks", "Off topic"],
     });
     expect(r.success).toBe(false);
   });

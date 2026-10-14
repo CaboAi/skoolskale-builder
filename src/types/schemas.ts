@@ -228,18 +228,33 @@ export const LeaderboardContentSchema = z.object({
 export type LeaderboardContent = z.infer<typeof LeaderboardContentSchema>;
 
 /**
- * Skool defaults to 3 categories; the count stays fixed at 3.
+ * Skool defaults to 3 categories; the VA intake stays fixed at 3.
  *
  * Categories are name-only — Skool's category UI doesn't accept a description
  * field, so generating one was wasted tokens and dead weight in the dashboard
  * + export view. Same shape as `LeaderboardContentSchema.levels` (tuple of N
  * non-empty strings).
  */
+export const CategoryNamesIntakeSchema = z.tuple([
+  z.string().min(1),
+  z.string().min(1),
+  z.string().min(1),
+]);
+
+/**
+ * Generated categories: the 3 canonical slots, plus a 4th perks category
+ * when the creator lists perks on intake step 2. The Perks Post is meant
+ * to be published in that 4th category.
+ */
 export const CategoriesContentSchema = z.object({
-  categories: z.tuple([
-    z.string().min(1),
-    z.string().min(1),
-    z.string().min(1),
+  categories: z.union([
+    CategoryNamesIntakeSchema,
+    z.tuple([
+      z.string().min(1),
+      z.string().min(1),
+      z.string().min(1),
+      z.string().min(1),
+    ]),
   ]),
 });
 export type CategoriesContent = z.infer<typeof CategoriesContentSchema>;
@@ -326,7 +341,7 @@ export const CreatorIntakeSchema = z.object({
   classroom_titles: ClassroomTitlesSchema,
   calendar_intake: CalendarIntakeSchema.optional(),
   leaderboard_levels: LeaderboardContentSchema.shape.levels.optional(),
-  categories: CategoriesContentSchema.shape.categories.optional(),
+  categories: CategoryNamesIntakeSchema.optional(),
   discovery_keywords: DiscoverySeoContentSchema.shape.keywords.optional(),
 });
 
