@@ -23,8 +23,13 @@ export async function GET(request: NextRequest) {
     await supabase.auth.exchangeCodeForSession(code);
 
   if (exchangeError) {
+    // Most often this is the PKCE code verifier missing because the link was
+    // opened in a different browser than the one that requested it. See
+    // /auth/confirm, which is not subject to that. Raw message stays in the
+    // log rather than on the sign-in page — see @/lib/auth/auth-error.
+    console.error('[auth/callback] exchange failed:', exchangeError.message);
     const redir = new URL('/auth/login', url.origin);
-    redir.searchParams.set('error', exchangeError.message);
+    redir.searchParams.set('error', 'link_failed');
     return NextResponse.redirect(redir);
   }
 

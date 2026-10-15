@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { authErrorMessage } from '@/lib/auth/auth-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,7 +24,13 @@ export function LoginForm() {
   const next = searchParams.get('next') ?? '/';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [status, setStatus] = useState<Status>({ kind: 'idle' });
+  // A failed email link redirects here with ?error=<code>. Seeding the status
+  // from it means the reason is on the page, not just in the address bar —
+  // otherwise a dead link looks like a plain sign-in screen.
+  const [status, setStatus] = useState<Status>(() => {
+    const message = authErrorMessage(searchParams.get('error'));
+    return message ? { kind: 'error', message } : { kind: 'idle' };
+  });
 
   const busy = BUSY.includes(status.kind);
 
