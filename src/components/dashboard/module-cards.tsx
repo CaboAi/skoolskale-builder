@@ -220,6 +220,38 @@ export function CopyModuleSkeleton({
   );
 }
 
+/**
+ * A module with no asset once generation has finished: either the package
+ * predates the module, or its job failed. Without this the card would sit on
+ * the skeleton forever with no way to produce the asset.
+ */
+export function MissingModuleCard({
+  module,
+  onGenerate,
+  pending = false,
+}: {
+  module: string;
+  onGenerate: (module: string) => void;
+  pending?: boolean;
+}) {
+  return (
+    <Card className={MODULE_CARD_CLASS}>
+      <ModuleHeader module={module} approved={false} />
+      <CardContent>
+        <p className="text-sm text-muted-foreground">
+          Not generated for this package yet.
+        </p>
+      </CardContent>
+      <CardFooter className="border-t pt-4">
+        <Button size="sm" onClick={() => onGenerate(module)} disabled={pending}>
+          {pending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+          {pending ? "Starting…" : "Generate"}
+        </Button>
+      </CardFooter>
+    </Card>
+  );
+}
+
 /* -------------------------------------------------------------------------- */
 /* Simple-text card — renders welcome_dm (single body) and transformation     */
 /* (numbered candidate list). Branches on asset.module since the two shapes   */
