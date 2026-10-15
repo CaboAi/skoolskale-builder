@@ -19,10 +19,13 @@ import type { Creator, GeneratedAsset, LaunchPackage } from "@/lib/db/schema";
 import {
   CARD_COMPONENTS,
   CopyModuleSkeleton,
+  MissingModuleCard,
   type ModuleActionHandler,
 } from "./module-cards";
 import {
   DASHBOARD_MODULE_KEYS,
+  getMissingRequiredModules,
+  getRequiredModules,
   MODULE_LABELS,
   MODULE_REGISTRY,
   type ModuleKey,
@@ -185,10 +188,10 @@ export function PackageDashboard(initial: PackageDashboardProps) {
   const byModule = new Map<string, GeneratedAsset>(
     assets.map((a) => [a.module, a]),
   );
-  const approvedCount = assets.filter((a) => a.approved).length;
-  const totalModules = Object.values(MODULE_REGISTRY).filter(
-    (m) => m.includedByDefault,
-  ).length;
+  // Same gating as the export page, so the count and the Export button agree
+  // with what export will accept (older packages skip modules they predate).
+  const totalModules = getRequiredModules(assets).length;
+  const approvedCount = totalModules - getMissingRequiredModules(assets).length;
 
   // When an asset's id changes for a module we're regenerating, we're done.
   for (const [mod, { startId }] of Object.entries(regenerating)) {
@@ -435,8 +438,24 @@ export function PackageDashboard(initial: PackageDashboardProps) {
   function renderModuleCard(module: ModuleKey) {
     const cfg = MODULE_REGISTRY[module];
     const asset = byModule.get(module);
-    if (!asset || regenerating[module] !== undefined) {
+    if (
+      regenerating[module] !== undefined ||
+      (!asset && pkg.status === "generating")
+    ) {
       return <CopyModuleSkeleton key={module} module={module} />;
+    }
+    if (!asset) {
+      return (
+        <MissingModuleCard
+          key={module}
+          module={module}
+          onGenerate={(m) => regenerateMutation.mutate({ module: m })}
+          pending={
+            regenerateMutation.isPending &&
+            regenerateMutation.variables?.module === module
+          }
+        />
+      );
     }
     const Component = CARD_COMPONENTS[cfg.cardVariant];
     return (

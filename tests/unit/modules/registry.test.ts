@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import {
   DASHBOARD_MODULE_KEYS,
   getMissingRequiredModules,
+  getRequiredModules,
   MODULE_KEYS,
   MODULE_LABELS,
   MODULE_REGISTRY,
@@ -178,8 +179,33 @@ describe("getMissingRequiredModules", () => {
     expect(getMissingRequiredModules(withStray)).toEqual([]);
   });
 
-  test("empty asset list means every required module is missing", () => {
-    expect(getMissingRequiredModules([])).toEqual(REQUIRED_FOR_EXPORT);
+  test("empty asset list means every always-required module is missing", () => {
+    expect(getMissingRequiredModules([])).toEqual(
+      REQUIRED_FOR_EXPORT.filter((m) => m !== "perks_post"),
+    );
+  });
+
+  test("a package that predates perks_post (no row) is export-ready without it", () => {
+    const legacy = approvedAll.filter((a) => a.module !== "perks_post");
+    expect(getMissingRequiredModules(legacy)).toEqual([]);
+  });
+
+  test("once a perks_post row exists it must be approved", () => {
+    const perksUnapproved = approvedAll.map((a) =>
+      a.module === "perks_post" ? { ...a, approved: false } : a,
+    );
+    expect(getMissingRequiredModules(perksUnapproved)).toEqual(["perks_post"]);
+  });
+});
+
+describe("getRequiredModules", () => {
+  test.each([
+    ["without a perks_post row", [], false],
+    ["with a perks_post row", [{ module: "perks_post" }], true],
+  ])("%s → perks_post required=%s", (_label, assets, required) => {
+    const keys = getRequiredModules(assets);
+    expect(keys.includes("perks_post")).toBe(required);
+    expect(keys).toHaveLength(REQUIRED_FOR_EXPORT.length - (required ? 0 : 1));
   });
 });
 

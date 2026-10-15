@@ -98,6 +98,13 @@ export interface ModuleConfig {
    * is also over. Skool truncates or rejects pastes above this length.
    */
   maxChars?: number;
+  /**
+   * Set on modules added after packages already existed. Such a module only
+   * gates export once the package actually has an asset for it, so older
+   * packages (which never generated it) stay export-ready. Every new package
+   * generates it, so for those it is required as usual.
+   */
+  requiredOnceGenerated?: true;
 }
 
 export const MODULE_REGISTRY: Record<ModuleKey, ModuleConfig> = {
@@ -175,6 +182,8 @@ export const MODULE_REGISTRY: Record<ModuleKey, ModuleConfig> = {
     eventName: "generate.perks_post.requested",
     targetChars: 1200,
     maxChars: 2000,
+    // Shipped after launch; packages generated earlier have no perks_post row.
+    requiredOnceGenerated: true,
   },
   classroom: {
     key: "classroom",
@@ -257,6 +266,19 @@ export const REQUIRED_FOR_EXPORT = MODULE_KEYS.filter(
 ) as ModuleKey[];
 
 /**
+ * The modules that gate export for one package: every REQUIRED_FOR_EXPORT
+ * key, minus `requiredOnceGenerated` modules the package has no asset for.
+ */
+export function getRequiredModules(
+  assets: { module: string }[],
+): ModuleKey[] {
+  const present = new Set(assets.map((a) => a.module));
+  return REQUIRED_FOR_EXPORT.filter(
+    (m) => !MODULE_REGISTRY[m].requiredOnceGenerated || present.has(m),
+  );
+}
+
+/**
  * Which export-required modules still lack an approved asset. `[]` means the
  * package is export-ready. Shared by the export page (redirect guard) and the
  * Markdown download route (409 guard) so they agree on "ready". Pure — takes
@@ -268,5 +290,5 @@ export function getMissingRequiredModules(
   const approved = new Set(
     assets.filter((a) => a.approved).map((a) => a.module),
   );
-  return REQUIRED_FOR_EXPORT.filter((m) => !approved.has(m));
+  return getRequiredModules(assets).filter((m) => !approved.has(m));
 }
